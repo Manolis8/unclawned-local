@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express'
+import OpenAI from 'openai'
 import { authenticateUser } from '../middleware/auth.js'
 import { skillsApi } from '../lib/skills-api.js'
 import {
@@ -13,6 +14,9 @@ import {
 import { Skill, SkillExecution } from '../lib/types.js'
 import { runAgentLoop } from '../lib/agent-extension.js'
 import { sendExtensionMessage, isExtensionConnected } from '../index.js'
+import { supabase } from '../lib/supabase.js'
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 const router = Router()
 
@@ -388,5 +392,147 @@ ${steps}
 IMPORTANT: Use the exact input values provided above. Do not make up or improvise values.
 Complete all steps in order. Use the browser agent tools to navigate, click, type, and interact with the page. If you encounter any issues, use your error recovery to find alternative approaches. Complete the task fully before calling task_complete.`
 }
+
+// ============================================
+// POST /api/skills/plan-chat-message
+// Chat about plan modifications before saving
+// ============================================
+router.post('/plan-chat-message', async (req: Request, res: Response) => {
+  const userId = req.user?.id
+  if (!userId) {
+    return res.status(401).json({ error: 'Not authenticated' })
+  }
+
+  const { discussionId, userMessage, currentPlan, messageHistory } = req.body
+
+  if (!discussionId || !userMessage) {
+    return res.status(400).json({ error: 'Missing required fields' })
+  }
+
+  try {
+    const stepList = currentPlan?.steps?.length
+      ? currentPlan.steps.map((s: any, i: number) => `${i + 1}. ${s.description}`).join('\n')
+      : '(no steps yet)'
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      max_tokens: 1024,
+      messages: [
+        {
+          role: 'system',
+          content: `You are helping a user refine their automation skill.
+
+Current plan has these steps:
+${stepList}
+
+The user is discussing the plan and may:
+- Ask questions about steps
+- Request modifications (add/remove/change steps)
+- Ask to name the skill
+- Confirm they're ready to save
+
+Respond naturally and conversationally. If they suggest changes, acknowledge what you'll change.
+If they mention a skill name, extract and remember it.
+
+Keep responses concise (2-3 sentences max).`
+        },
+        ...(messageHistory || []).map((m: any) => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content
+        })),
+        { role: 'user', content: userMessage }
+      ]
+    })
+
+    const aiResponse = response.choices[0].message.content || ''
+
+    const skillNameMatch = aiResponse.match(/(?:name it|call it|named?)\s+['"]?([^'".,!?]+)['"]?/i)
+    const suggestedSkillName = skillNameMatch ? skillNameMatch[1].trim() : null
+
+    await supabase.from('chat_messages').insert({
+      id: crypto.randomUUID(),
+      chat_id: discussionId,
+      user_id: userId,
+      role: 'user',
+      content: userMessage,
+      skill_id: null,
+      discussion_type: 'skill',
+      created_at: new Date().toISOString()
+    })
+
+    await supabase.from('chat_messages').insert({
+      id: crypto.randomUUID(),
+      chat_id: discussionId,
+      user_id: userId,
+      role: 'assistant',
+      content: aiResponse,
+      skill_id: null,
+      discussion_type: 'skill',
+      created_at: new Date().toISOString()
+    })
+
+    res.json({
+      aiResponse,
+      suggestedSkillName,
+      updatedPlan: currentPlan
+    })
+  } catch (error) {
+    console.error('[plan-chat-message] Error:', error)
+    res.status(500).json({ error: 'Failed to process message' })
+  }
+})
+
+// ============================================
+// POST /api/skills/approve-and-save
+// Approve plan and save skill directly
+// ============================================
+router.post('/approve-and-save', async (req: Request, res: Response) => {
+  const userId = req.user?.id
+  if (!userId) {
+    return res.status(401).json({ error: 'Not authenticated' })
+  }
+
+  const { discussionId, skillName, skillDescription, plan, variables } = req.body
+
+  if (!skillName || !plan) {
+    return res.status(400).json({ error: 'Missing required fields' })
+  }
+
+  try {
+    const skill = await saveSkill(userId, {
+      skill_name: skillName.trim(),
+      skill_description: (skillDescription || '').trim(),
+      execution_plan: plan,
+      status: 'active'
+    })
+
+    if (variables && variables.length > 0) {
+      for (const v of variables) {
+        await saveInputVariable(skill.id, {
+          variable_name: v.name,
+          variable_type: v.type || 'text',
+          description: v.description || '',
+          is_required: v.required || false
+        })
+      }
+    }
+
+    if (discussionId) {
+      await supabase
+        .from('chat_messages')
+        .update({ skill_id: skill.id })
+        .eq('chat_id', discussionId)
+    }
+
+    res.json({
+      skillId: skill.id,
+      skillName: skill.skill_name,
+      message: 'Skill saved! Ready to execute.'
+    })
+  } catch (error) {
+    console.error('[approve-and-save] Error:', error)
+    res.status(500).json({ error: 'Failed to save skill' })
+  }
+})
 
 export default router
