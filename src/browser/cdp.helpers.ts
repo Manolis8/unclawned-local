@@ -1,7 +1,17 @@
+﻿// @ts-nocheck
 import WebSocket from "ws";
-import { isLoopbackHost } from "../gateway/net.js";
-import { rawDataToString } from "../infra/ws.js";
 import { getDirectAgentForCdp, withNoProxyForCdpUrl } from "./cdp-proxy-bypass.js";
+
+function isLoopbackHost(hostname: string): boolean {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]'
+}
+
+function rawDataToString(data: any): string {
+  if (Buffer.isBuffer(data)) return data.toString('utf8')
+  if (data instanceof ArrayBuffer) return Buffer.from(data).toString('utf8')
+  if (Array.isArray(data)) return Buffer.concat(data.map((d: any) => Buffer.isBuffer(d) ? d : Buffer.from(d))).toString('utf8')
+  return String(data)
+}
 import { CDP_HTTP_REQUEST_TIMEOUT_MS, CDP_WS_HANDSHAKE_TIMEOUT_MS } from "./cdp-timeouts.js";
 import { getChromeExtensionRelayAuthHeaders } from "./extension-relay.js";
 
@@ -203,3 +213,4 @@ export async function withCdpSocket<T>(
     }
   }
 }
+

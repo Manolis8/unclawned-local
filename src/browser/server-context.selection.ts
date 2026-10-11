@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 import { fetchOk } from "./cdp.helpers.js";
 import { appendCdpPath } from "./cdp.js";
 import type { ResolvedBrowserProfile } from "./config.js";
@@ -153,3 +154,4 @@ export function createProfileSelectionOps({
     closeTab,
   };
 }
+

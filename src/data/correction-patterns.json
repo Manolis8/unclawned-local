@@ -1,0 +1,53 @@
+{
+  "continuation_references": [
+    "the email", "the draft", "the message", "the output", "the proposal",
+    "the first paragraph", "the intro", "the opening", "the closing",
+    "the subject line", "the tone", "the structure", "what you wrote",
+    "your version", "the response", "the content you", "the last part",
+    "the first part", "the middle", "the section on", "the part about",
+    "the bullet", "the bullets", "the list", "what you sent", "the summary",
+    "the intro paragraph", "the headline", "the body", "the cta",
+    "the call to action", "the conclusion", "the ending", "the beginning"
+  ],
+  "correction_strong": [
+    "change", "replace", "instead of", "not that", "remove the", "add the",
+    "fix the", "adjust", "update the", "actually,", "wait,", "no,",
+    "hmm,", "nope", "that's not", "not what i", "not quite", "not really",
+    "different tone", "different style", "more formal", "less formal",
+    "more casual", "shorter", "longer", "more concise", "more detailed",
+    "simpler", "clearer", "stronger", "softer", "more direct", "less direct",
+    "too long", "too short", "too formal", "too casual", "too wordy",
+    "can you change", "can you fix", "can you adjust", "can you update", "can you add",
+    "could you change", "could you fix", "could you add", "make it", "make the"
+  ],
+  "correction_structural": [
+    "restructure", "reorganize", "reorder", "reformat", "move the",
+    "put the", "swap the", "the order should", "start with", "end with",
+    "open with", "close with", "the format should", "different structure",
+    "different format", "different layout", "section", "sections",
+    "bullet points", "numbered list", "headers", "no bullets", "no headers",
+    "put [", "move [", "flip the", "reverse the order",
+    "value prop first", "conclusion first", "background first",
+    "lead with", "start by", "end by", "begin with"
+  ],
+  "correction_discard": [
+    "forget it", "never mind", "never mind that", "start over", "scratch that",
+    "ignore that", "let's start fresh", "that's not it at all",
+    "this isn't working", "completely different", "not even close",
+    "that misses the point", "that's not what i was asking",
+    "not what i had in mind", "totally wrong", "way off", "completely off",
+    "let's try again", "forget what you wrote", "discard that", "scrap that"
+  ],
+  "non_correction_starters": [
+    "can you", "could you", "what is", "what are", "how do", "how does",
+    "find me", "search for", "look up", "look for", "help me",
+    "write me", "draft me", "research", "summarize", "explain",
+    "tell me", "give me", "show me", "create a", "make a", "build a"
+  ],
+  "context_provision_markers": [
+    "here's the background", "here is the background", "use this",
+    "for context", "context:", "for reference", "fyi:", "background:",
+    "based on this", "using this", "with this in mind", "take a look at this",
+    "here's some context", "some context:", "additional context"
+  ]
+}

@@ -1,0 +1,1700 @@
+﻿â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+CHANNEL TESTS â€” ALL CHANNELS
+Run these at the end to verify extraction is working end-to-end
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+HOW TO RUN UNIT + INTEGRATION TESTS
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Channel A tests
+npx tsx src/tests/channel-a.test.ts
+
+# Channel B tests
+npx tsx src/tests/channel-b.test.ts
+
+# Channel C tests
+npx tsx src/tests/channel-c.test.ts
+
+# Channel D tests
+npx tsx src/tests/channel-d.test.ts
+
+# Channel E tests
+npx tsx src/tests/channel-e.test.ts
+
+# Channel F tests
+npx tsx src/tests/channel-f.test.ts
+
+# Channel G tests
+npx tsx src/tests/channel-g.test.ts
+
+# Channel H tests
+npx tsx src/tests/channel-h.test.ts
+
+# Channel I tests
+npx tsx src/tests/channel-i.test.ts
+
+# Channel J tests
+npx tsx src/tests/channel-j.test.ts
+
+# Channel K tests
+npx tsx src/tests/channel-k.test.ts
+
+# Channel L tests
+npx tsx src/tests/channel-l.test.ts
+
+# Channel M tests
+npx tsx src/tests/channel-m.test.ts
+
+# Channel N tests
+npx tsx src/tests/channel-n.test.ts
+
+# Channel O tests
+npx tsx src/tests/channel-o.test.ts
+
+# Synthesis tests (cross-channel intelligence layer)
+npx tsx src/tests/synthesis.test.ts
+
+Current passing totals (as of last verified build):
+  Channel A â€” ? tests (add count after running)
+  Channel B â€” 99 tests
+  Channel C â€” 89 tests
+  Channel D â€” 58 tests
+  Channel E â€” 26 tests
+  Channel F â€” 28 tests
+  Channel G â€” 25 tests
+  Channel H â€” 18 tests
+  Channel I â€” 36 tests
+  Channel J â€” 55 tests
+  Channel K â€” 37 tests
+  Channel L â€” 43 tests
+  Channel M â€” 30 tests
+  Channel N â€” 31 tests
+  Channel O â€” 28 tests
+  Synthesis  â€” 30 tests
+
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+CHANNEL A â€” WHAT THEY TYPE
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+
+Unit tests are in: src/tests/channel-a.test.ts
+Run: npx tsx src/tests/channel-a.test.ts
+
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+MANUAL / BEHAVIORAL TESTS (Level 3 â€” requires live server)
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+TEST A1 â€” Tribe vocabulary is being detected
+  1. Send 10+ chat messages using domain-specific vocabulary
+     e.g. "help me improve my CAC", "write a cold email", "draft a deck intro"
+  2. Check: GET /api/debug/channel-a/:userId
+  3. Expect: vocabulary_tribe shows a tribe (founder, operator, dev, etc.)
+  4. Expect: top_words_by_tribe shows your most-used tribe words
+
+TEST A2 â€” Frustration detection fires
+  1. Send a message with frustration phrases:
+     e.g. "this is wrong again, can you just make it work"
+  2. Check: GET /api/debug/channel-a/:userId
+  3. Expect: frustration_fingerprint shows a recent frustration event
+  4. Expected behavior: next response should acknowledge the issue more directly
+
+TEST A3 â€” Hedging detection works
+  1. Send messages with hedging: "maybe you could...", "not sure if this makes sense but..."
+  2. Check debug report
+  3. Expect: hedging_profile shows hedging detected for that task type
+
+TEST A4 â€” Context block is injected into agent
+  1. Send 25+ messages of various types (threshold for cold-start)
+  2. Start a new task via the agent (not just chat)
+  3. In server logs or via debug, verify Channel A context block appeared
+  4. Observe: agent output reflects vocabulary tribe (doesn't over-explain if dev tribe)
+
+TEST A5 â€” Prompt evolution: shorter prompts as trust builds
+  1. Track prompt length in debug report over first 20 sessions
+  2. Expect: avg_prompt_length should decrease over time (or stay short if already short)
+  3. If length increases: regression signal â€” agent may have made a mistake
+
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+CHANNEL B â€” HOW THEY REACT
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+
+Unit tests are in: src/tests/channel-b.test.ts
+Run: npx tsx src/tests/channel-b.test.ts
+
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+MANUAL / BEHAVIORAL TESTS (Level 3 â€” requires live server)
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+TEST B1 â€” Correction level detection
+  Setup: Get an agent output for a writing task (e.g. "write me a bio")
+  A. Level 1 (minor): Reply with "change 'innovative' to 'practical'"
+     â†’ Debug should show correction_level: 1
+  B. Level 3 (restructure): Reply with "move the intro to after the credentials"
+     â†’ Debug should show correction_level: 3
+  C. Level 5 (discard): Reply with "no that's completely wrong, ignore it"
+     â†’ Debug should show correction_level: 5
+
+  Check: GET /api/debug/channel-b/:userId
+  Expect: correction_profile shows corrections for 'write' task type
+
+TEST B2 â€” Multi-turn correction merge (no inflation)
+  1. Get an agent output
+  2. Send correction 1: "the tone is too formal"
+  3. Send correction 2 immediately after: "also the structure is off"
+  4. Check: GET /api/debug/channel-b/:userId
+  5. Expect: total_reactions incremented by 1, NOT 2 (merge fired)
+  6. Expect: correction_level shows the HIGHER of the two levels
+
+TEST B3 â€” Rubber stamp detection
+  1. Get a long agent output (>100 chars)
+  2. Reply within 2-5 seconds: "great thanks"
+  3. Check debug report
+  4. Expect: is_rubber_stamp = 1 for that signal
+  5. If you do this repeatedly: rubber_stamp_disengagement trust class appears
+
+TEST B4 â€” Paste archaeology
+  1. Paste an email thread into a prompt and ask to reply
+  2. Check: GET /api/debug/channel-b/:userId
+  3. Expect: paste_log shows an entry with paste_type: "email_thread"
+  4. Expect: paste_profile.by_type.email_thread incremented
+
+TEST B5 â€” Context block injection (needs 10+ reactions)
+  1. After 10+ interactions, start a new chat or task
+  2. The agent should reflect your correction history in its output style
+  3. If you have high write corrections: agent should offer structure-first outputs
+  4. If you rubber-stamp frequently: agent may show disengagement warning in context block
+  Check: GET /api/debug/channel-b/:userId â†’ scroll to "CONTEXT BLOCK (what agent sees)"
+
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+CHANNEL C â€” WHAT THE AGENT OBSERVES
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+
+Unit tests are in: src/tests/channel-c.test.ts
+Run: npx tsx src/tests/channel-c.test.ts
+
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+MANUAL / BEHAVIORAL TESTS (Level 3 â€” requires live server + browser/local agent)
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+TEST C1 â€” Domain logging works
+  1. Run a browser agent task that visits known domains
+     e.g. "go to notion.so and tell me how many pages I have"
+  2. Check: GET /api/debug/channel-c/:userId
+  3. Expect: C.4 â€” DOMAIN PROFILE shows notion.so in top domains
+  4. Expect: category = "productivity"
+
+TEST C2 â€” Research task domains are NOT counted toward tool stack
+  1. Run a research task: "research what Notion alternatives exist"
+  2. The agent will visit comparison sites, Reddit, etc.
+  3. Check debug report
+  4. Expect: those research-visit domains appear in domain_profile
+     BUT should NOT appear in C.1 â€” TOOL STACK (is_research_artifact flag)
+  5. The tool stack should only show domains the agent ACTED in (not browsed for info)
+
+TEST C3 â€” Local file access logging
+  1. Run a local agent task that reads/writes files
+     e.g. "read my notes.md file and summarize it"
+  2. Check: GET /api/debug/channel-c/:userId
+  3. Expect: C.2 â€” WORK TYPE shows file access data
+  4. Expect: file category matches the file type you accessed (.md â†’ writing)
+
+TEST C4 â€” Desktop scan runs
+  1. Start any browser or local agent task (first task, or after 14 days)
+  2. The scan happens in the background at task start
+  3. Check: GET /api/debug/channel-c/:userId
+  4. Expect: C.5 â€” DESKTOP shows scan results (file count, folders, apps)
+  5. If scan didn't run: check server logs for "[channel-c]" errors
+
+TEST C5 â€” Tool stack shows in context (needs 5+ tasks)
+  1. Run 5+ browser tasks involving the same tool (e.g. notion.so)
+  2. Check debug report â†’ CONTEXT BLOCK section
+  3. Send a chat task asking for help with something
+  4. Expect: agent references Notion (or whichever tool appeared most)
+  5. Expect: agent doesn't suggest alternatives to tools you already use
+
+TEST C6 â€” Work type changes agent output
+  1. Run 5+ local tasks touching .ts or .py files
+  2. Check debug: work_type_inference should be "developer"
+  3. Ask a coding question in chat
+  4. Expect: agent doesn't over-explain basic programming concepts
+  5. Compare: ask the same question before and after the profile builds
+
+TEST C7 â€” Schedule type detection (needs many tasks over time)
+  1. Run tasks consistently at the same time of day (e.g. always at 10am)
+  2. After 5+ tasks: check peak_hour in debug report
+  3. Expect: schedule_type = "standard" for 9-5 usage
+  4. If you work late nights: expect "night_owl" after 5+ late tasks
+
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+DEBUG ENDPOINTS (use these to inspect channel data)
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+
+Replace YOUR_API_KEY and YOUR_USER_ID with real values.
+
+Channel A:
+  curl -H "Authorization: Bearer YOUR_API_KEY" \
+    http://localhost:3000/api/debug/channel-a/YOUR_USER_ID
+
+Channel B:
+  curl -H "Authorization: Bearer YOUR_API_KEY" \
+    http://localhost:3000/api/debug/channel-b/YOUR_USER_ID
+
+Channel C:
+  curl -H "Authorization: Bearer YOUR_API_KEY" \
+    http://localhost:3000/api/debug/channel-c/YOUR_USER_ID
+
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+WHAT TO CHECK WHEN SOMETHING SEEMS WRONG
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+
+Profile not updating?
+  â†’ Check server logs for "[channel-a]", "[channel-b]", "[channel-c]" errors
+  â†’ All extraction is fire-and-forget; errors are logged but never surface to user
+
+Cold-start gate not passed?
+  â†’ Channel A: needs 10+ signals before context block appears
+  â†’ Channel B: needs 10+ reactions (user messages after an agent response)
+  â†’ Channel C: needs 5+ agent task completions (not chat messages)
+
+Context block injected but agent doesn't seem to use it?
+  â†’ Check the debug report â†’ "CONTEXT BLOCK" section to see exact injected text
+  â†’ The LLM may ignore weak signals; strong signals (repeated behavior) inject stronger lines
+
+Tool stack wrong (showing research sites instead of real tools)?
+  â†’ This is the research artifact problem (Channel C Problem 1)
+  â†’ Only browser tasks with clear action intent build the tool stack
+  â†’ Research prompts ("research what X is", "find information about Y") are filtered out
+  â†’ Action prompts ("open my Notion page", "post this to LinkedIn") count toward tool stack
+
+Desktop scan not running?
+  â†’ Scan fires in background (setTimeout 0) at task start
+  â†’ Only runs if no scan in last 14 days
+  â†’ Windows only (PowerShell-based)
+  â†’ Failures are silent (non-fatal)
+
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+CHANNEL D â€” EXPLICIT MICRO-EXTRACTION
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+
+All 3 parts complete. 58/58 unit + integration tests passing.
+
+  â€¢ DB schema: channel_d_pending + channel_d_extractions tables (src/lib/db.js)
+  â€¢ Trigger engine: src/lib/channel-d/trigger-detector.ts
+  â€¢ Answer extractor: src/lib/channel-d/answer-extractor.ts
+  â€¢ Context builder: src/lib/channel-d/context-builder.ts
+  â€¢ D.1 hook: tasks.ts chat handler (after Channel B extraction)
+  â€¢ D.2 hook: tasks.ts chat handler (same block as D.1)
+  â€¢ D.3 hook: channel-a/extractor.ts Step 10 (when tribe 2+ words debut)
+  â€¢ D.4 hook: agent-extension.ts task_complete case
+  â€¢ Answer extraction hook: tasks.ts chat handler TOP (before AI call)
+  â€¢ Context injection: orchestrator.ts + agent-extension.ts (alongside A, B, C)
+  â€¢ Debug endpoint: GET /api/debug/channel-d/:userId?sessionId=...
+  â€¢ Test suite: src/tests/channel-d.test.ts â€” 58/58 passing
+
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+UNIT TESTS
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+# Run all Channel D tests (58 tests â€” trigger engine, answer extractor, context builder, round-trips)
+npx tsx src/tests/channel-d.test.ts
+
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+MANUAL / BEHAVIORAL TESTS (Level 3 â€” requires live server)
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+D1 â€” Assumption Correction Trigger
+  1. Start a chat session. Send a message that corrects a factual assumption:
+       "Actually we've met before â€” Sarah is my co-founder at YC."
+  2. Check DB:
+       SELECT * FROM channel_d_pending WHERE user_id = '<your-user-id>' ORDER BY created_at DESC LIMIT 5;
+  3. EXPECT: A row with trigger_type='d1_assumption', entity_name='Sarah', status='pending'.
+  4. ALSO VERIFY: A second message with the same factual correction within 7 days does NOT
+     add a new pending row (cooldown guard).
+
+D2 â€” Pressure Check Trigger
+  1. Send 2+ frustrated messages within 30 minutes (requires Channel A signals from prior turns):
+       "this is wrong it keeps breaking"  â†’ then wait for a response â†’ then:
+       "ugh still wrong how many times do i have to say this"
+  2. Check DB: expect trigger_type='d2_pressure' pending row.
+  3. NOTE: The first frustration message won't fire D.2 (needs 1 prior signal in DB).
+     You may need to insert a dummy channel_a_raw_signals row to test:
+       INSERT INTO channel_a_raw_signals (id, user_id, task_id, message_text, message_length, word_count, task_type, frustration_detected)
+       VALUES (randomblob(16), '<userId>', null, 'test', 4, 1, 'write', 1);
+
+D3 â€” New Domain Debut Trigger
+  1. Send a message rich in startup/VC vocabulary (2+ tribe terms):
+       "We're raising a Series A and need to nail our pitch deck for the term sheet."
+  2. Channel A extracts signals and fires D.3 trigger if 'vc' or 'founder' tribe is new.
+  3. Check DB: expect trigger_type='d3_domain', entity_name='vc' or 'founder'.
+  4. Send the same kind of message again â€” D.3 should NOT fire again (tribe dedup check).
+
+D4 â€” Completion Follow-up Trigger
+  1. Run an urgent task: "Send this proposal to John asap" or "email to the client today"
+  2. After task_complete fires, check DB:
+       SELECT * FROM channel_d_pending WHERE trigger_type='d4_followup';
+  3. EXPECT: A row with status='pending' and earliest_ask_at ~2 hours from task completion time.
+  4. VERIFY the question text contains the first 8 words of the task summary.
+
+Priority + Supersede Test
+  1. First trigger a D.4 (low priority) with an urgent task.
+  2. Then send a factual correction message â†’ D.1 (high priority) should be queued.
+  3. Check DB: D.4 row status='superseded', D.1 row status='pending'.
+
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+DEBUG / INSPECTION QUERIES
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+# Full debug report (pending + extractions + context preview):
+curl -H "Authorization: Bearer <apiKey>" http://localhost:3000/api/debug/channel-d/<userId>?sessionId=<sessionId>
+
+# Show all pending Channel D questions for a user:
+sqlite3 ~/.unclawned/openclaw.db "SELECT trigger_type, question_text, entity_name, status, created_at FROM channel_d_pending WHERE user_id='<userId>' ORDER BY created_at DESC LIMIT 10;"
+
+# Show all extracted facts:
+sqlite3 ~/.unclawned/openclaw.db "SELECT trigger_type, extracted_fact, entity_name, expires_at FROM channel_d_extractions WHERE user_id='<userId>' AND is_active=1 ORDER BY created_at DESC;"
+
+# Count by trigger type:
+sqlite3 ~/.unclawned/openclaw.db "SELECT trigger_type, status, COUNT(*) FROM channel_d_pending WHERE user_id='<userId>' GROUP BY trigger_type, status;"
+
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+TROUBLESHOOTING
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+No D.1/D.2 rows appearing?
+  â†’ Check that message contains a factual correction marker (see FACTUAL_CORRECTION_MARKERS in trigger-detector.ts)
+  â†’ D.2 requires at least 1 prior channel_a_raw_signals row with frustration_detected=1 in last 30 min
+  â†’ Check 7-day cooldown: SELECT created_at FROM channel_d_pending WHERE user_id=? AND trigger_type='d1_assumption' ORDER BY created_at DESC LIMIT 1
+
+No D.3 rows?
+  â†’ Tribe must have 2+ matching words in a single message
+  â†’ Tribe must have < 5 prior signals in channel_a_raw_signals (not a debut if already well-known)
+  â†’ D.3 permanently deduped per tribe â€” check channel_d_pending for prior rows with that entity_name
+
+No D.4 rows?
+  â†’ Task prompt must contain urgency markers ('asap', 'urgent', 'deadline', etc.)
+     OR outbound action markers ('send to', 'email to', 'publish', 'submit', etc.)
+  â†’ D.4 fires at task_complete in agent-extension.ts, not in the chat handler
+
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+CHANNEL E â€” LINKEDIN FEED INTELLIGENCE
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+
+All parts complete. 26/26 unit + integration tests passing.
+
+  â€¢ DB schema: channel_e_feed_visits + channel_e_recurring_accounts + channel_e_profiles (src/lib/db.js)
+  â€¢ Topic classifier: src/lib/channel-e/topic-classifier.ts
+    â€” 10 topic clusters: ai_agents, startup, fundraising, product, leadership, growth, content, engineering, career, finance
+  â€¢ Feed observer: src/lib/channel-e/feed-observer.ts
+    â€” hooks into browser_navigate when URL contains linkedin.com (agent-extension.ts)
+    â€” detects page type: feed | profile_other | post
+    â€” classifies topics from Playwright percept content
+    â€” extracts recurring account names (2â€“3-word capitalized sequences)
+    â€” updates channel_e_profiles with dominant topics + drift detection
+  â€¢ Context builder: src/lib/channel-e/context-builder.ts
+    â€” gated: requires 2+ feed visits before injecting anything
+    â€” surfaces: feed focus topics, trend drift, recurring contacts
+  â€¢ Context injection: orchestrator.ts (chat route) + agent-extension.ts (agent loop)
+  â€¢ Test suite: src/tests/channel-e.test.ts â€” 26/26 passing
+
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+UNIT TESTS
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+# Run all Channel E tests (26 tests â€” topic classifier, feed observer, recurring accounts, profile/drift, context builder)
+npx tsx src/tests/channel-e.test.ts
+
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+MANUAL / BEHAVIORAL TESTS (requires live server + browser extension)
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+E.1 â€” Feed topic observation
+  1. Start a task and navigate to https://www.linkedin.com/feed/
+  2. After navigation, check DB:
+       SELECT topic_distribution, page_type FROM channel_e_feed_visits ORDER BY rowid DESC LIMIT 3;
+  3. Expect: page_type = 'feed', topic_distribution has topic keys matching visible content
+
+E.2 â€” Drift detection (requires 6+ feed visits)
+  1. Check DB: SELECT drift_signal FROM channel_e_profiles WHERE user_id = ?;
+  2. After enough visits, drift_signal should be JSON { toTopic, delta } if topics shifted
+
+E.3 â€” Recurring accounts
+  1. Check DB: SELECT account_name, appearance_count FROM channel_e_recurring_accounts WHERE user_id = ? ORDER BY appearance_count DESC LIMIT 10;
+  2. People who appear in the feed across multiple visits accumulate counts
+
+E.4 â€” Context injection visible
+  1. Start a chat. Check server logs for "[channel-e] observed" lines.
+  2. If 2+ visits exist: context block includes "LinkedIn Feed Intelligence" section.
+
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+TROUBLESHOOTING
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+No channel_e rows for a LinkedIn visit?
+  â†’ Channel E only triggers if url.includes('linkedin.com') in the browser_navigate case
+  â†’ observer is fire-and-forget â€” check server logs for "[channel-e] observe error:" lines
+  â†’ If page_type detection is 'other' (e.g. linkedin.com/search), the visit is ignored
+
+Context block not showing?
+  â†’ Requires total_feed_visits >= 2 in channel_e_profiles
+  â†’ Check: SELECT total_feed_visits FROM channel_e_profiles WHERE user_id = ?;
+
+Recurring accounts not appearing?
+  â†’ Only shown in context block when appearance_count >= 3
+  â†’ Name extraction uses 2â€“3-word capitalized sequences; single-word names are skipped
+
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+CHANNEL F â€” RELATIONSHIP GRAPH INTELLIGENCE
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+
+All parts complete. 28/28 unit + integration tests passing.
+
+  â€¢ DB schema: channel_f_person_mentions + channel_f_relationship_profiles (src/lib/db.js)
+  â€¢ Mention extractor: src/lib/channel-f/mention-extractor.ts
+    â€” Extracts 1â€“3-word proper names from user messages
+    â€” Tone detection per mention: positive / negative / urgent / neutral (30-char window)
+    â€” Reference style: first_name | full_name | role_title | distancing
+    â€” Co-mention map: tracks which names appear in the same message
+  â€¢ Relationship tracker: src/lib/channel-f/relationship-tracker.ts
+    â€” trackMessage(userId, sessionId, message): updates mention log + relationship profiles
+    â€” Trajectory recalculation: rising / stable / cooling / silent (7-day windows)
+    â€” Cluster tagging: fire_drill, trusted_circle, professional_contact
+    â€” Bridge detection: people who appear across 2+ cluster contexts
+    â€” inferRegisterFromMessage: formal / semi_formal / casual / personal from draft text
+  â€¢ Context builder: src/lib/channel-f/context-builder.ts
+    â€” Gated: requires 3+ unique people tracked
+    â€” Surfaces: rising contacts, cooling/silent, trusted inner circle, bridge nodes, register map
+    â€” Fallback: lists top contacts by mention count when no signal thresholds met yet
+    â€” getPersonRegister(userId, personName): lookup for draft-message flow
+  â€¢ Hook in tasks.ts: fire-and-forget trackMessage after Channel D triggers (chat route)
+  â€¢ Context injection: orchestrator.ts (chat route) + agent-extension.ts (agent loop)
+  â€¢ Test suite: src/tests/channel-f.test.ts â€” 28/28 passing
+
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+UNIT TESTS
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+# Run all Channel F tests (28 tests â€” mention extractor, tracker, register, context builder, trajectory)
+npx tsx src/tests/channel-f.test.ts
+
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+MANUAL / BEHAVIORAL TESTS (requires live server)
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+F.1 â€” Mention extraction working
+  1. Send a chat message with person names: "I met with Tom Baker and Alice Chen today about the fundraise"
+  2. Check DB:
+       SELECT person_name, context_tone, reference_style FROM channel_f_person_mentions ORDER BY created_at DESC LIMIT 5;
+  3. Expect: Tom Baker and Alice Chen rows with inferred tone/style
+
+F.2 â€” Trajectory detection
+  1. Mention the same person in 3+ consecutive messages
+  2. Check:
+       SELECT person_name, trajectory, mention_count FROM channel_f_relationship_profiles ORDER BY mention_count DESC;
+  3. After 2+ recent mentions vs no prior â†’ trajectory should flip to 'rising'
+
+F.3 â€” Register inference
+  1. Ask agent: "draft a message to Tom Baker in a formal tone: Dear Tom, best regards..."
+  2. Call inferRegisterFromMessage (triggered automatically when user pastes/drafts)
+  3. Check:
+       SELECT person_name, communication_register FROM channel_f_relationship_profiles WHERE person_name = 'Tom Baker';
+
+F.4 â€” Context block injected in chat
+  1. After 3+ unique people tracked, start a new chat
+  2. The agent's system prompt should include "Relationship Intelligence" block
+  3. If drafting a message to a known person, agent should use their known register
+
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+TROUBLESHOOTING
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+No mentions being extracted?
+  â†’ trackMessage fires in tasks.ts after Channel D triggers â€” check server logs for "[channel-f] tracked"
+  â†’ Only capitalized proper nouns (2+ chars) not in the NOT_NAMES exclusion set are extracted
+  â†’ Common sentence starters (This, The, Actually, Monday, etc.) are excluded
+
+Context block not showing?
+  â†’ Requires 3+ unique people in channel_f_relationship_profiles
+  â†’ Check: SELECT COUNT(DISTINCT person_name) FROM channel_f_relationship_profiles WHERE user_id = ?;
+
+Bridge nodes not detected?
+  â†’ Requires 2+ cluster tags OR 3+ different co-mentions (diverse contacts)
+  â†’ Clusters only form after 2â€“3 mentions in urgent/positive/role-title contexts
+
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+CHANNEL G â€” TEMPORAL PATTERN INTELLIGENCE
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+
+All parts complete. 25/25 tests passing.
+
+  â€¢ DB schema: channel_g_task_snapshots + channel_g_stress_cycles + channel_g_profiles (src/lib/db.js)
+  â€¢ Task classifier: src/lib/channel-g/task-classifier.ts
+    â€” 6 cognitive categories: deep_work | communication | decision | admin | creative | execution
+    â€” hasUrgency() / hasFrustration() helpers
+  â€¢ Rhythm tracker: src/lib/channel-g/rhythm-tracker.ts
+    â€” recordTaskCompletion(): called at task_complete in agent-extension.ts
+    â€” G.1: cognitive_rhythm JSON maps hour â†’ { category: count }
+    â€” G.2: seasonal_patterns tracks month_end, month_start, quarter_end task clusters
+    â€” G.3: stress streak counted via consecutive days with urgency/frustration/late-night signals;
+           active cycle row written to channel_g_stress_cycles when streak >= 3
+    â€” G.4: recovery_pattern updated when stress cycle resolves; tracks first post-stress category
+  â€¢ Context builder: src/lib/channel-g/context-builder.ts
+    â€” Gated: requires 5+ tasks observed
+    â€” G.1: "Your typical work at this hour: [category]" (needs 3+ data points for that hour)
+    â€” G.2: "Approaching month-end/quarter-end: you typically spike in [category]" (needs 20+ tasks)
+    â€” G.3: "High-pressure streak: N+ consecutive days" (streak >= 3)
+    â€” G.4: "Just out of a high-pressure period â€” easing back in" (within 3 days of cycle end)
+  â€¢ Hook: agent-extension.ts task_complete case (after Channel D D.4 trigger)
+  â€¢ Context injection: orchestrator.ts (chat route) + agent-extension.ts (agent loop)
+  â€¢ Test suite: src/tests/channel-g.test.ts â€” 25/25 passing
+
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+UNIT TESTS
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+# Run all Channel G tests (25 tests â€” task classifier, rhythm tracker, stress cycle, recovery, context builder)
+npx tsx src/tests/channel-g.test.ts
+
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+TROUBLESHOOTING
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+No cognitive rhythm showing?
+  â†’ Needs 3+ tasks at the SAME HOUR before that hour's category fires
+  â†’ Check: SELECT hour_of_day, task_category, COUNT(*) FROM channel_g_task_snapshots WHERE user_id=? GROUP BY 1,2;
+
+Stress streak not counting?
+  â†’ Stress day = has_urgency=1 OR is_late_night=1 OR has_frustration=1 + at least 1 prior signal today
+  â†’ Streak only increments if yesterday also had stress signals
+  â†’ Check: SELECT has_urgency, has_frustration, is_late_night, created_at FROM channel_g_task_snapshots WHERE user_id=? ORDER BY created_at DESC LIMIT 10;
+
+Seasonal pattern not showing?
+  â†’ Needs 20+ total tasks observed before seasonal hints fire
+  â†’ Only fires on days 20-24 (month-end preview) or days 1-5 (month-start window)
+
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+CHANNEL H â€” OUTPUT QUALITY FEEDBACK LOOP
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+
+Unit tests are in: src/tests/channel-h.test.ts
+Run: npx tsx src/tests/channel-h.test.ts
+Status: 18/18 passing
+
+Tables:
+  channel_h_corpus_items â€” indexed writing outputs (email/post/analysis/message/plan/proposal)
+  channel_h_profiles     â€” evergreen topics, hit-rate by type, vocabulary evolution
+
+Source files:
+  src/lib/channel-h/output-indexer.ts   â€” detectContentType, indexTaskOutput, resolveQualitySignals, updateProfile
+  src/lib/channel-h/outcome-detector.ts â€” detectOutcomeSignal (positive/negative outcome linking)
+  src/lib/channel-h/context-builder.ts  â€” buildChannelHContextBlock
+
+WHAT EACH TEST COVERS
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  oi-a  email prompt â†’ content_type = 'email' stored
+  oi-b  LinkedIn post prompt â†’ content_type = 'post' stored
+  oi-c  automation/execution prompt (archive emails) â†’ NOT indexed
+  oi-d  output < 30 chars â†’ skipped
+  oi-e  fundraising content in output â†’ fundraising/startup topics detected
+  oi-f  total_indexed increments correctly across 3 insertions
+  oi-g  item > 60 min old, no Channel B corrections â†’ resolves to 'hit'
+  oi-h  item > 60 min old, Channel B correction in 60-min window â†’ resolves to 'miss'
+  od-a  "they replied" message â†’ outcome_sentiment = 'positive' on recent corpus item
+  od-b  "they passed" message â†’ outcome_sentiment = 'negative' on recent corpus item
+  od-c  neutral message â†’ outcome_sentiment left null
+  od-d  corpus item > 7 days old â†’ outcome not updated
+  cb-a  total_indexed = 2 â†’ context block = null (gated)
+  cb-b  no profile row â†’ context block = null
+  cb-c  3+ indexed, evergreen topics â†’ block contains topic labels + header
+  cb-d  hit_rate data with â‰¥3 signals â†’ quality benchmark lines appear
+  cb-e  corpus item with outcome â†’ outcome section appears in block
+  cb-f  3+ months of vocabulary_evolution â†’ drift section appears
+
+WIRING
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  Indexing trigger:  agent-extension.ts â†’ task_complete case â†’ indexTaskOutput(userId, taskId, taskPrompt, summary)
+  Outcome trigger:   routes/tasks.ts â†’ chat handler â†’ detectOutcomeSignal(userId, message)
+  Context injection: agents/orchestrator.ts + agent-extension.ts (userContextBudget > 200)
+
+HOW CONTENT TYPE IS DETECTED
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  email:    "draft/write/compose/send + email" OR specific phrases (cold email, dear , best regards, etc.)
+  post:     linkedin post, tweet, blog post, write a post, etc.
+  proposal: proposal, pitch deck, pitch document
+  plan:     write a plan, roadmap, action plan, strategy
+  analysis: analyze, analysis, report, summarize, deep dive
+  message:  message to, draft a message, slack message, dm to, reach out
+  other:    everything else (automation, navigation, admin) â€” NOT indexed
+
+QUALITY SIGNAL RESOLUTION (lazy / retroactive)
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  Items start as quality_signal = 'unknown'
+  resolveQualitySignals() runs each time a new item is indexed
+  Items > 60 min old are checked: if any Channel B is_correction=1 exists within
+  60 minutes after the item's created_at â†’ 'miss'; otherwise â†’ 'hit'
+  This requires NO real-time cross-channel hook
+
+COLD-START GATE
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  Context block returns null until total_indexed >= 3
+
+TROUBLESHOOTING
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+Context block not firing?
+  â†’ Check profile: SELECT total_indexed FROM channel_h_profiles WHERE user_id=?;
+  â†’ Needs 3+ indexed items to unlock
+
+Automation outputs being indexed?
+  â†’ Prompt must contain a writing action verb (draft/write/compose/send/create) + "email"
+     OR a specific writing phrase (linkedin post, proposal, etc.)
+  â†’ Non-writing task types (archive, open, navigate, click) return 'other' â†’ skipped
+
+Quality signals stuck at 'unknown'?
+  â†’ Items need to be > 60 minutes old before resolution runs
+  â†’ Check channel_b_raw_signals for corrections in the correct time window
+
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+CHANNEL I â€” DECISION PATTERN INTELLIGENCE
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+
+Unit tests are in: src/tests/channel-i.test.ts
+Run: npx tsx src/tests/channel-i.test.ts
+Status: 36/36 passing
+
+Tables:
+  channel_i_decision_signals â€” individual signal events (decision style, approval seeking, research, reversals)
+  channel_i_profiles         â€” aggregated: dominant style, research depth, reversal rate, approval rate
+
+Source files:
+  src/lib/channel-i/decision-classifier.ts â€” classifyDecisionStyle, isApprovalSeeking, isResearchTask, isReversalSignal
+  src/lib/channel-i/decision-tracker.ts    â€” trackDecisionSignal (main entry, fire-and-forget from tasks.ts)
+  src/lib/channel-i/context-builder.ts     â€” buildChannelIContextBlock
+
+WHAT EACH TEST COVERS
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  I.1 Decision Style Classifier (9 tests):
+  dc-a  "what would you recommend" â†’ recommendation_seeker
+  dc-b  "just tell me what to do" â†’ recommendation_seeker
+  dc-c  "give me options" â†’ options_seeker
+  dc-d  "a few ways to" â†’ options_seeker
+  dc-e  "show me the numbers" â†’ data_first
+  dc-f  "run the numbers" â†’ data_first
+  dc-g  "what did we do last time" â†’ precedent_based
+  dc-h  "what worked before" â†’ precedent_based
+  dc-i  unrelated message â†’ null (no signal)
+
+  I.4 Approval Seeking (4 tests):
+  as-a  "does this make sense" â†’ approval seeking detected
+  as-b  "am I thinking about this right" â†’ approval seeking
+  as-c  "is this a good approach" â†’ approval seeking
+  as-d  regular task â†’ NOT approval seeking
+
+  I.2 Research Task (4 tests):
+  rt-a  "research X" â†’ research task
+  rt-b  "compare X and Y" â†’ research task
+  rt-c  "pros and cons" â†’ research task
+  rt-d  execution prompt â†’ NOT research task
+
+  I.3 Reversal Signal (5 tests):
+  rv-a  "actually let's" â†’ reversal
+  rv-b  "never mind" â†’ reversal
+  rv-c  "scratch that" â†’ reversal
+  rv-d  "on second thought" â†’ reversal
+  rv-e  normal continuation â†’ NOT reversal
+
+  Tracking + Profile (6 tests):
+  tp-a  recommendation signals â†’ dominant_style = recommendation_seeker
+  tp-b  options signals â†’ dominant_style = options_seeker
+  tp-c  approval seeking tracked separately from style
+  tp-d  reversal signals tracked, total_reversals increments
+  tp-e  research tasks tracked, research_depth computed
+  tp-f  mixed signals all recorded without clobbering each other
+
+  Context Builder (8 tests):
+  cb-a  < 5 signals â†’ null (cold-start gate)
+  cb-b  no profile â†’ null
+  cb-c  recommendation_seeker â†’ "give ONE answer" framing
+  cb-d  options_seeker â†’ "2â€“3 approaches" framing
+  cb-e  data_first â†’ "lead with metrics/evidence"
+  cb-f  high reversal rate â†’ "ask about constraints"
+  cb-g  high approval rate â†’ "grounded validation" note
+  cb-h  heavy researcher â†’ "proactively surface data"
+
+WIRING
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  Signal capture:    routes/tasks.ts â†’ chat handler â†’ trackDecisionSignal(userId, sessionId, message)
+  Context injection: agents/orchestrator.ts + agent-extension.ts (userContextBudget > 200)
+
+SIGNAL TYPES
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  decision_style   â€” I.1: recommendation_seeker / options_seeker / data_first / precedent_based
+  approval_seeking â€” I.4: "does this make sense?", "am I thinking right?", etc.
+  research_task    â€” I.2: research, compare, analyze, pros and cons, etc.
+  reversal         â€” I.3: "actually let's", "never mind", "scratch that", "on second thought"
+
+COLD-START GATE
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  Context block returns null until total_signals >= 5
+  Dominant style shown when it's >= 60% of style signals (pct badge shown)
+
+CONTEXT BLOCK BEHAVIOR
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  recommendation_seeker â†’ agent gives ONE answer directly (no options list)
+  options_seeker        â†’ agent presents 2â€“3 distinct approaches first
+  data_first            â†’ agent leads with numbers/metrics before framing
+  precedent_based       â†’ agent surfaces what was done before when relevant
+  heavy researcher      â†’ agent proactively offers related data
+  light researcher      â†’ agent avoids unsolicited data dumps
+  high reversal rate    â†’ agent asks about constraints before committing
+  high approval rate    â†’ agent gives validation + one concern (not counter-argument)
+
+TROUBLESHOOTING
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+Context block not appearing?
+  â†’ Needs 5+ total signals (decision_style + approval_seeking + research + reversal combined)
+  â†’ Check: SELECT total_signals, dominant_style FROM channel_i_profiles WHERE user_id=?
+
+Style not being detected?
+  â†’ Check classifier patterns in decision-classifier.ts
+  â†’ Signal must be in the prompt text (not just implied)
+
+Research depth showing 'unknown'?
+  â†’ Needs at least 1 research task recorded before it classifies
+  â†’ 'heavy' = avg 3+ research tasks per session; 'light' = avg 1â€“2
+
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+CHANNEL J â€” INFORMATION DIET INTELLIGENCE
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+
+Unit tests are in: src/tests/channel-j.test.ts
+Run: npx tsx src/tests/channel-j.test.ts
+Status: 55/55 passing
+
+Tables:
+  channel_j_signals  â€” individual signal events (source, depth, task_mode, info_anxiety)
+  channel_j_profiles â€” aggregated: dominant source type, depth preference, consumption ratio, anxiety count
+
+Source files:
+  src/lib/channel-j/source-classifier.ts  â€” all pure classifiers (URL source, text source, depth, mode, anxiety)
+  src/lib/channel-j/info-diet-tracker.ts  â€” trackInfoDiet (main entry, fire-and-forget from tasks.ts)
+  src/lib/channel-j/context-builder.ts    â€” buildChannelJContextBlock
+
+WHAT EACH TEST COVERS
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  URL Source (11 tests):
+  us-a  arxiv.org â†’ academic
+  us-b  mckinsey.com â†’ industry_report
+  us-c  a16z.com â†’ industry_report
+  us-d  twitter.com â†’ twitter
+  us-e  x.com â†’ twitter
+  us-f  substack.com â†’ newsletter
+  us-g  nytimes.com â†’ news
+  us-h  medium.com â†’ personal_blog
+  us-i  spotify.com â†’ podcast
+  us-j  statista.com â†’ data_stats
+  us-k  unknown domain â†’ null
+
+  Text Source (7 tests):
+  ts-a  "arxiv paper" text â†’ academic
+  ts-b  "research paper" text â†’ academic
+  ts-c  "mckinsey" text â†’ industry_report
+  ts-d  "twitter thread" text â†’ twitter
+  ts-e  "podcast" text â†’ podcast
+  ts-f  "newsletter" text â†’ newsletter
+  ts-g  unrelated message â†’ null
+
+  URL Extraction (3 tests):
+  ue-a  single URL extracted correctly
+  ue-b  multiple URLs extracted
+  ue-c  no URLs â†’ empty array
+
+  Depth Preference (7 tests):
+  dp-a  "briefly" â†’ low
+  dp-b  "bullet points" â†’ low
+  dp-c  "tldr" â†’ low
+  dp-d  "deep dive" â†’ high
+  dp-e  "comprehensive" â†’ high
+  dp-f  "thorough" â†’ high
+  dp-g  neutral â†’ null
+
+  Task Mode (7 tests):
+  tm-a  "research" â†’ consumption
+  tm-b  "summarize" â†’ consumption
+  tm-c  "compare" â†’ consumption
+  tm-d  "write" â†’ production
+  tm-e  "draft" â†’ production
+  tm-f  "create" â†’ production
+  tm-g  ambiguous â†’ null
+
+  Info Anxiety (5 tests):
+  ia-a  "can you also check" â†’ anxiety
+  ia-b  "just to make sure" â†’ anxiety
+  ia-c  "to double check" â†’ anxiety
+  ia-d  "can you verify" â†’ anxiety
+  ia-e  normal follow-up â†’ NOT anxiety
+
+  Tracking + Profile (6 tests):
+  tp-a  arxiv URLs â†’ dominant_source_type = academic
+  tp-b  "briefly" messages â†’ depth_preference = low
+  tp-c  "deep dive" messages â†’ depth_preference = high
+  tp-d  consumption tasks â†’ consumption_ratio > 0.5
+  tp-e  anxiety signals â†’ info_anxiety_count >= 3
+  tp-f  text source (no URL) â†’ tracked correctly
+
+  Context Builder (9 tests):
+  cb-a  < 5 signals â†’ null
+  cb-b  no profile â†’ null
+  cb-c  academic dominant â†’ "original research/primary sources" framing
+  cb-d  twitter dominant â†’ "recency/now" framing
+  cb-e  low depth â†’ "get to the point" / brevity framing
+  cb-f  high depth â†’ "nuance/full reasoning" framing
+  cb-g  high consumption ratio â†’ "curate-and-synthesize" framing
+  cb-h  high production ratio â†’ "writing assistance" framing
+  cb-i  info_anxiety_count >= 3 â†’ "confidence-giving" framing
+
+WIRING
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  Signal capture:    routes/tasks.ts â†’ chat handler â†’ trackInfoDiet(userId, sessionId, message)
+  Context injection: agents/orchestrator.ts + agent-extension.ts (userContextBudget > 200)
+
+SIGNAL TYPES
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  source       â€” J.1: academic / industry_report / newsletter / twitter / long_form / podcast / data_stats / personal_blog / news
+  depth        â€” J.2: 'high' or 'low' (explicit signals only â€” neutral messages don't fire)
+  task_mode    â€” J.3: 'consumption' or 'production' (pure cases only â€” mixed prompts â†’ null)
+  info_anxiety â€” J.4: follow-up cross-checking and reassurance-seeking patterns
+
+SOURCE DETECTION PRIORITY
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  1. Extract URLs from message â†’ classify each by domain (most reliable)
+  2. If no URLs: classify text reference patterns (catches "I read a paper", "twitter thread", etc.)
+  Note: URL domain classification takes priority; text patterns only fire when no URLs present
+
+COLD-START GATE
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  Context block returns null until total_signals >= 5
+  Each message can fire 0â€“4 signals simultaneously (source + depth + mode + anxiety)
+
+CONTEXT BLOCK BEHAVIOR
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  academic source       â†’ cite papers, original research; avoid paraphrasing summaries
+  industry_report       â†’ cite McKinsey/a16z/Gartner-level institutional sources
+  newsletter/personal_blog â†’ trust curated voices and practitioner stories
+  twitter               â†’ lead with recent signal; recency > depth
+  data_stats            â†’ lead with numbers and evidence; cite figures specifically
+  podcast               â†’ conversational framing; not bullet lists
+  news                  â†’ ground in current events; timeliness matters
+  low depth             â†’ answer first, preamble stripped
+  high depth            â†’ full reasoning; don't compress
+  consumption-dominant  â†’ curate-and-synthesize mode
+  production-dominant   â†’ drafting and writing assistance mode
+  info_anxiety >= 3     â†’ respond with confidence; affirm when sources agree; don't pile on data
+
+TROUBLESHOOTING
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+No source signals?
+  â†’ User messages must contain URLs or explicit source references
+  â†’ General messages without URLs/references don't fire source signals
+
+Depth preference staying 'unknown'?
+  â†’ Explicit depth signals required: "briefly", "tldr", "deep dive", "comprehensive", etc.
+  â†’ General questions don't fire depth signals
+
+consumption_ratio stuck at 0.5?
+  â†’ Both consumption AND production keywords in same message â†’ null (not recorded)
+  â†’ Need pure consumption OR pure production prompts to move the ratio
+
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+CHANNEL K â€” COGNITIVE STATE SIGNALS
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+
+Unit tests are in: src/tests/channel-k.test.ts
+Run: npx tsx src/tests/channel-k.test.ts
+Status: 37/37 passing
+
+Tables:
+  channel_k_signals  â€” per-message signals (overload, energy, confidence, assumption)
+  channel_k_profiles â€” rolling avg_message_length, energy_state, confidence_level
+
+Source files:
+  src/lib/channel-k/cognitive-classifier.ts â€” detectOverloadSignals, classifyEnergy, detectConfidenceSignal, isAssumptionLaden, isDuplicate
+  src/lib/channel-k/cognitive-tracker.ts    â€” trackCognitiveSignal (main entry, fire-and-forget from tasks.ts)
+  src/lib/channel-k/context-builder.ts      â€” buildChannelKContextBlock
+
+WHAT EACH TEST COVERS
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  K.1 Overload Detection (6 tests):
+  ol-a  frustrated + short request â†’ 'frustrated_simple_request' signal
+  ol-b  message << user avg (< 40%) â†’ 'short_vs_baseline' signal
+  ol-c  "still not working" short â†’ 'repeated_failure_marker'
+  ol-d  "again" in short message â†’ 'repeated_failure_marker'
+  ol-e  elaborate message â†’ zero overload signals
+  ol-f  no baseline yet â†’ no short_vs_baseline fires
+
+  K.1 Duplicate Detection (4 tests):
+  dd-a  identical message â†’ duplicate
+  dd-b  70%+ word overlap â†’ duplicate
+  dd-c  different topic â†’ NOT duplicate
+  dd-d  no recent messages â†’ NOT duplicate
+
+  K.2 Energy State (5 tests):
+  es-a  long complex prompt at 10am â†’ 'high'
+  es-b  < 25 chars â†’ 'depleted'
+  es-c  short prompt at 2am â†’ 'depleted'
+  es-d  51 chars, no complexity keywords â†’ 'medium'
+  es-e  < 45 chars, no complexity â†’ 'low'
+
+  K.3 Confidence Signal (4 tests):
+  cs-a  "I'm not sure if this is right" â†’ low_confidence
+  cs-b  "second-guessing" â†’ low_confidence
+  cs-c  "might be wrong" â†’ low_confidence
+  cs-d  direct request â†’ null
+
+  K.4 Assumption Detection (6 tests):
+  as-a  "convince him to invest" â†’ assumption
+  as-b  "make her sign" â†’ assumption
+  as-c  "help me persuade" â†’ assumption
+  as-d  "change his mind" â†’ assumption
+  as-e  "find the CEO of" â†’ assumption
+  as-f  standard request â†’ NOT assumption
+
+  Tracking + Profile (5 tests):
+  tp-a  avg_message_length updates correctly over 3 messages
+  tp-b  overload signals written after baseline established
+  tp-c  confidence_level â†’ 'low' after 2 low_confidence signals
+  tp-d  assumption signals written to DB
+  tp-e  energy signal written for every message (one per message)
+
+  Context Builder (7 tests):
+  cb-a  < 5 messages tracked â†’ null
+  cb-b  no profile â†’ null
+  cb-c  3+ overload signals â†’ HIGH COGNITIVE LOAD instruction
+  cb-d  depleted energy â†’ concise/pace instruction
+  cb-e  low confidence â†’ anchor + validate instruction
+  cb-f  recent assumption signal â†’ premise-check note
+  cb-g  high energy + normal confidence â†’ depth-mode welcome
+
+WIRING
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  Signal capture:    routes/tasks.ts â†’ chat handler â†’ trackCognitiveSignal(userId, sessionId, message)
+  Context injection: agents/orchestrator.ts + agent-extension.ts (userContextBudget > 200)
+
+SIGNAL TYPES
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  overload   â€” K.1: 'frustrated_simple_request' / 'short_vs_baseline' / 'repeated_failure_marker' / 'duplicate_task'
+  energy     â€” K.2: 'high' / 'medium' / 'low' / 'depleted' (recorded for EVERY message)
+  confidence â€” K.3: 'low_confidence' (only when explicit phrases detected)
+  assumption â€” K.4: 'assumption_detected' (when assumption-bearing phrases found)
+
+ENERGY STATE THRESHOLDS
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  depleted: < 25 chars OR (< 40 chars AND hour is 23â€“05)
+  low:      < 45 chars AND no complexity keywords
+  high:     >= 160 chars AND has complexity keywords (analyze, research, strategy, etc.)
+  medium:   everything else (most normal prompts)
+
+OVERLOAD SIGNAL THRESHOLDS
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  frustrated_simple_request: frustration words (ugh/argh/still/again/why won't) + â‰¤12 words
+  short_vs_baseline:         message.length < avg_length * 0.4 (requires avg established, total_messages â‰¥ 5)
+  repeated_failure_marker:   "still" / "again" / "why won't/can't" in message < 80 chars
+  duplicate_task:            â‰¥70% word overlap with any message in last 30 min same session
+
+COLD-START GATE
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  Context block returns null until total_messages >= 5
+  short_vs_baseline overload signal requires total_messages >= 5 (no baseline earlier)
+
+CONTEXT BLOCK BEHAVIOR
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  overload >= 3 signals (30 min) â†’ HIGH COGNITIVE LOAD: one answer, no options, answer-first, minimum viable response
+  overload 1â€“2 signals          â†’ Elevated load: lean toward brevity, one clear recommendation
+  energy = depleted              â†’ One-sentence answers, no follow-up options, match pace
+  energy = low                   â†’ Lead with answer, save context for when asked
+  energy = high                  â†’ Full analysis welcome, user is in depth-mode
+  confidence = low               â†’ Anchor to working, offer one refinement, avoid new unknowns
+  confidence = uncertain         â†’ Keep frame steady, don't introduce new unknowns
+  assumption detected (10 min)   â†’ Verify premise quietly before acting
+
+TROUBLESHOOTING
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+Context block not appearing?
+  â†’ Needs 5+ messages tracked (total_messages >= 5)
+  â†’ Check: SELECT total_messages, energy_state FROM channel_k_profiles WHERE user_id=?
+
+Overload not firing?
+  â†’ short_vs_baseline requires total_messages >= 5 AND message < 40% of avg
+  â†’ frustrated_simple_request needs both frustration keyword AND â‰¤12 word message
+
+Confidence not updating?
+  â†’ Needs 2+ low_confidence signals in last 24h for level = 'low'
+  â†’ Check: SELECT value, created_at FROM channel_k_signals WHERE user_id=? AND signal_type='confidence'
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CHANNEL L — RESISTANCE AND AVOIDANCE MAPPING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Unit tests are in: src/tests/channel-l.test.ts
+Run: npx tsx src/tests/channel-l.test.ts
+Status: 43/43 passing
+
+Tables:
+  channel_l_signals  — per-message resistance, avoidance, and kept-work signals
+  channel_l_profiles — aggregated profile: resistance counts, avoidance counts, blind spots, kept work
+
+Source files:
+  src/lib/channel-l/resistance-classifier.ts — classifyResistance, classifyAvoidance, detectKeptWork, extractDomain
+  src/lib/channel-l/resistance-tracker.ts    — trackResistanceSignal (main entry, fire-and-forget from tasks.ts)
+  src/lib/channel-l/context-builder.ts       — buildChannelLContextBlock
+
+WHAT EACH TEST COVERS
+──────────────────────────────────────────────────────────────────────────────
+  L.1 Resistance Classification (9 tests):
+  rc-a  "that is not correct" → factual resistance
+  rc-b  "actually no" → factual resistance
+  rc-c  "that is not how I would put it" → framing resistance
+  rc-d  "the framing is off" → framing resistance
+  rc-e  "that is too much" → scope resistance
+  rc-f  "needs more detail" → scope resistance
+  rc-g  "that is not the right move" → strategic resistance
+  rc-h  "you are missing the point" → strategic resistance
+  rc-i  no resistance signals → null
+
+  Domain Extraction (4 tests):
+  dom-a  email mention → email domain
+  dom-b  strategy mention → strategy domain
+  dom-c  code mention → technical domain
+  dom-d  no clear domain → null
+
+  L.2 Avoidance Classification (8 tests):
+  av-a  "I have been meaning to" → priority avoidance
+  av-b  "keep putting off" → priority avoidance
+  av-c  "I do not know how to approach" → skill avoidance
+  av-d  "I hate doing" → capability avoidance
+  av-e  difficult conversation → emotional avoidance
+  av-f  rejection letter context → emotional avoidance
+  av-g  "not really a numbers person" → identity avoidance
+  av-h  standard task → null
+
+  L.3 Kept Work Detection (5 tests):
+  kw-a  "I already sent that" → kept work
+  kw-b  "I took care of the analysis" → kept work
+  kw-c  "I handled it" → kept work
+  kw-d  "I went ahead and" → kept work
+  kw-e  regular planning message → NOT kept work
+
+  Tracking + Profile (7 tests):
+  tp-a  resistance signal written to DB; profile created with factual_resistance_count = 1
+  tp-b  strategic resistance count accumulates across multiple messages
+  tp-c  dominant_resistance = framing when framing count is highest
+  tp-d  avoidance signal written with correct subtype
+  tp-e  kept work category appears in profile after 2+ signals in same category
+  tp-f  blind spot domain computed after 3 strategic resistance signals in same domain
+  tp-g  no signals written for a normal message with no resistance/avoidance/kept-work
+
+  Context Builder (10 tests):
+  cb-a  no profile → null
+  cb-b  fewer than 5 signals → null
+  cb-c  framing dominant → framing-aware instruction
+  cb-d  factual dominant → fact-check instruction
+  cb-e  strategic dominant → assumption-surfacing instruction
+  cb-f  blind spot domain present → domain-specific blind spot note
+  cb-g  emotional avoidance 2+ → care and softer draft instruction
+  cb-h  priority avoidance 2+ → decomposition offer
+  cb-i  kept work category → growth opportunity note (offered once)
+  cb-j  kept work offer already made → NOT repeated in context
+
+WIRING
+──────────────────────────────────────────────────────────────────────────────
+  Signal capture:    routes/tasks.ts → chat handler → trackResistanceSignal(userId, sessionId, message)
+  Context injection: agents/orchestrator.ts + agent-extension.ts (userContextBudget > 200)
+
+SIGNAL TYPES
+──────────────────────────────────────────────────────────────────────────────
+  resistance — L.1: factual / framing / scope / strategic
+  avoidance  — L.2: capability / skill / priority / emotional / identity
+  kept_work  — L.3: domain of work handled without agent (e.g. email, research)
+
+RESISTANCE TAXONOMY
+──────────────────────────────────────────────────────────────────────────────
+  factual:    "that is not correct" / "you got that wrong" — fact error, store correction
+  framing:    "that is not how I would put it" / "the framing is off" — worldview mismatch
+  scope:      "that is too much" / "needs more detail" / "too long" — depth calibration
+  strategic:  "that is not the right move" / "you are missing the point" — misunderstood strategic context
+
+AVOIDANCE TAXONOMY
+──────────────────────────────────────────────────────────────────────────────
+  capability:  can do it but finds it unpleasant → high automation opportunity
+  skill:       does not know how to approach it → offer to lead, not just execute
+  priority:    important but not urgent, endlessly deferred → decompose or proactively surface
+  emotional:   difficult conversations, bad news, rejection → softer first draft, check emotional context
+  identity:    "not who I am" tasks → do not push; note it; if they come to it, do not make a moment
+
+KEPT WORK TRACKING
+──────────────────────────────────────────────────────────────────────────────
+  Triggered by: "I already sent", "I took care of", "I handled it", "I went ahead and", etc.
+  Growth opportunity: if category appears 2+ times → include ONE offer in context block
+  After offer made: kept_work_offer_made[category]=true → never offered again
+
+BLIND SPOT DOMAINS
+──────────────────────────────────────────────────────────────────────────────
+  Computed from: strategic resistance signals grouped by domain
+  Threshold: 3+ strategic resistance signals in same domain
+  Effect: context block adds explicit "Known blind spot — [domain]" instruction
+
+COLD-START GATE
+──────────────────────────────────────────────────────────────────────────────
+  Context block returns null until total_signals >= 5
+  Normal messages with no resistance/avoidance/kept-work signals are never written
+
+TROUBLESHOOTING
+──────────────────────────────────────────────────────────────────────────────
+Context block not appearing?
+  Check: SELECT total_signals, dominant_resistance FROM channel_l_profiles WHERE user_id=?
+
+Blind spot not firing?
+  Needs 3+ strategic resistance in the SAME domain — messages mentioning multiple domains may split
+  Check: SELECT domain, COUNT(*) FROM channel_l_signals WHERE user_id=? AND signal_type='resistance'
+         AND subtype='strategic' GROUP BY domain
+
+Growth offer not appearing?
+  Category needs 2+ kept_work signals. Once offered, never repeats.
+  Check: SELECT kept_work_offer_made FROM channel_l_profiles WHERE user_id=?
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CHANNEL M — LANGUAGE EVOLUTION TRACKING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Unit tests are in: src/tests/channel-m.test.ts
+Run: npx tsx src/tests/channel-m.test.ts
+Status: 30/30 passing
+
+Tables:
+  channel_m_word_log      — every tracked word per user with timestamp (indexed for time-range queries)
+  channel_m_vocab_summary — per-user word totals, first_seen, last_seen, is_proper_noun, category
+  channel_m_profiles      — drift_direction, total_distinct_words
+
+Source files:
+  src/lib/channel-m/evolution-analyzer.ts  — extractVocabulary, classifyWord, computeDriftFromWords (pure, no DB)
+  src/lib/channel-m/vocabulary-tracker.ts  — trackVocabulary (writes word_log + vocab_summary, updates profile)
+  src/lib/channel-m/context-builder.ts     — buildChannelMContextBlock
+
+WHAT EACH TEST COVERS
+──────────────────────────────────────────────────────────────────────────────
+  Vocabulary Extraction (6 tests):
+  ve-a  meaningful words extracted (fundraising, pitch)
+  ve-b  stop words filtered out (this, that, please)
+  ve-c  short words filtered (< 4 chars: ask, Jim)
+  ve-d  mid-sentence capitalized → proper noun (Stripe)
+  ve-e  sentence-start capitalized → NOT proper noun (Fundraising at start)
+  ve-f  deduplication: same word appears once per extraction
+
+  Word Classification (6 tests):
+  wc-a  "fundraising" → financial
+  wc-b  "deployment" → technical
+  wc-c  "enterprise" → business
+  wc-d  "overwhelmed" → emotional
+  wc-e  "networking" → relational
+  wc-f  generic word → null
+
+  Drift Direction (4 tests):
+  dd-a  dominant financial words → financial drift
+  dd-b  dominant technical words → technical drift
+  dd-c  evenly mixed categories → null (no dominant direction)
+  dd-d  fewer than 5 classified words → null
+
+  Tracking + Profile (5 tests):
+  tp-a  words written to channel_m_word_log on track call
+  tp-b  vocab_summary upserted with correct count and category
+  tp-c  mid-sentence proper noun flagged as is_proper_noun=1
+  tp-d  profile created with drift_direction after multiple technical messages
+  tp-e  total_distinct_words accumulates correctly
+
+  Context Builder (9 tests):
+  cb-a  no profile → null
+  cb-b  fewer than 15 distinct words → null (cold-start gate)
+  cb-c  financial drift → fundraising/financial mode note
+  cb-d  technical drift → implementation context note
+  cb-e  relational drift → network-building note
+  cb-f  category word with 3+ recent count and first_seen in 14 days → arrival surfaced
+  cb-g  proper noun with 3+ recent count → arrival surfaced
+  cb-h  word with 5+ count last seen 30+ days ago → retired topic note
+  cb-i  word with < 3 count → NOT surfaced as arrival
+
+WIRING
+──────────────────────────────────────────────────────────────────────────────
+  Signal capture:    routes/tasks.ts → chat handler → trackVocabulary(userId, message)
+  Context injection: agents/orchestrator.ts + agent-extension.ts (userContextBudget > 200)
+
+HOW WORDS ARE TRACKED
+──────────────────────────────────────────────────────────────────────────────
+  Extraction: all words 4+ chars, not in stop-word list, deduplicated per message
+  Proper noun: capitalized mid-sentence, not an acronym (all-caps), not at sentence start
+  Category: O(1) reverse-lookup map from CATEGORY_WORDS vocabulary lists
+  Log: every occurrence written to channel_m_word_log (with timestamp for time-range drift)
+  Summary: upserted channel_m_vocab_summary (total_count, first_seen, last_seen, is_proper_noun, category)
+
+SIGNAL DETECTION
+──────────────────────────────────────────────────────────────────────────────
+  M.1 ARRIVALS
+    Criteria: category IS NOT NULL OR is_proper_noun = 1
+              AND first_seen >= 14 days ago
+              AND total_count >= 3
+    Surface: "New vocabulary arrived: [terms]. These may signal a focus shift."
+    Leading indicator: new vocabulary often precedes goal updates by 4-6 weeks
+
+  M.2 DEPARTURES
+    Criteria: category IS NOT NULL OR is_proper_noun = 1
+              AND total_count >= 5 (confirmed significant)
+              AND last_seen < 30 days ago
+              AND first_seen < 60 days ago (not a one-week blip)
+    Action: "Retired topics (stop surfacing proactively): [terms]."
+    Meaning: completed projects, closed relationships, abandoned ideas
+
+  M.3 DRIFT DIRECTION
+    Computed from: all words in channel_m_word_log in last 30 days
+    Method: count classified words by category; dominant category = drift
+    Threshold: dominant category must have >= 20% share to name a direction
+    Minimum: requires 5+ classified words in last 30 days
+
+DRIFT DIRECTION CONTEXT
+──────────────────────────────────────────────────────────────────────────────
+  technical:  Lead with implementation specifics; less business meta-commentary
+  business:   Pre-load competitor and positioning context when relevant
+  financial:  User is likely in fundraising or scaling mode; frame accordingly
+  relational: Relationship and partnership framing is high-ROI right now
+  emotional:  Check the human context behind tasks; do not rush into execution
+
+COLD-START GATE
+──────────────────────────────────────────────────────────────────────────────
+  Context block returns null until total_distinct_words >= 15
+
+CATEGORY VOCABULARIES
+──────────────────────────────────────────────────────────────────────────────
+  technical:  backend, frontend, database, deployment, architecture, algorithm,
+              inference, embedding, vector, agent, llm, gpt, claude, anthropic,
+              github, docker, typescript, python, react, schema, endpoint, webhook,
+              integration, codebase, repository, debugging, refactor, library,
+              framework, infrastructure, latency, throughput, microservice, pipeline
+  business:   revenue, profit, margin, growth, market, enterprise, saas, mrr, arr,
+              churn, conversion, funnel, roadmap, milestone, kpi, okr, strategy,
+              competitive, positioning, monetize, stakeholder, compliance, traction
+  financial:  fundraising, investment, valuation, dilution, series, seed, venture,
+              equity, investor, runway, burn, raise, convertible, bridge, portfolio,
+              budget, forecast, cashflow, financial, capital, funding, profitable
+  relational: partnership, collaboration, network, community, relationship, referral,
+              outreach, connection, hiring, culture, trust, advisor, mentor, champion,
+              networking, cofounder, candidate, recruit, onboard
+  emotional:  stressed, anxiety, overwhelmed, excited, frustrated, confident,
+              uncertain, burnout, clarity, vision, passion, purpose, doubt, nervous,
+              pressure, exhausted, energized, inspired, blocked, thrilled, proud
+
+TROUBLESHOOTING
+──────────────────────────────────────────────────────────────────────────────
+Context block not appearing?
+  → Needs total_distinct_words >= 15 AND at least one of: drift/arrival/departure
+  → Check: SELECT total_distinct_words, drift_direction FROM channel_m_profiles WHERE user_id=?
+
+Arrivals not showing?
+  → Word must appear 3+ times AND first_seen within 14 days AND be a category/proper-noun word
+  → Check: SELECT word, total_count, first_seen, category, is_proper_noun FROM channel_m_vocab_summary
+           WHERE user_id=? AND first_seen >= datetime('now', '-14 days') ORDER BY total_count DESC
+
+Drift direction always null?
+  → Needs 5+ classified words in last 30 days with one category >= 20% share
+  → Generic vocabulary (project names, task words) doesn't count toward drift
+  → Check: SELECT word FROM channel_m_word_log WHERE user_id=? AND created_at >= datetime('now', '-30 days')
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CHANNEL N — EXTERNAL WORLD MONITORING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Unit tests are in: src/tests/channel-n.test.ts
+Run: npx tsx src/tests/channel-n.test.ts
+Status: 31/31 passing
+
+Tables:
+  channel_n_watchlist — entities the user cares about (proper nouns tracked over time)
+  channel_n_events    — detected world events with relevance scores and surfaced flag
+  channel_n_profiles  — total_events, last_surfaced_at (for session-start gate)
+
+Source files:
+  src/lib/channel-n/world-scanner.ts  — extractProperNouns, detectWorldEvents, extractWatchlistEntities, scoreRelevance (pure)
+  src/lib/channel-n/event-tracker.ts  — trackWorldSignals (updates watchlist + logs events)
+  src/lib/channel-n/context-builder.ts — buildChannelNContextBlock (surfaces at session start)
+
+WHAT EACH TEST COVERS
+──────────────────────────────────────────────────────────────────────────────
+  Proper Noun Extraction (5 tests):
+  pn-a  mid-sentence company name extracted (Stripe)
+  pn-b  two-word proper noun captured as unit (Sarah Chen)
+  pn-c  common sentence-start words skipped (The, Our, This, Both, etc.)
+  pn-d  multiple entities in one message extracted separately
+  pn-e  all-lowercase message → empty array
+
+  World Event Detection (6 tests):
+  we-a  "[Company] just raised" → funding event with correct entity
+  we-b  "[Company] just launched" → launch event
+  we-c  "[Person] just joined" → personnel event
+  we-d  "[Company] acquired" → news event
+  we-e  no event trigger near proper noun → empty array
+  we-f  headline captured from surrounding sentence
+
+  Watchlist Entity Extraction (3 tests):
+  we2-a  company entity extracted and classified as company
+  we2-b  person entity classified from CEO/CTO context cues
+  we2-c  no proper nouns → empty
+
+  Relevance Scoring (4 tests):
+  rs-a  10 mentions + 3 days ago → score >= 50 (surfaces)
+  rs-b  1 mention + 120 days ago → score < 50 (stored only)
+  rs-c  5 mentions + 30 days ago → score >= 30
+  rs-d  10 mentions + 60 days ago → still scores well
+
+  Tracking + Profile (5 tests):
+  tp-a  watchlist updated when proper nouns mentioned
+  tp-b  mention count increments on repeated messages about same entity
+  tp-c  event logged when event trigger verb detected near proper noun
+  tp-d  no event logged when no event trigger present
+  tp-e  relevance score reflects watchlist mention count
+
+  Context Builder (8 tests):
+  cb-a  no events → null
+  cb-b  events below score threshold (< 50) → null
+  cb-c  high-relevance event → surfaced with entity name and type label
+  cb-d  max 2 events surfaced per session even if more qualify
+  cb-e  events not shown again within same session (< 2 hour gap)
+  cb-f  events already marked surfaced=1 → skipped
+  cb-g  depleted energy state (channel_k_profiles) → null (hold signals)
+  cb-h  "Before we begin" session-start framing present
+
+WIRING
+──────────────────────────────────────────────────────────────────────────────
+  Signal capture:    routes/tasks.ts → chat handler → trackWorldSignals(userId, message)
+  Context injection: agents/orchestrator.ts + agent-extension.ts (userContextBudget > 200)
+
+HOW WORLD MONITORING WORKS
+──────────────────────────────────────────────────────────────────────────────
+  N.1 PASSIVE WORLD MONITORING
+    Source: user messages — when the user MENTIONS a world event ("I heard Stripe just raised"),
+    the agent captures it, scores it for relevance, and queues it for future surfacing.
+    Not real-time web scraping — built from the user's own awareness of the world.
+
+  N.2 SIGNAL VS NOISE FILTERING
+    Relevance score = f(mentions_count, days_since_last_mention)
+    Surface threshold: score >= 50 (approximately 2+ criteria hit)
+    Events scoring < 50 are stored but never surfaced
+
+  N.3 TIMING
+    Surface gate: only when last_surfaced_at is null OR more than 2 hours ago (session start)
+    Load gate: suppressed when channel_k energy_state = 'depleted'
+    Volume cap: max 2 events per session, highest-scoring first
+    Format: "[Channel N — World Intelligence]\nBefore we begin — [event1]\n[event2]"
+
+EVENT TYPE LABELS
+──────────────────────────────────────────────────────────────────────────────
+  [Funding]   — raised, funded, closed round, series A/B/C, secured funding
+  [Launch]    — launched, released, shipped, announced, unveiled, went live
+  [People]    — joined, hired, promoted, became, appointed, left, resigned
+  [News]      — acquired, merged, shut down, went public, IPO, partnership
+
+WATCHLIST BUILD
+──────────────────────────────────────────────────────────────────────────────
+  Every message runs extractWatchlistEntities → upsert channel_n_watchlist
+  Two-word proper nouns (John Smith) captured as unit
+  Entity type: company (default) or person (two-word name, or CEO/CTO context cues)
+  mentions_count and last_mentioned updated on every message containing the entity
+
+RELEVANCE SCORE
+──────────────────────────────────────────────────────────────────────────────
+  mentions_count >= 10 → +35
+  mentions_count >= 5  → +25
+  mentions_count >= 2  → +15
+  mentions_count = 1   → +5
+  daysSinceMention <= 7  → +50
+  daysSinceMention <= 30 → +30
+  daysSinceMention <= 90 → +10
+  Max score: 100; surface threshold: 50
+
+SKIP WORDS (not extracted as proper nouns)
+──────────────────────────────────────────────────────────────────────────────
+  Articles:     The, This, That, These, Those, Both, Each, Neither, Either
+  Pronouns:     We, You, He, She, They, Our, Your, His, Her, Their
+  Conjunctions: And, But, Or, So, Yet, For, Nor, As, If
+  Common verbs: Have, Had, Does, Do, Am, Are, Was, Were, Be, Been, Will, Can
+  Time words:   Today, Yesterday, Tomorrow, weekday names, month names
+  + ~30 more common sentence starters
+
+TROUBLESHOOTING
+──────────────────────────────────────────────────────────────────────────────
+Events not surfacing?
+  1. Check score: SELECT entity_name, relevance_score, surfaced FROM channel_n_events WHERE user_id=?
+  2. Needs score >= 50 AND surfaced = 0
+  3. Check session gate: SELECT last_surfaced_at FROM channel_n_profiles WHERE user_id=?
+     (must be null OR more than 2 hours ago)
+  4. Check energy: SELECT energy_state FROM channel_k_profiles WHERE user_id=?
+     (depleted = no surface)
+
+Entity not detected in message?
+  Check if the entity name starts with a word in the SKIP_WORDS list (e.g. "Both" before entity)
+  Check if it has 3+ lowercase chars after the initial capital (regex: [A-Z][a-z]{2,})
+  Single-letter or all-caps words (API, AWS) won't be extracted — this is by design
+
+Event not logged from message?
+  Event detection requires: proper noun + event trigger verb in ~160 char window
+  Check trigger words for each event type in EVENT_TRIGGERS in world-scanner.ts
+
+
+â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"
+SYNTHESIS â€" CROSS-CHANNEL INTELLIGENCE LAYER
+â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"
+
+Unit tests are in: src/tests/synthesis.test.ts
+Run: npx tsx src/tests/synthesis.test.ts
+Status: 30/30 passing
+
+Tables:
+  synthesis_state â€" tracks when each synthesis signal was last surfaced per user (prevents re-surfacing)
+                    Columns: user_id, synthesis_type (s1-s5), last_surfaced_at, last_value
+
+Source files:
+  src/lib/synthesis/s1-focus-convergence.ts  â€" checkFocusConvergence (reads A, M, G, O, F)
+  src/lib/synthesis/s2-stress-composite.ts   â€" checkStressComposite (reads K, A, G, B, L)
+  src/lib/synthesis/s3-relationship-weight.ts â€" getHighImportanceRelationships (reads F, N)
+  src/lib/synthesis/s4-goal-reality-check.ts â€" checkGoalReality (reads A, M, G)
+  src/lib/synthesis/s5-automation-detector.ts â€" findAutomationOpportunity (reads G, B)
+  src/lib/synthesis/context-builder.ts       â€" buildSynthesisContextBlock (combines all 5)
+
+WHAT EACH TEST COVERS
+â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+  S1 Focus Convergence (5 tests):
+  fc-a  tribe=dev + drift=technical + task=code â†' convergence: technical
+  fc-b  tribe=vc + drift=financial only (2 votes) â†' no convergence (need 3)
+  fc-c  tribe=founder + drift=business + task=plan â†' convergence: business
+  fc-d  tribe=vc + drift=financial + achievement=raised â†' convergence: financial
+  fc-e  no profiles â†' null
+
+  S2 Stress State Composite (5 tests):
+  sc-a  K-overload + K-energy + A-frustration + G-night = 4 â†' moderate
+  sc-b  all 7 signals fire â†' score=7, level=high
+  sc-c  only 3 signals â†' null (below threshold of 4)
+  sc-d  K-overload only (1 signal) â†' null
+  sc-e  G-urgency + G-night + K-depleted + A-frustration = 4 â†' composite fires
+
+  S3 Relationship Importance (5 tests):
+  rw-a  15 mentions + rising + bridge â†' high score, included
+  rw-b  2 mentions â†' below threshold, excluded
+  rw-c  10 mentions + watchlist entry + register â†' included
+  rw-d  empty relationship table â†' empty array
+  rw-e  4 people â†' sorted by score, capped at 3
+
+  S4 Goal Reality Check (5 tests):
+  gr-a  tribe=dev but 12 write tasks â†' divergence: technical stated, relational actual
+  gr-b  tribe=dev + dominant task=code â†' no divergence
+  gr-c  no tribe data â†' null
+  gr-d  fewer than 10 tasks â†' null (insufficient data)
+  gr-e  tribe=founder + 60% write tasks â†' divergence detected
+
+  S5 Automation Detector (5 tests):
+  au-a  5 write tasks + 0% correction â†' opportunity detected
+  au-b  only 2 write tasks â†' below 3x threshold
+  au-c  4 code tasks but 50% correction â†' correction too high, skipped
+  au-d  no tasks â†' null
+  au-e  3 research tasks + urgency â†' opportunity with urgency flag
+
+  Context Builder (5 tests):
+  cb-a  no signals â†' null
+  cb-b  stress composite present â†' block includes decisive-mode instruction
+  cb-c  high-importance relationship present â†' relationship block included
+  cb-d  S1 surfaced within 7-day window â†' NOT re-surfaced
+  cb-e  automation opportunity â†' task category named in block
+
+WIRING
+â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+  No capture needed â€" synthesis is read-only (reads existing channel tables, writes nothing)
+  Context injection: agents/orchestrator.ts + agent-extension.ts (userContextBudget > 200)
+  Surfaces LAST in the combined context block â€" after all individual channels
+
+THE 5 SYNTHESIS MECHANISMS
+â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+  S1 Focus Convergence      â€" 3+ channels agree on same domain â†' confirmed focus shift
+                              Channels: A (tribe) + M (drift) + G (task pattern) + O (achievement) + F (new contacts)
+                              Surface: when area changes from last surfaced; max weekly
+                              Domain taxonomy: technical / business / financial / relational / emotional
+
+  S2 Stress State Composite â€" 4+ of 7 stress dimensions active â†' sustained high-pressure mode
+                              Dimensions: K-overload / K-energy / A-frustration / G-night / G-urgency / B-corrections / L-avoidance
+                              Surface: daily re-check; level = 'high' (5+) or 'moderate' (4)
+                              Effect: ONE answer, decision-first, no options, shortest path to done
+
+  S3 Relationship Weight    â€" Cross-channel importance score per person; surfaces active high-value people
+                              Factors: F-mention-count + F-trajectory + F-bridge + N-watchlist + F-register
+                              Surface: every session when relevant (no time gate)
+                              Threshold: importance score >= 3; max 2 people surfaced per block
+
+  S4 Goal Reality Check     â€" Stated identity vs actual task behavior â†' surfaces divergence
+                              Stated: A tribe or M drift direction
+                              Actual: G task category distribution in last 30 days
+                              Surface: when actual focus is 50%+ different domain; max bi-weekly
+                              Format: "Stated: X. Actual: Y% Z â€" may be deliberate, raise if relevant"
+
+  S5 Automation Opportunity â€" Repeating task + low correction + agent handles it well â†' offer to automate
+                              Criteria: G task_category 3+ times in 30 days AND B correction rate < 35%
+                              Surface: max monthly (once per 30 days)
+                              Format: "[N]x [category] tasks, [rate]% correction â€" consider template/schedule"
+
+SURFACE GATES (prevents noise)
+â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+  S1: only when area changed from last surfaced + max 1x per 7 days
+  S2: daily re-check (stress can resolve quickly)
+  S3: no time gate â€" low cost, high value per session
+  S4: max 1x per 14 days
+  S5: max 1x per 30 days per category
+
+COLD-START NOTES
+â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+  S1 requires Channel A + M + G to have data (natural progression from channel cold-starts)
+  S2 requires at least 4 channels to be tracking simultaneously before it fires
+  S3 requires Channel F relationship profiles to be built up (non-trivial, needs many sessions)
+  S4 requires both identity signal (A or M) AND 10+ task snapshots in G (last 30 days)
+  S5 requires 3+ task snapshots in same category + 3+ Channel B signals for that type
+  All: synthesis returns null gracefully if channel data is insufficient
+
+TROUBLESHOOTING
+â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+Nothing surfacing?
+  â†' Check source tables have data: channel_a_profiles, channel_m_profiles, channel_g_task_snapshots, etc.
+  â†' Check synthesis_state to see what was recently surfaced and when:
+     SELECT * FROM synthesis_state WHERE user_id = ?
+
+S2 not firing?
+  â†' Need 4 of 7 stress dimensions simultaneously. Check each:
+     1. SELECT COUNT(*) FROM channel_k_signals WHERE user_id=? AND signal_type='overload' AND created_at >= datetime('now', '-1 day')
+     2. SELECT energy_state FROM channel_k_profiles WHERE user_id=?
+     3. SELECT COUNT(*) FROM channel_a_raw_signals WHERE user_id=? AND frustration_detected=1 AND created_at >= datetime('now', '-1 day')
+     4/5. SELECT COUNT(*), SUM(is_late_night), SUM(has_urgency) FROM channel_g_task_snapshots WHERE user_id=? AND created_at >= datetime('now', '-3 days')
+
+S3 not surfacing people?
+  â†' Requires importance score >= 3. Inspect scores:
+     SELECT person_name, mention_count, trajectory, is_bridge, communication_register, last_seen
+     FROM channel_f_relationship_profiles WHERE user_id=? AND last_seen >= datetime('now', '-30 days')
+  â†' A person with 7+ mentions + rising trajectory + register = score 4 (well above threshold)
+
+
+â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"
+CHANNEL O â€" GOAL COMPLETION AND ACHIEVEMENT TRACKING
+â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"â"
+
+Unit tests are in: src/tests/channel-o.test.ts
+Run: npx tsx src/tests/channel-o.test.ts
+Status: 28/28 passing
+
+Tables:
+  channel_o_achievements â€" per-achievement records (type, text, detected_from, created_at)
+  channel_o_profiles     â€" total_achievements, dominant_achievement_type, most_recent_achievement + at
+
+Source files:
+  src/lib/channel-o/completion-detector.ts â€" detectCompletion, detectPastReference, isCelebratoryTone (pure)
+  src/lib/channel-o/achievement-tracker.ts  â€" trackAchievement (main entry, fire-and-forget from tasks.ts)
+  src/lib/channel-o/context-builder.ts      â€" buildChannelOContextBlock
+
+WHAT EACH TEST COVERS
+â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+  O.1 Completion Detection (10 tests):
+  cd-a  "just closed the deal" â†' closed achievement
+  cd-b  "finally shipped it" â†' shipped achievement
+  cd-c  "we raised our Series A" â†' raised achievement
+  cd-d  "just hired" â†' hired achievement
+  cd-e  "offer accepted" â†' hired achievement
+  cd-f  "it went live" â†' shipped achievement
+  cd-g  "we closed the round" â†' raised (checked before closed/deal due to priority order)
+  cd-h  "wrapped it up" â†' completed achievement
+  cd-i  regular task message â†' null
+  cd-j  achievement text extracted and bounded (max 150 chars)
+
+  Past Reference Detection (3 tests):
+  pr-a  "the campaign we ran last month" â†' past reference detected
+  pr-b  "when we shipped the app" â†' past reference detected
+  pr-c  forward-looking message â†' null
+
+  Celebratory Tone Detection (3 tests):
+  ct-a  "finally shipped!!" â†' celebratory
+  ct-b  "we did it" â†' celebratory
+  ct-c  neutral task message â†' NOT celebratory
+
+  Tracking + Profile (5 tests):
+  tp-a  achievement written to DB on completion detected
+  tp-b  no achievement written for regular message
+  tp-c  profile total_achievements increments across multiple calls
+  tp-d  dominant_achievement_type computed as highest-count type
+  tp-e  most_recent_achievement updated on each track call
+
+  Context Builder (7 tests):
+  cb-a  no profile â†' null
+  cb-b  fewer than 3 achievements â†' null (cold-start gate)
+  cb-c  3+ achievements â†' achievement record surfaced with count
+  cb-d  dominant type "shipped" â†' execution pattern note
+  cb-e  dominant type "raised" â†' fundraising pattern note
+  cb-f  recent win (< 30 days) â†' momentum note injected
+  cb-g  low confidence state (channel_k_profiles) â†' "you have done harder things" anchor
+
+WIRING
+â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+  Signal capture:    routes/tasks.ts â†' chat handler â†' trackAchievement(userId, message)
+  Context injection: agents/orchestrator.ts + agent-extension.ts (userContextBudget > 200)
+
+ACHIEVEMENT TYPES (priority order — first match wins)
+â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+  raised    â€" fundraising closed: "we raised", "just raised", "closed the round", "series a closed", etc.
+             (checked FIRST â€" prevents "closed the round" from matching 'closed' type)
+  shipped   â€" product/feature launched: "finally shipped", "went live", "just launched", "released", etc.
+  closed    â€" deal/contract won: "just closed", "signed the contract", "deal is done", etc.
+  hired     â€" team growth: "just hired", "offer accepted", "starts on Monday", etc.
+  completed â€" general task done: "wrapped it up", "finished", "all done", "done with", etc.
+
+DETECTION METHODS
+â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+  O.1 Direct completion: trigger phrases matched in message â†' type + extracted text logged
+  O.1 Past reference:    "the X we ran last month" / "when we shipped X" / "after closing X"
+                         (fallback if direct trigger doesn't fire; type recorded as 'completed')
+  O.1 Celebratory tone:  isCelebratoryTone detects "!!", "we did it", "finally" â€" used as a signal
+                         weight but NOT standalone: still needs a trigger or past reference to write
+
+CONTEXT BLOCK BEHAVIOR
+â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+  dominant=shipped   â†' "[user] ships things. Execution-first."
+  dominant=closed    â†' "[user] closes deals. They finish what they start."
+  dominant=raised    â†' "[user] has raised capital. Fundraising is part of their world."
+  dominant=hired     â†' "[user] builds teams. Team-building is a core motion."
+  dominant=completed â†' "[user] completes things. High completion rate."
+  recent win (< 30d) â†' "Recent win: '[text]'. Momentum is real — don't let them second-guess it."
+  confidence = low   â†' "...you have done harder things than this." (appended to achievement summary)
+
+CROSS-CHANNEL READ
+â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+  Reads channel_k_profiles.confidence_level directly (no import, just SQL)
+  confidence_level = 'low' â†' appends confidence anchor to achievement block
+
+COLD-START GATE
+â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+  Context block returns null until total_achievements >= 3
+  Prevents injecting achievement context before enough signal is collected
+
+TROUBLESHOOTING
+â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+Context block not appearing?
+  â†' Needs total_achievements >= 3
+  â†' Check: SELECT total_achievements, dominant_achievement_type FROM channel_o_profiles WHERE user_id=?
+
+Achievement type wrong?
+  â†' Priority order matters: raised â†' shipped â†' closed â†' hired â†' completed
+  â†' "closed the round" matches RAISED (not 'closed') because 'raised' patterns are checked first
+  â†' Ambiguous phrases like "just closed" match 'closed'; use "we raised" to get 'raised' type
+  â†' Check: SELECT * FROM channel_o_achievements WHERE user_id=? ORDER BY created_at DESC LIMIT 5
+
+Past reference not detecting?
+  â†' Requires one of: "the X we ran last month", "when we shipped X", "after closing X"
+  â†' Forward-looking language ("we plan to") never fires
+  â†' Check: SELECT detected_from FROM channel_o_achievements WHERE user_id=? ORDER BY created_at DESC

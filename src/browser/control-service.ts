@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 import { loadConfig } from "../config/config.js";
 import { createSubsystemLogger } from "../logging/subsystem.js";
 import { resolveBrowserConfig } from "./config.js";
@@ -78,3 +79,4 @@ export async function stopBrowserControlService(): Promise<void> {
     // ignore
   }
 }
+

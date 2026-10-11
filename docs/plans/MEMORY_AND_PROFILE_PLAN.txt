@@ -1,0 +1,858 @@
+═══════════════════════════════════════════════════════════════════════════════
+PERSISTENT CROSS-SESSION MEMORY & USER PROFILE SYSTEM
+Complete Deep Plan — Jarvis / OpenClaw 2.0
+═══════════════════════════════════════════════════════════════════════════════
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WHAT THIS IS AND WHY IT MATTERS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Right now Jarvis starts every task as if it just woke up for the first time. It
+doesn't know who you are, how you write, what you're building, who you've been
+researching, or what it learned last time. This plan fixes that permanently.
+
+What we're building is NOT just a profile form. It is a living intelligence
+layer that sits beneath every agent task and makes the agent better with every
+single run — without the user having to do anything after the initial 15-minute
+setup. The agent observes, learns, consolidates, and improves. The user gets a
+tool that feels like it genuinely knows them over time.
+
+The difference from Hermes (which inspired parts of this): Hermes is a coding
+assistant that stores facts about your codebase. Jarvis is a browser automation
+agent that visits platforms on your behalf, reads feeds, researches people, and
+writes in your voice. That means memory here includes OBSERVED WORLD FACTS —
+things the agent learned by doing work — not just facts the user stated. That
+is the key design distinction that makes this richer.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE FIVE FILES — ARCHITECTURE OVERVIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Everything lives under C:\Users\<user>\.jarvis\ (or configurable via env var).
+Five files, five purposes, zero overlap.
+
+  FILE              OWNER           CHANGES HOW OFTEN     TOKEN BUDGET
+  ─────────────────────────────────────────────────────────────────────
+  SOUL.md           User only       Rarely (set once)     ~400 tokens
+  USER.md           User + agent    Monthly / goal shift  ~500 tokens
+  MEMORY.md         Agent only      After every task      ~800 tokens
+  context/          User + agent    Per platform/task     ~500 each
+  SUGGESTIONS.md    Agent only      As patterns emerge    Not injected
+
+Database (SQLite, existing):
+  sessions table    Automatic       Every task            Unlimited (FTS5)
+  memory_pending    Agent staging   After every task      Until approved
+  user_profile      Normalized      On /profile update    Source for USER.md
+
+Every session, the system prompt is assembled in this exact order:
+  1. SOUL.md            — who the agent is
+  2. USER.md            — who the user is
+  3. MEMORY.md (relevant segments only)
+  4. CONTEXT file (if one matches the current task)
+  5. Existing tool + execution guidance (unchanged)
+  6. Timestamp + current task
+
+Hard token cap for items 1–4 combined: 2,000 tokens. If over budget, MEMORY is
+trimmed first, then CONTEXT. SOUL and USER are NEVER trimmed. Under no
+circumstances does the combined injection exceed this cap.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FILE 1: SOUL.md — AGENT PERSONALITY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+What it is:
+  The agent's stable identity. Loaded first in every system prompt. Defines
+  how the agent thinks, communicates, and behaves across every interaction
+  regardless of what task it's running. This is personality, not facts about
+  the user. It never auto-updates — the user controls it entirely.
+
+What goes in it:
+  — Tone defaults: directness level, formality baseline, how it handles
+    uncertainty (proceed with stated assumption vs. ask first)
+  — Domain posture: for a business/AI/founder user, the agent thinks in
+    terms of leverage, speed, and competitive advantage by default
+  — What to avoid: sycophancy, filler affirmations, over-explaining obvious
+    things, vague hedging, corporate language
+  — Context-switching rules: the agent knows LinkedIn posts, cold emails, and
+    internal notes require different registers and shifts automatically
+  — Voice anchor instruction: "Your writing for this user is anchored to the
+    voice samples in USER.md. Never drift toward observed content styles."
+  — Suggestion posture: "When you notice a pattern worth automating, stage it
+    in SUGGESTIONS.md. Do not mention it during the task."
+
+Format:
+  Plain markdown. No headers required. Written like a character brief, not a
+  system spec. Maximum 1,500 characters (~400 tokens). Agent never touches it.
+
+How it's created:
+  /soul setup — a guided 3-question conversation:
+    1. "Describe how you want me to think and communicate in 2-3 sentences."
+    2. "What should I NEVER do in my responses?"
+    3. "How should I handle situations where I'm not sure what to do —
+       ask you, or proceed with a stated assumption?"
+  Agent drafts SOUL.md from answers, shows it, user edits freely, user confirms.
+
+How it's updated:
+  /soul edit — opens the file for direct editing or guided Q&A update.
+  Never auto-updated by the agent. Never updated by background review.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FILE 2: USER.md — USER PROFILE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+What it is:
+  The structured mental model of the user. Injected into every session as slot
+  #2. The agent knows who it's working for before it does anything. It never
+  asks a question that's already answered here.
+
+Sections and what each contains:
+
+  [IDENTITY]
+    Name, role (founder/CEO/solo dev/etc.), company name, one-sentence company
+    description, target customer. These are facts that shape every single
+    decision the agent makes.
+
+  [VOICE]
+    This is the most critical section. It contains:
+    — Formality setting per platform (LinkedIn: professional, Twitter: casual,
+      email to investors: precise and brief)
+    — Emoji usage (yes / no / context-dependent)
+    — Typical message length and density preference
+    — Banned phrases and words (never use: "synergy", "leverage", "reach out",
+      "circle back", "let's connect", etc. — user defines this list)
+    — Naturally used phrases the user actually says (extracted from samples)
+    — Voice profile: a compact AI-extracted style descriptor generated from
+      writing samples provided at setup
+    — 2-3 raw writing sample references (stored as separate files, not inline)
+      so the agent can re-read them before any writing task
+
+    Important: observed voice facts (from analyzing actual samples) live in
+    MEMORY.md under [VOICE OBSERVATIONS]. USER.md stores stated preferences.
+    When they conflict, observed facts win for writing tasks.
+
+  [PLATFORMS]
+    Which email client, which social platforms and how each is used differently,
+    CRM tool, notes tool, important local folder paths, calendar tool. After
+    this is filled in, the agent never asks "which email do you use?"
+
+  [GOALS]
+    What they're working on right now (1-3 sentences). What success looks like
+    this month. What tasks they want automated most. This section has a
+    freshness check — if it hasn't been updated in 14 days, the agent surfaces:
+    "Your goals in your profile are from [date]. Still accurate?"
+
+  [AUTONOMY]
+    How much to do vs. ask. What requires confirmation (mapped to existing
+    tier system but expressed in user's own words). Hard rules like "always CC
+    this person", "never post without showing me first", "never send emails on
+    my behalf without a preview". These map directly to T3/T4 tier overrides
+    in the existing confirmation system.
+
+  [DOMAIN KNOWLEDGE]
+    What the user knows deeply vs. what they're learning. Agent calibrates
+    explanation depth. A founder-engineer doesn't need API explanations. An
+    investor without technical background does.
+
+Format:
+  Structured markdown with section headers. Maximum 1,500 characters (~500
+  tokens). Every field is a single line or compact list — no paragraphs.
+
+How it's created:
+  /profile setup — a guided 7-step conversation (see User Flow section below).
+  Partial profiles are fully valid. Agent works with what it has.
+
+How it's updated:
+  — /profile update <field> — change a specific field
+  — /profile show — review current profile
+  — Agent stages proposed updates after tasks (e.g., if user corrects something)
+  — Agent does NOT auto-update USER.md without staging for approval first
+  — Goals section gets a freshness nudge at 14 days
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FILE 3: MEMORY.md — OBSERVED WORLD KNOWLEDGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+What it is:
+  The agent's running notebook of everything it has learned by doing work.
+  This is where Jarvis goes further than Hermes: because Jarvis visits
+  platforms, reads feeds, and researches people, MEMORY.md captures world
+  observations, not just user preferences. This is the file that makes the
+  agent measurably smarter with each session.
+
+Six categories, each with a named header:
+
+  [ENVIRONMENT]
+    OS, installed tools, important local paths, runtimes, shell environment.
+    Written once at setup, refreshed if environment facts change. These are
+    stable facts that the agent stops guessing at.
+
+  [PROJECTS]
+    Compact diary of completed tasks. Each entry: date, what was done, what was
+    found, what decision was made. The agent builds project continuity across
+    sessions from this. If the user says "continue what we started on LinkedIn
+    last week" — this is where the agent reconstructs the context.
+
+  [PEOPLE]
+    Compact entity profiles for people the agent has encountered while doing
+    tasks. Format per person: Name + identifier (platform handle / company),
+    role, what they talk about, tone/style, platform reach, last observed date,
+    any signals about current priorities. Entry created only when the agent has
+    visited their profile or feed directly. Requires at least 2 identifiers to
+    create (e.g., full name + LinkedIn handle) to prevent false merges.
+    Facts older than 60 days get a "(may be stale)" marker automatically.
+
+  [PLATFORM OBSERVATIONS]
+    Platform-level patterns the agent has observed across repeated visits:
+    what content performs in this user's feed, which accounts their target
+    audience engages with, what topics are trending in their domain, what post
+    formats work. This section grows slowly but compounds — after 10 LinkedIn
+    visits it becomes genuinely useful signal.
+
+  [VOICE OBSERVATIONS]
+    Facts the agent extracted by analyzing the user's actual writing samples.
+    Sentence length distribution, punctuation habits, vocabulary level, em-dash
+    usage, paragraph density, how they open and close messages. These are
+    observed facts that override stated preferences when they conflict. This is
+    what makes writing tasks feel truly like the user's own words.
+
+  [LESSONS]
+    Things that worked or didn't work across tasks. "Cold email with subject
+    'quick question' gets higher response in this user's target market." "This
+    user's LinkedIn posts perform better when published Tuesday morning." "Agent
+    should scroll to bottom of X feed before analyzing — first 3 posts are
+    pinned and unrepresentative." These emerge from observed outcomes over time
+    and compounding across sessions.
+
+Format:
+  Markdown with section headers. Maximum 3,000 characters (~800 tokens). Each
+  entry is timestamped with ISO date (YYYY-MM-DD). Agent manages this file
+  entirely. User never needs to edit it.
+
+Capacity management:
+  When approaching 80% capacity, background review consolidates before adding:
+  — Multiple people entries for the same organization → merged
+  — Multiple project diary entries for same project → compressed to summary
+  — Environment facts unchanged for 30+ days → marked stable, lower trim priority
+  — Lessons reinforced 3+ times → promoted to top of section
+  — Platform observations older than 90 days with no reinforcement → removed
+
+What does NOT go in MEMORY.md:
+  — Credentials, passwords, session tokens, cookies (never, ever)
+  — Raw data dumps or code blocks
+  — Session-specific ephemera (what tab was open, etc.)
+  — Facts already in USER.md (no duplication)
+  — Easily re-findable facts (company names, public info)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FILE 4: CONTEXT FILES — PLATFORM AND TASK SCOPED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+What they are:
+  Per-platform and per-task instruction files loaded ON DEMAND — not in every
+  session. They contain the operational specifics for a given context: how to
+  navigate a platform, what account details are in use, what kinds of content
+  to produce there, what to avoid, any platform-specific quirks.
+
+Stored at: ~/.jarvis/context/
+
+Files:
+  linkedin.md   — LinkedIn navigation, account details, post style for this user
+  twitter.md    — Twitter/X feed behavior, posting style, engagement rules
+  gmail.md      — Email account, signature, tone by recipient type, CC rules
+  instagram.md  — if used
+  tasks/        — per-task TASK.md files for multi-session tasks
+
+TASK.md (inside tasks/ subdirectory, one per complex task):
+  Created at the START of any task with 3+ steps. Contains:
+  — Task goal (one sentence)
+  — What has been done so far (compact list)
+  — What remains (compact list)
+  — Any constraints or decisions made mid-task
+  Updated PROGRESSIVELY during the task, not just at the end. This means if
+  the agent crashes or the session ends, the next session can pick up exactly
+  where it left off without re-explaining anything. User experience: "continue
+  the investor outreach task" and the agent knows exactly where it stopped.
+
+How context files are loaded:
+  At task start, based on the task description, the agent identifies which
+  platform it will likely operate on and pre-loads that context file. If the
+  task touches multiple platforms, both are loaded (within token budget). If
+  no platform is identifiable from the task, no context file loads. Never
+  pre-loaded for local-only tasks.
+
+How they're created:
+  First time the agent successfully completes a task on a new platform, it
+  stages a context file creation: "I've now done 3 LinkedIn tasks. Want me to
+  save a context file for LinkedIn so I work faster there in future?" User
+  approves. Agent writes it.
+
+Maximum size: 5,000 characters per file. Truncated head/tail with marker if
+exceeded. These files grow slowly and are reviewed by the user via /context show.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FILE 5: SUGGESTIONS.md — STAGED AGENT IDEAS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+What it is:
+  The agent's idea notepad. When the agent observes a pattern that suggests a
+  new automation opportunity, it stages the idea here. Never interrupts a task
+  to mention it. User reviews at their pace via /suggestions.
+
+What triggers a suggestion:
+  — Same type of task has been run 3+ times (could be automated)
+  — Agent detects a pattern in the user's domain that matches a known
+    automation opportunity (sees 5 posts about AI agents → agent for monitoring
+    AI news would be useful)
+  — Observed data suggests a repeating workflow the user does manually
+  — Feed analysis reveals an underserved angle for the user's content
+
+Format of each suggestion entry:
+  — What the suggested agent would do (one sentence)
+  — Why it was triggered (what the agent observed)
+  — Estimated value (what problem it solves, rough frequency)
+  — Status: pending / dismissed / created
+
+Limits:
+  Maximum 3 pending suggestions at any time. New suggestions replace the
+  lowest-value existing pending one if over limit. Dismissed suggestions never
+  re-appear. The agent NEVER mentions suggestions during a task. It surfaces
+  them ONLY via /suggestions or on the idle prompt ("You have 2 new agent
+  ideas. Type /suggestions to review.").
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DATABASE ADDITIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+All additions to the existing SQLite database (db.ts):
+
+  sessions (new):
+    id, task_id, user_id, timestamp, task_prompt, task_summary,
+    tools_used (JSON array), outcome (completed/failed), duration_seconds
+    FTS5 virtual table over task_prompt + task_summary for full-text search
+    This is the unlimited archive. Every completed task gets an entry.
+
+  memory_pending (new):
+    id, created_at, type (memory/user_profile/context/suggestion),
+    proposed_content, reason, status (pending/approved/dismissed)
+    Staged writes waiting for user approval (when write_approval mode is on)
+
+  user_profile (new, normalized):
+    The structured source of truth that USER.md is generated from. Stored as
+    key-value pairs with types: identity, voice, platforms, goals, autonomy,
+    domain. USER.md is regenerated from this on every update. Storing in DB
+    (not just the file) means /profile update <field> works atomically without
+    file parsing.
+
+  writing_samples (new):
+    id, user_id, content, source_platform, created_at
+    Stores the raw writing samples the user provided at setup. Agent re-reads
+    these before any writing task. Never summarized — raw text is the reference.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE BACKGROUND REVIEW — HOW THE AGENT LEARNS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After every task that produced output, a background review runs. It is:
+  — Non-blocking (shows results to user first, then runs silently)
+  — Cheap (uses a smaller/faster model — haiku-class)
+  — Configurable (write_approval mode requires user sign-off on every write)
+  — Disabled via /profile update background_review off
+
+What it receives (compact digest, not full transcript):
+  — Task description and outcome
+  — Tools used and what they returned (summarized)
+  — Any platforms visited
+  — Any people encountered
+  — Any corrections or preferences the user expressed during the task
+
+What it outputs (5 steps):
+
+  Step 1 — Task diary entry for MEMORY.md [PROJECTS]
+    A single compact entry: date, what was done, key outcome, any decision made.
+
+  Step 2 — People and platform observations
+    If the agent visited a profile: compact person entry for MEMORY.md [PEOPLE]
+    If the agent visited a platform: update MEMORY.md [PLATFORM OBSERVATIONS]
+    If neither: skip.
+
+  Step 3 — Lessons learned
+    Did something work unusually well or fail? Stage a lesson entry. Apply
+    save/skip rubric: "Will this still be useful 30 days from now?"
+    Max 1 lesson per review to prevent spam.
+
+  Step 4 — USER.md updates
+    Did the user state a new preference? Correct a misunderstanding? Express
+    a new goal? If yes, stage a USER.md update for approval.
+    The agent stages, NEVER auto-writes USER.md.
+
+  Step 5 — Suggestion check
+    Does this task trigger a suggestion? Apply the 3x-same-task rule or
+    pattern match. If yes, add to SUGGESTIONS.md (respecting the 3-max limit).
+
+The review writes to disk immediately if write_approval is off. If on, entries
+go to memory_pending table and the user sees "Memory update pending approval.
+Type /memory pending to review." on next CLI launch.
+
+Critical rule: The agent CANNOT write to memory files DURING a task. Memory
+is only modified by the background review AFTER the task completes. This
+prevents the agent from getting confused about what it knows vs. what it just
+wrote in the same session.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SESSION SEARCH — THE INFINITE ARCHIVE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Beyond the bounded active files, every task session is stored in the sessions
+table with full-text search. This is the safety net.
+
+The agent uses session search when:
+  — Asked about something not in active memory ("did we research Company X?")
+  — Before adding to MEMORY.md, checks if fact was already noted somewhere
+  — User says "remember when we..." — agent searches, doesn't guess
+
+The agent has a session_search tool available at T0 (no confirmation needed).
+It returns task summaries matching the query, ordered by recency.
+
+The user has /memory search <query> in the CLI for direct access.
+
+Search uses SQLite FTS5 for sub-20ms queries at any history size.
+Returns raw summaries, not LLM re-generations. No fidelity loss.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SMART MEMORY SELECTION — ONLY LOAD WHAT'S RELEVANT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+A naive implementation loads ALL of MEMORY.md every task. Most of it is
+irrelevant for most tasks. For a local file task, loading platform observations
+and person profiles wastes tokens.
+
+Instead: at task start, a lightweight relevance step runs (no LLM call needed,
+just keyword matching):
+  — Task mentions a person's name → load [PEOPLE] section
+  — Task mentions a platform (LinkedIn, Twitter, Gmail) → load [PLATFORM OBSERVATIONS] for that platform AND load that platform's context file
+  — Task is a writing task → load [VOICE OBSERVATIONS]
+  — Task mentions a project that's in the diary → load [PROJECTS] entries for that project
+  — Task is purely local (file operations) → load [ENVIRONMENT] only
+
+The result: most sessions only inject 200-400 tokens of MEMORY.md, not the
+full 800. The token budget cap becomes much less of a constraint in practice.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+USER FLOW — FIRST RUN TO DAILY USE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FIRST RUN (one time, ~15 minutes):
+
+  1. Jarvis launches. No profile detected.
+     → "Before your first task, let me learn about you and how you work.
+        This takes about 15 minutes and makes every task better. Type 'skip'
+        to come back to this later."
+
+  2. /profile setup begins automatically. Seven steps:
+
+     Step 1 — Identity (2 min)
+       "What's your name, your role, and what does your company do?"
+       "Who are your customers?" (one sentence)
+       Saves to: user_profile table → regenerates USER.md [IDENTITY]
+
+     Step 2 — Writing samples (5 min)
+       "Paste 2-3 messages you've actually written — emails, LinkedIn posts,
+        tweets, doesn't matter. I'll use them to learn your voice."
+       User pastes samples one at a time.
+       Agent runs voice analysis (LLM call): extracts sentence length pattern,
+       vocabulary level, tone markers, punctuation habits, natural phrases.
+       Agent shows the extracted voice profile. User confirms or corrects.
+       Saves to: writing_samples table + USER.md [VOICE] voice profile
+
+     Step 3 — Banned phrases (1 min)
+       "Any words or phrases you hate seeing in writing? Corporate-speak,
+        buzzwords, anything that feels fake?"
+       User lists them. Goes directly to USER.md [VOICE] banned phrases list.
+
+     Step 4 — Platforms and tools (2 min)
+       "Which email client, which social platforms do you use, where do your
+        important files live?"
+       Saves to: user_profile → USER.md [PLATFORMS]
+
+     Step 5 — Current goals (3 min)
+       "What are you working on right now? What does winning look like this
+        month? What do you want me to automate most?"
+       Free-form. Agent compresses to 2-3 sentences.
+       Saves to: USER.md [GOALS] with today's date as freshness timestamp.
+
+     Step 6 — Autonomy rules (2 min)
+       "What should I never do without checking with you first?"
+       User answers in own words. Agent maps to existing tier system.
+       Saves to: USER.md [AUTONOMY] with user's original words preserved.
+
+     Step 7 — SOUL.md setup (2 min)
+       "How do you want me to communicate with you? Direct and sharp, or more
+        conversational? How do you want me to handle situations where I'm not
+        sure what to do?"
+       Agent drafts SOUL.md, shows it, user confirms.
+
+  3. Profile setup complete.
+     → "Profile saved. Every task I run from now on will use this as my
+        foundation. You can update any section anytime with /profile update."
+
+  4. First task runs. Notice the difference immediately.
+
+DAILY USE:
+
+  Normal task flow:
+  → User types task
+  → Agent assembles prompt: SOUL + USER + relevant MEMORY segments + platform context if needed
+  → Task runs
+  → Background review runs silently after task output is shown
+  → If write_approval is on: "Memory update pending. /memory pending to review"
+  → If write_approval is off: writes happen, agent says nothing unless it's something notable
+
+  When goals get stale (14 days):
+  → On next launch: "Your goals were last updated [date]. Want to update them?
+     Type /profile update goals or press Enter to skip."
+
+  When agent encounters a gap in the profile mid-task:
+  → Asks the one relevant question: "What's your name? I'll save this so I
+     never ask again."
+  → Stages the answer for USER.md via memory_pending
+
+  When suggestions are ready:
+  → On launch idle: "You have 2 new agent ideas. Type /suggestions to review."
+  → /suggestions shows each with one-line description and dismiss/create options.
+
+  Reviewing and searching memory:
+  → /memory — shows current MEMORY.md with section breakdowns and usage %
+  → /memory search <query> — searches full session history
+  → /memory pending — shows staged writes waiting approval
+
+  Updating profile:
+  → /profile show — current USER.md formatted nicely
+  → /profile update goals — guided update of just the goals section
+  → /profile update voice — re-run voice analysis with new samples
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+AGENT FLOW — WHAT THE AGENT DOES EACH TASK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PRE-TASK (before first LLM call):
+
+  1. Load SOUL.md → slot 1 of system prompt
+  2. Load USER.md → slot 2 of system prompt
+  3. Keyword-match task description to determine which MEMORY.md sections are
+     relevant. Load only those sections → slot 3.
+  4. Keyword-match task description to determine which context file (if any)
+     matches. Load it → slot 4.
+  5. Check if this matches an active TASK.md (multi-session task). If yes,
+     load it and resume from where it left off.
+  6. Enforce token cap (2,000 for items 1-4). Trim MEMORY then CONTEXT if over.
+  7. Check goals freshness in USER.md. If stale, surface nudge before the task.
+  8. Assemble standard tool + execution guidance (unchanged from today).
+  9. First LLM call begins.
+
+DURING TASK:
+
+  10. Agent runs normally using all existing tools.
+  11. For writing tasks: agent re-reads the voice samples referenced in
+      USER.md before generating any text (a read_file call, T0, automatic).
+  12. If task is multi-step (3+ steps): agent writes/updates TASK.md in
+      tasks/ subdirectory progressively. One write per major step completion.
+  13. Agent collects "memory notes" — a lightweight internal list of facts
+      worth remembering. These are NOT written anywhere during the task; they
+      are surfaced to the background review as part of the task digest.
+  14. Agent operates with full awareness of USER.md autonomy rules, which
+      are pre-loaded and map directly to existing T3/T4 tier confirmations.
+
+POST-TASK (after user sees output):
+
+  15. Task complete. Output shown to user.
+  16. Task logged to sessions table (existing task-logger, enhanced with
+      platform visited, people encountered fields).
+  17. Background review runs (non-blocking):
+      a. Receives compact task digest (not full transcript)
+      b. Determines memory candidates (apply save/skip rubric)
+      c. Determines USER.md update candidates
+      d. Determines suggestion candidates
+      e. Writes to disk (or stages to memory_pending if write_approval on)
+  18. If TASK.md exists for this task and task is fully complete: archive it
+      (move to tasks/archive/ with completion date).
+  19. If write_approval is off and memory was written: silent. If write_approval
+      is on: "Memory updated. /memory to review." on next prompt.
+  20. If suggestions were added: "You have [N] new agent ideas." on idle prompt.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CLI COMMANDS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  /profile setup              — full guided setup (or resume partial)
+  /profile show               — display current USER.md formatted
+  /profile update <section>   — guided update of one section (goals, voice,
+                                 platforms, autonomy, identity)
+
+  /soul                       — view current SOUL.md
+  /soul setup                 — guided personality setup
+  /soul edit                  — open for free-form editing
+
+  /memory                     — show MEMORY.md with section breakdown + usage %
+  /memory pending             — show staged writes waiting approval
+  /memory approve             — approve all pending memory writes
+  /memory approve <id>        — approve a specific pending write
+  /memory dismiss <id>        — dismiss a specific pending write
+  /memory search <query>      — full-text search session history
+
+  /context                    — list all context files
+  /context show <platform>    — display a specific context file
+  /context edit <platform>    — edit a context file
+
+  /suggestions                — show pending agent suggestions
+  /suggestions dismiss <n>    — dismiss suggestion number N
+  /suggestions create <n>     — trigger agent creation flow for suggestion N
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROBLEMS ANTICIPATED AND SOLUTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Problem 1 — Token budget explosion as system prompt is already long
+  The existing agent-extension.ts system prompt is already substantial (~3,000+
+  tokens). Adding 2,000 tokens of user context on top risks hitting model limits
+  and increasing cost significantly.
+  Solution: Audit the existing system prompt first. Remove redundant tool
+  descriptions (the tool JSON definitions are already injected; tool descriptions
+  in the prompt body duplicate them). Target: get existing prompt to ≤4,000
+  tokens, then add 2,000 for user context. The smart memory selection (only
+  loading relevant sections) means the real overhead is usually 800-1,200 tokens.
+  Also: SOUL.md + USER.md are prime cache candidates (stable across sessions).
+  Inject them in the system message which gets cached by the API.
+
+Problem 2 — Background review cost accumulates
+  If every task triggers a review LLM call, daily cost goes up noticeably.
+  Solution: Background review only runs if the task: (a) visited a platform,
+  (b) produced written output, (c) did 4+ steps, or (d) the user expressed a
+  preference correction. Pure local file tasks (read, write, move) don't trigger
+  a review unless they were part of a notable decision. This reduces reviews to
+  maybe 30-40% of tasks.
+
+Problem 3 — User abandons /profile setup halfway
+  First-run setup is 15 minutes. Founder types something in, gets distracted.
+  Solution: Every step is saved immediately. Partial profiles work fully — agent
+  uses what it has. Incomplete sections get graceful fallback behavior. On next
+  launch: "You've completed [N] of 7 profile sections. /profile setup to
+  continue, or just start a task." Background opportunistic fill: agent asks one
+  relevant question mid-task when it encounters a gap ("What's your company
+  name? I'll save it so I never ask again.") — answers stage to USER.md.
+
+Problem 4 — Voice drift over time
+  As memory accumulates observations about content the agent has read (other
+  people's LinkedIn posts, competitor writing, etc.), the agent might start
+  subtly drifting toward those patterns instead of the user's actual voice.
+  Solution: Writing samples in writing_samples table are ANCHOR POINTS that
+  never change unless the user adds new ones. Before any writing task, the
+  agent re-reads these via read_file (T0, automatic, listed explicitly in
+  agent pre-task flow). SOUL.md contains an explicit voice-anchor instruction.
+  MEMORY.md [VOICE OBSERVATIONS] contains only observations ABOUT the user's
+  own writing, never about observed third-party content.
+
+Problem 5 — Person fact entity collision
+  Agent visits "John Smith" on LinkedIn during a research task. Later visits
+  a different "John Smith." MEMORY.md now has wrong merged facts about the
+  wrong person.
+  Solution: Person entries require at minimum TWO identifiers to create:
+  full name + at least one of (company, platform handle, email). If the agent
+  can only identify one, it does NOT create a person entry — it just does the
+  task. Entry creation is conservative. Merge only when identifiers match.
+  When updating an existing entry, agent checks: "Does the company/handle
+  still match what I observed? If not, flag as possible different person."
+
+Problem 6 — Person facts become stale and mislead the agent
+  A LinkedIn profile snapshot from 8 months ago shows someone as "VP at Acme."
+  They left 6 months ago. Agent confidently references stale info.
+  Solution: Every person entry is timestamped. Facts older than 60 days get
+  "(may be stale)" appended automatically in MEMORY.md at consolidation time.
+  When agent visits that person's profile again for any reason, it refreshes
+  the entry and removes the stale marker. Agent proactively tells the user:
+  "The profile I have for [name] is from [date] — want me to refresh it?"
+
+Problem 7 — MEMORY.md becomes a noise dump
+  Background review saves too many things. After 2 months MEMORY.md is full of
+  semi-relevant one-off observations with no clear value.
+  Solution: Every proposed save passes a strict three-part rubric enforced in
+  the review prompt: (1) Will this be useful 30 days from now? (2) Is this
+  something the agent would otherwise have to re-discover? (3) Is this durable
+  (not session-ephemeral)? Fail any one → skip. Max 3 new entries per review.
+  Consolidation runs BEFORE any add when above 80% capacity.
+
+Problem 8 — Goals go stale and mislead writing tasks
+  User's goals in USER.md say "close Series A funding" but they closed it
+  2 months ago. Agent keeps framing everything around fundraising.
+  Solution: Goals section has a freshness_date field in user_profile. On
+  launch: if freshness_date > 14 days ago, surface a one-line nudge before
+  the task prompt. User can press Enter to skip or update. Agent does NOT
+  auto-update goals — user must confirm.
+
+Problem 9 — Context file conflicts with USER.md or SOUL.md
+  linkedin.md says "always use formal English" but USER.md says "casual is
+  fine on social platforms." Both are loaded and they contradict.
+  Solution: Strict priority hierarchy enforced in system prompt assembly:
+  SOUL > USER > MEMORY > CONTEXT. When conflict exists between a CONTEXT file
+  and USER.md on the same attribute, USER.md wins. Agent is instructed:
+  "If you detect a conflict between files, apply the higher-priority file
+  and note the conflict in your working notes but don't interrupt the task."
+
+Problem 10 — System prompt injection attacks via context files
+  A malicious website could serve content designed to overwrite context files
+  or inject instructions if the agent writes observed content into a context
+  file without sanitization.
+  Solution: Context files are ONLY written by explicit agent actions that go
+  through the existing confirm_action → T3 flow. The agent never writes content
+  verbatim from a visited page into a context file. Person entries in MEMORY.md
+  are the agent's OWN summary of observed facts, not pasted page content.
+  All context file writes are security-reviewed the same way CLAUDE.md is today.
+
+Problem 11 — Multi-session tasks lose context on crash/restart
+  TASK.md is meant to capture mid-task state, but if the agent crashes before
+  writing it, the in-progress state is lost.
+  Solution: TASK.md is written at the START of a multi-session task (before
+  first browser action), not at the end. It's updated after each COMPLETED
+  step, not at the end of the whole task. The worst-case loss is one step's
+  progress, not the entire task history.
+
+Problem 12 — Writing samples are long and inflate token budget
+  If the agent re-reads full writing samples before every writing task, and
+  the user has 3 samples of 500 words each, that's 1,500 tokens just for
+  reference material — on top of everything else.
+  Solution: Writing samples are stored in writing_samples table and on disk.
+  The agent does NOT load them into the system prompt at session start. Instead,
+  USER.md [VOICE] contains the compact extracted voice profile (~100 tokens).
+  The full samples are read on-demand via read_file ONLY when the task is a
+  substantial writing task (generating an email, drafting a post, writing a
+  proposal). Short replies and in-task messages don't trigger a full sample read.
+
+Problem 13 — Suggestion system annoys the user
+  If the agent surfaces suggestions frequently, the user starts ignoring the
+  "You have N new agent ideas" message and eventually tunes it out entirely.
+  Solution: Suggestions only surface ONCE on CLI launch, then never again
+  until the count changes. No nagging if the user hasn't checked in a while.
+  Max 3 pending at any time. If a suggestion has been pending for 30 days
+  unreviewed, it auto-archives (not dismissed, just archived — accessible via
+  /suggestions archive). The system treats no-action as neither acceptance nor
+  rejection.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IMPLEMENTATION PHASES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PHASE 1 — Foundation: USER.md + Profile Command (3-4 days)
+  What this delivers: every task immediately smarter. Agent knows who you are.
+  1. DB schema: add user_profile, writing_samples tables
+  2. File system init: create ~/.jarvis/ structure on first launch
+  3. /profile setup command in cli.ts — 7-step guided conversation
+  4. USER.md generation from user_profile table
+  5. USER.md injection into system prompt as slot 2 (after SOUL placeholder)
+  6. /profile show and /profile update <section> commands
+  7. Goals freshness check on CLI launch (14-day nudge)
+  8. Partial profile graceful fallback
+
+  Value delivered immediately: agent knows name, company, goals, voice,
+  banned phrases, autonomy rules. Every task is better from day 1.
+
+PHASE 2 — SOUL.md + Voice Extraction (2-3 days)
+  What this delivers: the agent has a personality. Writing tasks use your voice.
+  1. SOUL.md file + default starter content
+  2. /soul setup command (3-question guided conversation)
+  3. SOUL.md injection as slot 1 in system prompt
+  4. Voice extraction: LLM call at /profile setup step 2 to extract voice
+     profile from writing samples. Store as compact descriptor in USER.md.
+  5. Writing samples stored in writing_samples table + on disk
+  6. On-demand sample read before substantial writing tasks
+  7. /soul and /soul edit commands
+
+PHASE 3 — MEMORY.md + Background Review (3-4 days)
+  What this delivers: the agent learns and improves with every task.
+  1. MEMORY.md file with 6-section structure
+  2. DB schema: memory_pending table, sessions table (FTS5)
+  3. Background review module: receives task digest, outputs memory proposals
+  4. Smart memory section selection (keyword-match relevance at task start)
+  5. Capacity management + consolidation logic
+  6. Session archival to sessions table after every task
+  7. /memory commands
+  8. write_approval mode (optional flag in user_profile)
+  9. Timestamp-based staleness marking in MEMORY.md
+
+PHASE 4 — Context Files + TASK.md (2-3 days)
+  What this delivers: the agent works faster on platforms it knows, and can
+  resume multi-session tasks without re-briefing.
+  1. Context file directory structure
+  2. Platform keyword detection at task start → context file loading
+  3. Token budget enforcement (2,000 cap for all injected user context)
+  4. TASK.md creation for multi-step tasks (3+ steps threshold)
+  5. Progressive TASK.md update during task (after each major step)
+  6. TASK.md archive on task completion
+  7. /context commands
+  8. Context file creation proposal after 3rd task on same platform
+
+PHASE 5 — People + Platform Observations (2-3 days)
+  What this delivers: the agent remembers who you've been researching and what
+  it observed on platforms — compounding intelligence over time.
+  1. Person entity detection in background review (name + identifier extraction)
+  2. Person entry creation with 2-identifier requirement
+  3. Platform observation extraction in background review
+  4. Staleness marking at 60 days for person facts
+  5. Person refresh prompt when agent re-visits known profile
+  6. LinkedIn, Twitter, Gmail platform observation categories
+
+PHASE 6 — Session Search (1-2 days)
+  What this delivers: infinite searchable history.
+  1. FTS5 sessions table population after every task
+  2. session_search tool added to agent's tool list (T0, auto)
+  3. /memory search command
+  4. Pre-add duplication check in background review
+
+PHASE 7 — Agent Suggestions (1-2 days)
+  What this delivers: the agent proactively notices automation opportunities.
+  1. SUGGESTIONS.md file
+  2. Suggestion trigger evaluation in background review (3x-same-task, pattern)
+  3. 3-suggestion limit enforcement
+  4. /suggestions commands
+  5. Idle prompt notification (once per launch, not repeated)
+  6. 30-day auto-archive for unreviewed suggestions
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WHAT "DONE" LOOKS LIKE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After all 7 phases are complete, this is what the experience looks like:
+
+  — The agent writes in your voice on the first draft, without being told how.
+  — The agent knows your name, company, goals, and target customer without you
+    mentioning them in the task.
+  — When you say "draft a LinkedIn post about this," it automatically loads
+    linkedin.md + your voice profile + recent LinkedIn observations.
+  — When you say "research this investor," it checks if you've already
+    researched them and returns what it already knows before going to the web.
+  — When you complete your 4th cold email campaign, a suggestion appears:
+    "I could build an agent that monitors reply rates and surfaces the best
+    performing subject lines automatically."
+  — After 3 months of tasks, the agent has a rich model of your world — your
+    network, your platforms, your patterns, your voice. Every task it runs is
+    meaningfully better than the first day.
+  — You never had to manually curate any of this. It emerged from the work.
+
+This is the compounding intelligence layer. Phase 1 delivers 60% of the value
+on day 1. Phases 2-7 deliver the other 40% over the following weeks — and that
+40% keeps growing as the agent accumulates observations.
+
+Build Phase 1 first. Ship it. The improvement is immediately noticeable.
+
+═══════════════════════════════════════════════════════════════════════════════
+
+
+
+PROMPT:  the prfoile, the suggestiosna nd then use that data form the profile, to then do sthf ro theu suer automaticaly, .
+  first we need to find a way to extrat data from the user liek both ask him and automatically frm the task he does.
+  then collect all that data. and then use that data to make suggestiosn adn do stuff for him auatomatically. mabe we
+  aso need like a md file that will be created and used for an inidvidual session on what the goal for the user from
+  that session is maybe and save importan tstuff there like what it did th agtn durign that ession and so on and forth
+  but then after the session ends sav it with it you know for evey session a new one. also some supr important
+  detials new it saves to the generela md files user.md and the other stuff as well. We need to make thwe agetn as ai
+  said collect data and then use those. also maybe it woudl remembr stuff the user did tform the previosu session and
+  start like hw did tat networking thign went ? or stuf fliek taht and it woudl start from the same sesssion and if
+  the user wants to make a new session he does it

@@ -93,6 +93,7 @@ export async function snapshotAiViaPlaywright(opts: {
 export async function snapshotRoleViaPlaywright(opts: {
   cdpUrl: string;
   targetId?: string;
+  page?: import('playwright-core').Page;
   selector?: string;
   frameSelector?: string;
   refsMode?: "role" | "aria";
@@ -102,7 +103,7 @@ export async function snapshotRoleViaPlaywright(opts: {
   refs: Record<string, { role: string; name?: string; nth?: number }>;
   stats: { lines: number; chars: number; refs: number; interactive: number };
 }> {
-  const page = await getPageForTargetId({
+  const page = opts.page ?? await getPageForTargetId({
     cdpUrl: opts.cdpUrl,
     targetId: opts.targetId,
   });

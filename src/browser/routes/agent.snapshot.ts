@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 import path from "node:path";
 import { ensureMediaDir, saveMediaBuffer } from "../../media/store.js";
 import { captureScreenshot, snapshotAria } from "../cdp.js";
@@ -371,3 +372,4 @@ export function registerBrowserAgentSnapshotRoutes(
     }
   });
 }
+

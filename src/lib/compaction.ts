@@ -12,90 +12,119 @@ function estimateMessagesTokens(messages: any[]): number {
   return messages.reduce((sum, msg) => sum + estimateMessageTokens(msg), 0)
 }
 
+
 function stripSnapshotDetails(messages: any[]): any[] {
   return messages.map(msg => {
+    // Strip legacy assistant-embedded snapshot markers (old format)
     if (msg.role === 'assistant' && typeof msg.content === 'string') {
-      let summary = msg.content
-      summary = summary.replace(/\[snapshot:openclaw\].*/g, '[snapshot: taken]')
-      summary = summary.replace(/refs=\d+.*?interactive=true/g, '[refs available]')
-      return { ...msg, content: summary }
+      let s = msg.content
+      s = s.replace(/\[snapshot:openclaw\].*/g, '[snapshot: taken]')
+      s = s.replace(/refs=\d+.*?interactive=true/g, '[refs available]')
+      return { ...msg, content: s }
     }
+    // Note: tool result truncation is intentionally NOT done here — evictOldSnapshots
+    // in agent-extension.ts replaces stale snapshot results in-place before compaction
+    // runs. Truncating here would also hit the CURRENT (live) snapshot and break
+    // the agent's ability to read element refs on the active page.
     return msg
   })
 }
 
 function summarizeOldMessages(messages: any[]): string {
-  // Find the task_complete message (what was shown to user)
-  let taskResult = ''
-  
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i]
-    if (msg.role === 'assistant') {
+  let goal = ''
+  const toolsCalled: string[] = []
+  const completions: string[] = []
+  let lastState = ''
+
+  for (const msg of messages) {
+    if (msg.role === 'user' && !goal) {
       const content = typeof msg.content === 'string' ? msg.content : ''
-      // Look for task_complete message (starts with ✅)
-      if (content.includes('✅')) {
-        const match = content.match(/✅ (.+)/)
-        taskResult = match?.[1] || 'Task completed'
-        break
+      // Skip re-injected summaries and agent enforcement injections
+      if (!content.startsWith('[Context from') && !content.startsWith('You MUST call')) {
+        goal = content.slice(0, 400).trim()
       }
     }
+    if (msg.role === 'assistant' && Array.isArray(msg.tool_calls)) {
+      for (const tc of msg.tool_calls) {
+        if (tc.function?.name) toolsCalled.push(tc.function.name)
+      }
+    }
+    if (msg.role === 'assistant' && typeof msg.content === 'string') {
+      const c = msg.content
+      if (c.includes('✅')) {
+        const m = c.match(/✅ (.+)/)
+        if (m) completions.push(m[1].slice(0, 200))
+      }
+      if (c.trim()) lastState = c.slice(0, 200).trim()
+    }
   }
-  
-  // If we found a task result, return just that (what was shown to user)
-  if (taskResult) {
-    return `Previous task result: ✅ ${taskResult}`
-  }
-  
-  // If no task_complete found, return neutral message
-  return `Previous task context available`
+
+  const parts: string[] = ['[Context from earlier in this task — reference only, current page state may differ]']
+  if (goal) parts.push(`Goal: ${goal}`)
+  if (completions.length) parts.push(`Completed: ${completions.join(' | ')}`)
+
+  const uniqueTools = [...new Set(toolsCalled)].slice(0, 12)
+  if (uniqueTools.length) parts.push(`Steps taken: ${uniqueTools.join(' → ')}`)
+
+  if (!completions.length && lastState) parts.push(`Last state: ${lastState}`)
+
+  return parts.join('\n')
 }
 
 export function compactMessages(
   messages: any[],
   maxTokens: number = 8000,
   keepRecentCount: number = 10
-): any[] {  // ← EXPLICIT return type
+): any[] {
   if (messages.length === 0) return messages
-  
+
   const totalTokens = estimateMessagesTokens(messages)
-  
   if (totalTokens <= maxTokens) {
     return stripSnapshotDetails(messages)
   }
-  
+
   const systemMsg = messages[0]
   const rest = messages.slice(1)
-  
-  const recentCount = Math.min(keepRecentCount, rest.length)
-  const recentMsgs = rest.slice(-recentCount)
-  const oldMsgs = rest.slice(0, -recentCount)
-  
-  if (oldMsgs.length === 0) {
-    return [systemMsg, ...stripSnapshotDetails(recentMsgs)]
+
+  // Need at least 2 non-system messages to have anything worth compacting
+  if (rest.length <= 1) return messages
+
+  // firstUserMsg holds the task goal + plan — always protect it from summarization
+  const firstUserMsg = rest[0]
+
+  // middleEnd is where the "recent protected tail" begins.
+  // We protect at least 1 message (firstUserMsg) from summarization, so
+  // keepRecentCount is bounded to rest.length - 1.
+  const effectiveKeep = Math.min(keepRecentCount, rest.length - 1)
+  const middleEnd = rest.length - effectiveKeep
+  const middleMsgs = rest.slice(1, middleEnd)
+  const recentMsgs = rest.slice(middleEnd)
+
+  // Nothing in the middle to summarize — return all messages as-is
+  if (middleMsgs.length === 0) {
+    return [systemMsg, firstUserMsg, ...stripSnapshotDetails(recentMsgs)]
   }
-  
-  const historySummary = summarizeOldMessages(oldMsgs)
-  
-  const compacted: any[] = [  // ← EXPLICIT type
+
+  const historySummary = summarizeOldMessages(middleMsgs)
+
+  const compacted: any[] = [
     systemMsg,
-    {
-      role: 'user',
-      content: historySummary
-    },
-    ...stripSnapshotDetails(recentMsgs)
+    firstUserMsg,
+    { role: 'user', content: historySummary },
+    ...stripSnapshotDetails(recentMsgs),
   ]
-  
+
   const compactedTokens = estimateMessagesTokens(compacted)
-  
   if (compactedTokens > maxTokens && recentMsgs.length > 3) {
-    const furtherReduced = compacted.slice(0, 2).concat(compacted.slice(-3))
-    return furtherReduced
+    // Emergency reduction: keep system + goal + summary + last 3 messages
+    return compacted.slice(0, 3).concat(compacted.slice(-3))
   }
-  
+
   return compacted
 }
 
-export function logTokenUsage(messages: any[], label: string = 'Messages'): void {
+export function logTokenUsage(messages: any[], label: string = 'Messages', silent = false): void {
+  if (silent) return
   const tokens = estimateMessagesTokens(messages)
   console.log(`[tokens] ${label}: ${messages.length} messages, ~${tokens} tokens`)
 }

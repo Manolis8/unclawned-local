@@ -1,0 +1,397 @@
+================================================================================
+  WHERE TO START — THE CONCRETE PLAN
+  From where you are now → toward the vision
+================================================================================
+
+You identified the two core things correctly:
+
+  1. Super memory — who the user is, how they think, their style
+  2. The unified technical layer — browser + chat + local PC working together
+
+The sales agent example you gave is perfect. Let's use it as the north star
+for this entire plan. Here's what that sales agent needs:
+
+  [Chat layer]    → knows how to write cold emails in YOUR voice
+  [Browser layer] → navigates LinkedIn, Gmail, competitor sites
+  [Local PC layer]→ reads your CRM export, writes a leads file, opens apps
+  [Memory layer]  → knows your ICP, your product, past deals, your tone
+
+Without ALL four, the agent is half-useful. The browser agent you have now
+is the browser layer. You're missing the other three at real quality.
+
+Here is the order to build them. Each step makes every step after it better.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  STEP 1 — THE USER PROFILE SYSTEM  (this week, ~2-3 days)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This is the foundation of everything. Build it first because it immediately
+makes the agent you have right now smarter — no other changes needed.
+
+What it is:
+  A structured profile the user fills in once. Every agent reads it at
+  the start of every task. It becomes the agent's "mental model of you."
+
+What goes in it:
+
+  IDENTITY
+  - Name, role (founder / CEO / solo dev / etc.)
+  - Company name and what it does (one sentence)
+  - Target customer (who you sell to / build for)
+
+  COMMUNICATION STYLE
+  - How formal is your writing? (casual / professional / depends on platform)
+  - Do you use emojis in professional contexts?
+  - How long are your typical emails? (short and direct / detailed)
+  - What words or phrases you NEVER use ("synergy", "leverage", etc.)
+  - Example: paste 2-3 real emails you've written → agent learns your voice
+
+  PLATFORMS & TOOLS
+  - Which email do you use (Gmail / Outlook)
+  - Which social platforms and how you use each differently
+  - What tools you use for CRM, notes, tasks, calendar
+  - What local folders matter (where your documents live)
+
+  GOALS
+  - What are you working on right now (1-3 sentences)
+  - What does success look like this month
+  - What tasks do you want automated the most
+
+  PREFERENCES
+  - How much do you want the agent to do autonomously vs. ask you
+  - What should the agent NEVER do without asking (send emails? post publicly?)
+  - Any hard rules (no formal language, always cc this person, etc.)
+
+How the agent uses it:
+  At the start of every task, this profile is injected into the system prompt.
+  The agent knows who it's working for before it does anything.
+  It writes in your voice. It knows your targets. It knows your tools.
+  It doesn't ask questions you've already answered in your profile.
+
+How to build it:
+  - A simple /profile command in the CLI that asks questions one by one
+  - Stored in DB as user preferences (extend the existing user_preferences table)
+  - A /profile show to review, /profile update <field> to change anything
+  - On first run (or if profile is empty), prompt the user to set it up
+
+This is 2-3 days of work and immediately makes every single agent better.
+Do this before anything else.
+
+***** for the user profile thet agent elst say goes to x to do a taks the user assigned and watches his feed there then he can have some info what this pwrosn is about you know and be able to like have a perosnality that suites thet user liek fro isnteace mien is about business and ai agents and stuff leik that, the agent will kwno that and like have a style that says leik to sggestiosn apaprt form that i will sue an app hat wll suggest to make agetns ti cous say to make an agent abotu sth or for isnvestors stuff and so on and forth oyu know*****
+
+
+*****
+
+brain on hwo the user gets better: Introducing **Brain**, a new memory system designed to help the assistant learn from past work and improve over time.
+
+Instead of treating every task as a fresh start, Brain analyzes previous sessions, connected tools, created files, and user feedback to understand what worked, what failed, and how future tasks can be handled more effectively.
+
+At the core of the system is a dynamic context graph that organizes knowledge around actual work performed. This allows the assistant to retrieve relevant information faster, build on prior outcomes, and maintain continuity across projects.
+
+According to Perplexity, Brain has already shown measurable improvements on repeat and history-dependent tasks, increasing answer accuracy, improving recall, and reducing the cost of retrieving relevant context.
+
+The broader shift is significant: AI assistants are moving beyond memory as simple chat history and toward systems that actively learn from experience.  WE NEED TO MAKE THE AI ABLE TO HAVE THAT EXPERIENCE
+
+*****
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  STEP 2 — LOCAL PC ACCESS LAYER  (1 week after step 1)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This is the Claude Code / Cursor move. Adding local PC access turns your
+browser agent into a full computer-use agent.
+
+Without it, the sales agent can navigate LinkedIn but can't read your
+existing contacts CSV. Can draft an email but can't save it to your drafts
+folder. Can research a competitor but can't write a comparison doc to your
+desktop. The browser layer and the local layer need each other.
+
+What tools to add to the agent:
+
+  read_file(path)
+    → Read any local file. Text files, CSV, JSON, markdown, code.
+    → Agent can now: read your CRM export, read a document you point it to,
+      read config files, read past notes about a customer.
+
+  write_file(path, content)
+    → Create or overwrite a local file.
+    → Agent can now: write a leads report to your desktop, save a drafted
+      email as a .txt file, create a research summary, update a local DB.
+
+  list_directory(path)
+    → Explore folder structure.
+    → Agent can now: understand where your files live, find the right document
+      without you having to give the exact path.
+
+  run_command(command, args, working_dir)
+    → Execute a shell command.
+    → Agent can now: run scripts, install things, query a local SQLite DB,
+      run a Node/Python script, search files with grep, do anything Claude
+      Code can do.
+
+  open_app(app_name)
+    → Open a local application.
+    → Agent can now: open your calendar, your notes app, your IDE.
+      Pairs with browser_navigate for hybrid flows.
+
+  read_clipboard / write_clipboard
+    → Read from or write to clipboard.
+    → Simple but powerful: agent copies something from browser, pastes it
+      into a local app (or vice versa) without complex automation.
+
+Permission system for local PC tools:
+  This already exists for browser. Extend it naturally:
+
+  read_file   → Tier 0 (read-only, no confirm needed for whitelisted dirs)
+  list_dir    → Tier 0
+  write_file  → Tier 3 (show preview of what will be written, user approves)
+  run_command → Tier 3/4 (show exact command, user approves — like T4 if
+                destructive, T3 if just a script)
+  open_app    → Tier 2 (low stakes, single confirm)
+
+  Security rule: the user sets "allowed directories" in their profile.
+  The agent cannot read/write outside those folders without explicit
+  per-task confirmation. This is the boundary, not a sandbox — clean and
+  understandable.
+
+How this changes the sales agent example:
+
+  BEFORE (browser only):
+  User: "Find 10 leads and draft outreach"
+  Agent: Navigates LinkedIn → finds names → drafts emails in terminal output
+  User: copies them manually into Gmail
+
+  AFTER (browser + local):
+  User: "Find 10 leads and draft outreach"
+  Agent: Navigates LinkedIn → finds names + context
+         → read_file("contacts.csv") to check who's already in your pipeline
+         → drafts 10 personalized emails based on your profile voice
+         → write_file("leads_outreach_draft.md") with all 10 + reasoning
+         → opens Gmail, 10 drafts ready to review
+         → surfaces: "3 leads I'd prioritize. All 10 drafts ready."
+
+The agent just did a task that would have taken you 3 hours.#####
+
+One thing left — the plan calls it "DAY 8 — ties it all together":
+
+The report-back pattern: task_complete extended with findings + suggested_actions. The plan shows exactly how it should look (lines 609–629):
+
+✅ Saved 47 clean leads to Desktop/leads_clean.csv.
+
+📋 FINDINGS:
+   • 15 leads not contacted in 30+ days — good follow-up timing
+   • 8 leads from same company — maybe pick one contact point
+
+💡 NEXT STEPS:
+   1. Draft outreach for top 5 leads
+   2. Open the file in Excel
+   Enter number or press Enter to skip >
+
+This is what makes the agent feel like it has initiative rather than just executing instructions. Want me to build it now?
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  STEP 3 — THE REPORT-BACK PATTERN  (parallel with step 2, or just after)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+those three agent sare perfect: The team behind Claude Code used three agents: one to plan, one to build, and one to judge, cycling until the app actually works.
+
+Right now agents complete a task and say "Done. Here's what happened."
+That's an assistant. The vision requires agents that act more like a Chief
+of Staff — they complete the work AND surface what you should do next.
+
+The pattern:
+
+  Every task completion should have THREE parts:
+  1. DONE — what was accomplished
+  2. FINDINGS — what was discovered that you should know
+  3. SUGGESTED ACTIONS — what the agent recommends next, with one-tap approval
+
+  Example (sales agent):
+  ✅ DONE: Found 12 leads matching your ICP. Removed 2 already in your pipeline.
+           10 draft outreach emails saved to leads_outreach_draft.md
+
+  📋 FINDINGS:
+     - Acme Corp visited your pricing page 3 times this week (hot lead)
+     - Two companies recently raised funding (good timing for outreach)
+     - One competitor dropped prices 10% (may affect your pitch)
+
+  💡 SUGGESTED ACTIONS:
+     [Send all 10 drafts]  [Review individually]  [Prioritize top 3 first]
+
+This is the UX shift from "tool" to "staff." The agent doesn't just complete
+the task — it thinks about what it found and what you should do next.
+
+How to build it:
+  - Extend task_complete to accept a structured object instead of just a string:
+    { done: string, findings: string[], suggested_actions: SuggestedAction[] }
+  - SuggestedAction: { label: string, task: string } — the label is the button,
+    the task is what gets run if they tap it
+  - In the CLI, render findings as a clean list and suggested actions as
+    numbered choices: user types 1, 2, or 3 and it runs immediately
+  - This is the seed of the morning briefing experience
+
+This pattern is CRITICAL because it changes the mental model:
+  Old: "I give the agent a task, it does it, done."
+  New: "The agent completes work, shows me what it found, suggests what's next."
+
+That's a staff member, not a tool.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  STEP 4 — AGENT ROLES / SPECIALIZATION  (month 1)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Right now you have one general-purpose agent. The vision requires specialized
+agents with domain expertise and their own memory.
+
+A sales agent is not just a general agent told to "do sales stuff." It's an
+agent that has:
+  - A system prompt focused entirely on sales knowledge and patterns
+  - Memory of your CRM, your leads, your past conversations
+  - Skills specifically about cold outreach, follow-up timing, objection handling
+  - Its own "department" in the morning briefing
+
+How to build agent roles:
+
+  Structure in DB:
+  - An "agents" table: id, user_id, name, role, system_prompt_extension,
+    memory_namespace, skills_attached, created_at
+  - Each agent has its own memory namespace (so sales agent memory doesn't
+    pollute research agent memory)
+  - Each agent has an extended system prompt added on top of the base prompt
+  - Each agent has a set of attached skills (from the existing skill library)
+
+  Creating an agent (user-facing):
+  - User types: "create a sales agent for my SaaS targeting marketing agencies"
+  - A short conversation: the system asks 5-6 questions to configure it
+  - Agent is saved with its role, its initial context, its skill attachments
+  - User can then say: "ask my sales agent to find 10 leads"
+
+  The Chief of Staff (routing layer):
+  - When a task comes in that isn't addressed to a specific agent, the
+    Chief of Staff reads the task and decides which agent handles it
+  - Or it breaks it into sub-tasks and assigns each to the right agent
+  - This is the foundation of the multi-agent team pattern
+
+  The shared memory namespace:
+  - All agents can READ the user profile (step 1) — that's shared
+  - Each agent has its own WRITE namespace for domain-specific memory
+  - The Chief of Staff can read all namespaces to assemble the briefing
+  - This is "shared memory across a team" from the vision — achieved simply
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  HOW ALL FOUR LAYERS WORK TOGETHER — THE SALES AGENT FULL FLOW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This is what the sales agent looks like when all four steps are done:
+
+  USER: "Find me 10 qualified leads this week and prep outreach"
+
+  CHIEF OF STAFF: Routes to sales agent.
+
+  SALES AGENT reads:
+    → User profile: targets B2B SaaS, under 50 employees, US, HubSpot users
+    → Its own memory: 3 companies already contacted this month (skip them)
+    → Its skills: "LinkedIn prospecting", "cold email drafting"
+
+  BROWSER layer:
+    → Navigates LinkedIn with ICP filters
+    → Extracts 15 companies (finds some already contacted, removes them)
+    → Researches each: funding status, recent activity, team size
+    → Checks competitor site to compare feature messaging
+
+  LOCAL PC layer:
+    → read_file("crm_export.csv") — verifies none are existing customers
+    → Writes leads + context to "qualified_leads_2024_01_15.md"
+
+  CHAT layer:
+    → Drafts 10 personalized cold emails in user's voice (from profile)
+    → Each one references something specific about that company
+    → Ranks them by priority: 3 hot (visited pricing), 4 warm, 3 cold
+
+  REPORT BACK:
+    ✅ DONE: 10 qualified leads found. CRM checked — none are existing customers.
+             Emails drafted and saved to your desktop.
+
+    📋 FINDINGS:
+       - Acme Corp visited your pricing page twice this week → highest priority
+       - TechFlow just raised a $2M seed round → good timing
+       - Your top competitor now offers a free tier → mention this in outreach
+
+    💡 SUGGESTED ACTIONS:
+       [1] Send all 10 now (I'll draft confirm for each)
+       [2] Review top 3 first
+       [3] Schedule sends for Monday morning (better open rates)
+
+  USER: types "2"
+  AGENT: Shows the top 3 emails, user approves each via T3 confirm_action
+  DONE.
+
+That entire flow, without the infrastructure you're building, would take a
+founder 4-6 hours. With it: 15 minutes of review and approval.
+
+THAT is the product.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  THE BUILD ORDER — WEEK BY WEEK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  WEEK 1
+  ✦ User profile system (/profile setup, stored in DB, injected into every task)
+  ✦ Profile injected into agent system prompt automatically
+  ✦ Test: run 5 real tasks with profile vs without — feel the difference
+
+  WEEK 2
+  ✦ Local PC tools: read_file, write_file, list_directory
+  ✦ Permission system extended to file operations (T0 for read, T3 for write)
+  ✦ Allowed directories configured in user profile
+  ✦ Test: "read my contacts.csv and tell me the top 5 by last contact date"
+
+  WEEK 3
+  ✦ run_command tool with permission system (T3/T4 based on destructiveness)
+  ✦ Report-back pattern: task_complete extended to include findings + suggested_actions
+  ✦ CLI renders findings and suggested actions with numbered choices
+  ✦ Test: "research 3 competitors and write a comparison to my desktop"
+
+  WEEK 4 (before Twente)
+  ✦ Agent roles: create a named agent with a role-specific system prompt
+  ✦ At minimum: your personal "sales agent" and "research agent"
+  ✦ /agent create, /agent list, /agent <name> do <task>
+  ✦ Test: build YOUR actual sales agent. Use it for real prospecting. Feel it.
+
+  MONTH 2 (early Twente)
+  ✦ Chief of Staff routing layer (classifies tasks → sends to right agent)
+  ✦ Agent-to-agent communication (research agent findings → sales agent uses them)
+  ✦ Morning briefing: /briefing command that aggregates all agent activity
+  ✦ Shared memory across agents (read user profile, write to own namespace)
+
+  MONTH 3
+  ✦ The briefing screen as the primary interface (not a CLI command, a daily thing)
+  ✦ Event triggers: "when X → agent does Y automatically"
+  ✦ Auto-improving loop: after 10 runs, agent reviews its own logs and adjusts
+  ✦ First test with another user (give access to a founder friend, watch silently)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  THE FIRST THING TO BUILD TOMORROW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+User profile system. Start there.
+
+Not because it's the most impressive. Because it's the highest leverage thing
+you can do right now. Every single agent task gets better immediately.
+No new features needed. The agents you have today start working differently
+the moment they know who they're working for.
+
+The moment you fill in your own profile and run a task that writes in YOUR
+actual voice, about YOUR actual company, toward YOUR actual goals — that is
+when the product stops feeling like a dev tool and starts feeling like yours.
+
+That feeling is the direction.
+
+================================================================================

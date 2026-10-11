@@ -1,0 +1,1085 @@
+═══════════════════════════════════════════════════════════════════════════════
+THE EXTRACTION LAYER — DEEP PLAN
+How an AI agent reads a human being from first principles
+═══════════════════════════════════════════════════════════════════════════════
+
+This document builds on the 8-channel framework from the previous conversation
+(Channels A-H) and goes significantly deeper — adding new channels, new signal
+types within existing channels, new synthesis mechanisms, and new action
+surfaces that only become possible when the full extraction picture exists.
+
+The thesis: a person is not their profile. A person is the sum of:
+  — what they do and how they do it
+  — what world they inhabit and who is in it
+  — how they decide, how they communicate, how they learn
+  — what they avoid, what they repeat, what they fear, what excites them
+  — how they change over time
+
+No form captures this. Behavior does.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE SIGNAL UNIVERSE — ALL EXTRACTION CHANNELS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+──────────────────────────────────────────────────────────────────────────────
+CHANNEL A — WHAT THEY TYPE
+Language as fingerprint, not just instruction
+──────────────────────────────────────────────────────────────────────────────
+
+A.1 VOCABULARY TRIBE DETECTION
+  Every professional world has a dialect. The words someone reaches for
+  without thinking reveal which world they live in.
+
+  "Ship" vs "launch" → builder vs marketer mindset
+  "Deck" vs "presentation" → investor world vs corporate world
+  "LTV" vs "customer value" → growth mindset vs traditional business
+  "Founder" vs "entrepreneur" → startup culture vs business culture
+  "Portfolio" vs "investments" → VC side vs operator side
+  "CAC" vs "cost per customer" vs "acquisition cost" → quantitative vs qualitative thinker
+  "Thread" vs "post" vs "content" → Twitter native vs LinkedIn native vs media
+  "Ping" vs "reach out" vs "send a message" → communication style (async-first vs relationship-first)
+  "Sprint" vs "push" vs "cycle" → technical vs startup vs agency rhythm
+  "Thesis" vs "bet" vs "hypothesis" → academic vs VC vs scientific thinker
+
+  The vocabulary cluster that emerges over 50 tasks is more accurate than any
+  "what is your industry" dropdown. It's how they think in their native tongue.
+
+A.2 PROMPT EVOLUTION TRACKING
+  Prompt length and structure changes as the user-agent relationship matures.
+
+  Early (weeks 1-2):
+    Long, over-explained prompts. Lots of "please", "if possible", caveats.
+    "Can you help me write an email to an investor I met last week at a
+     conference, his name is John, he works at XYZ fund, we talked about..."
+
+  Mature (weeks 6-8):
+    Short, telegraphic. Agent-fluent shorthand.
+    "cold follow-up to john at xyz, we met at the AI summit, angle: traction"
+
+  Degraded (when the agent is failing this user):
+    Prompts get longer again. More caveats, more over-explanation.
+    User is compensating for not trusting the agent to get it right.
+
+  Prompt length trend is a calibration health metric. Shortening = working.
+  Lengthening = calibration regression. Investigate.
+
+A.3 THE NEGATIVE SPACE MAP
+  What a user has never asked for across 200+ tasks is as significant as
+  what they have asked for. Map the absences.
+
+  "Never asked for financial modeling" → outsources it, or doesn't do it
+  "Never asked for cold outreach to strangers" → relationship-network approach
+  "Never asked for legal document review" → has a lawyer, or avoids legal
+  "Never asked for competitive analysis" → doesn't think in competitive terms,
+    or has that covered elsewhere
+  "Never asked for anything creative/design" → not a visual thinker
+
+  The negative space tells the agent what NOT to proactively suggest.
+  Suggesting a financial model to someone who has never touched numbers in
+  200 sessions is wrong — it's not a gap, it's a choice.
+
+A.4 HEDGING FREQUENCY AS CONFIDENCE PROXY
+  "I think I need...", "maybe you could...", "not sure if this makes sense but..."
+  These are hedging patterns. They reveal the user's certainty level about
+  what they're asking for.
+
+  High hedging = uncertain about the right approach. Agent should offer options
+    and ask one clarifying question before proceeding.
+  Low hedging = user knows exactly what they want. Agent should execute, not explore.
+
+  Hedging also varies by task type. A user who is decisive about research
+  tasks but hedges heavily on writing tasks — confident researcher, uncertain
+  writer. The agent should be an active collaborator on writing tasks for this
+  user, not just a drafting machine.
+
+A.5 FRUSTRATION VOCABULARY FINGERPRINT
+  Specific to each user. Some users express frustration through sarcasm
+  ("great, another thing that doesn't work"). Others through bluntness
+  ("this is wrong"). Others through over-explanation of a problem they've
+  mentioned before ("I know I've said this before but...").
+
+  The user's frustration vocabulary is their signal for "something is wrong."
+  The agent should recognize each user's specific frustration dialect rather
+  than applying generic frustration detection.
+
+──────────────────────────────────────────────────────────────────────────────
+CHANNEL B — HOW THEY REACT
+The edit is the truth. Everything else is approximation.
+──────────────────────────────────────────────────────────────────────────────
+
+B.1 EDIT MAGNITUDE TAXONOMY
+  Not just that they edited — how much and what kind.
+
+  Level 1 — Word swap: changed one or two words. Almost right.
+    Signal: minor preference mismatch. Single correction is noise. 5+ is signal.
+
+  Level 2 — Sentence rewrite: rewrote a full sentence without changing structure.
+    Signal: tone or density mismatch in that type of writing.
+
+  Level 3 — Section restructure: moved paragraphs, changed order, changed format.
+    Signal: agent's organizational logic doesn't match user's mental model.
+    Structural preference — store in profile, apply to all similar tasks.
+
+  Level 4 — Full rewrite: used agent output as a starting point only.
+    Signal: fundamental mismatch in approach. 2 full rewrites of same type =
+    stop the default approach entirely, ask what they want instead.
+
+  Level 5 — Discard: agent output not used at all.
+    Signal: agent misunderstood the task type, not just the execution.
+    Investigate what the correct interpretation would have been.
+
+B.2 WHAT THEY PASTE IN (paste archaeology)
+  When a user pastes text into a prompt, they're handing the agent something
+  they consider relevant. Extracting structure from pasted content is high-value.
+
+  Email thread pasted → they're in a communication workflow. What is the
+    formality level of the thread? This sets the reply register.
+
+  Article pasted → they want analysis or synthesis. What domain is the article?
+    This adds to their current focus map.
+
+  Document pasted → they want editing or extraction. What is the document type?
+    What is the writing level? Does it match their own voice or is it external?
+
+  Someone else's writing pasted → comparison or response task. Whose writing
+    style is being referenced? Is this a client? A competitor? A peer?
+
+  Data/numbers pasted → quantitative task. What type of data? Financial,
+    operational, research, personal? Data type tells you what kind of decision
+    they're trying to make.
+
+  The paste log over time is a secondary signal for current focus: if someone
+  has pasted 8 things related to the same topic in 2 weeks, that topic is live.
+
+B.3 RESPONSE LATENCY MAP
+  How long between agent output and user response, by task type.
+
+  Immediate (< 30 seconds): they were watching, task was urgent or they
+    already knew they'd accept the output. High-priority task.
+
+  Short (1-5 minutes): read it, made a quick decision. Standard task.
+
+  Medium (15-60 minutes): they had to go do something or think about it.
+    Either the task was complex or they got interrupted. Not necessarily
+    dissatisfied — could be high-stakes careful review.
+
+  Long (hours or next day): either they got buried or this task was low
+    priority despite being submitted. Or they ran into a problem using the output.
+
+  Pattern: short latency on research tasks, long latency on drafts →
+    user uses research output immediately but needs time to edit drafts.
+    This means drafts need to be closer to perfect on first try — the user
+    is doing significant review before acting.
+
+B.4 APPROVAL PATTERN: WHAT THEY APPROVE WITHOUT READING
+  Speed below 5 seconds on any substantial output = they didn't read it.
+  This is the "rubber stamp" pattern.
+
+  If a user rubber-stamps consistently on a specific task type:
+    Either they've stopped caring about that output (low priority),
+    or they trust the agent completely on that type (high confidence),
+    or they approve and then edit it manually in the actual tool.
+
+  Distinguish by checking if output is subsequently modified (in accessible
+  environments). Rubber stamp + heavy downstream edit = agent should be
+  producing better first drafts there. Rubber stamp + no edit = genuine trust.
+
+──────────────────────────────────────────────────────────────────────────────
+CHANNEL C — WHAT THE AGENT OBSERVES
+The world the user has built reveals who they are
+──────────────────────────────────────────────────────────────────────────────
+
+C.1 TOOL STACK FINGERPRINTING
+  What tools are open, what platforms are accessed, what integrations exist.
+  The tool stack is a professional identity statement.
+
+  Heavy Notion user → systematic thinker, likes structure and databases
+  Heavy Google Docs → collaborative by default, lives in the browser
+  Heavy Obsidian/Logseq → second-brain thinker, values connected knowledge
+  Linear/Jira user → runs sprints, thinks in projects and tickets
+  Superhuman/HEY → email-centric work, high communication volume
+  Figma open frequently → design-adjacent, or leading a product with visual output
+  Airtable/Spreadsheet heavy → data-driven, manages things in rows and columns
+
+  Tool stack also tells you what NOT to suggest. Suggesting a Notion template
+  to someone who doesn't use Notion is friction. Suggesting a process that
+  lives in Google Sheets to someone who lives in Airtable is wrong.
+
+C.2 FILE SYSTEM ARCHITECTURE
+  How someone organizes their files is their external brain structure.
+
+  Deep nested folders with consistent naming → systematic, values findability
+  Flat structure with many files → prioritizes speed over organization
+  Everything on desktop → "I'll deal with it later" personality
+  Archive folder + active folder + reference folder → GTD or similar system
+  Project folders with dates → temporal thinker, organizes by time
+  Topic folders without dates → atemporal thinker, organizes by concept
+
+  The file structure also reveals active projects (recently modified folders),
+  dead projects (untouched for months), and recurring deliverables (folders
+  that always have a "latest" file in them).
+
+C.3 BROWSER TAB STATE (when accessible)
+  Open tabs are the user's current working memory externalized. What's there?
+
+  Many tabs in one domain cluster → deep research mode on that topic.
+    Signal: this is the current focus. Pre-load context.
+
+  Many unread tabs (can tell from favicon vs read state in some browsers) →
+    aspirational backlog. They intend to read these but haven't.
+    Signal: they're overwhelmed with information intake. Don't add more.
+
+  Pinned tabs → tools they always need. What are they? Email? Project tracker?
+    Analytics? The pinned tabs are the center of their work universe.
+
+  Tabs from competing tools → they're evaluating alternatives to something.
+    Signal: might be dissatisfied with current setup, in a decision process.
+
+  Article tabs open for days → slow readers, or content they're intimidated
+    by, or content they want to reference but don't know when.
+
+C.4 CALENDAR ARCHITECTURE (when accessible, with consent)
+  Not the content — the pattern.
+
+  Buffer time between meetings → planner who protects focus blocks
+  Back-to-back all day → reactive, schedule-driven, or very popular
+  Morning-heavy vs afternoon-heavy → reveals when they're "on" for people
+  Recurring meetings vs one-offs → stable vs chaotic collaboration structure
+  Meeting with many different people → hub node in a network
+  Meeting with same 3-4 people repeatedly → tight team, small world
+  Large block of no meetings → either focus blocks or no one wants to meet
+  Weekend or evening blocks → workaholic or in a different timezone situation
+
+  Calendar density is a stress proxy. Weeks with >80% calendar coverage
+  are high-friction weeks. Agent should be more decisive and faster during
+  those weeks, not slower.
+
+C.5 COMMUNICATION GRAPH (from email/messages, with consent)
+  Who this person talks to most, and how the conversations flow.
+
+  High outbound / low inbound → initiator, proactive communicator
+  Low outbound / high inbound → responder, reactive, possibly overloaded
+  Balanced → collaborative, relationship-driven
+
+  Thread length distribution:
+    Long threads with many participants → complex negotiations or decisions
+    Short threads → transactional work
+    Long one-on-one threads → deep relationships or difficult situations
+
+  Response time distribution:
+    Responds quickly to everyone → high communication priority
+    Responds quickly to some, slow to others → tiered relationship system
+    Slow to everyone → email is not their primary channel
+
+  New people in communications (people appearing for the first time):
+    New contact appearing multiple times in one week → someone important just
+    entered their world. Agent should note and be ready to provide context.
+
+──────────────────────────────────────────────────────────────────────────────
+CHANNEL D — EXPLICIT MICRO-EXTRACTION (from previous doc, adding)
+──────────────────────────────────────────────────────────────────────────────
+
+D.1 THE WRONG ASSUMPTION CORRECTION MOMENT
+  Most valuable micro-extraction moment. When the agent is corrected on an
+  assumption it made, it should immediately follow up with a targeted question
+  to understand the right mental model — not just update the specific fact.
+
+  Agent assumed: "this is a cold email to a new contact"
+  User corrected: "no, we've met three times already"
+  Follow-up: "Got it — for [person], do you want me to write as if we have
+               an established relationship, or still keep it relatively professional?"
+  Answer stores: the relationship register for that person permanently.
+
+D.2 THE EMOTIONAL TEMPERATURE SHIFT QUESTION
+  When the user's emotional temperature shifts suddenly (detected from
+  prompt vocabulary), ask once: "Are you under more pressure than usual
+  today? I can adjust how I work — shorter outputs, faster turnaround,
+  less options and more direct recommendations."
+
+  User says yes → switch to high-pressure mode for this session
+  User says no → note the false positive, calibrate detection for this user
+
+D.3 THE FIRST ENCOUNTER WITH A NEW DOMAIN
+  First time a completely new topic appears in a user's prompts, ask:
+  "Is [topic] something you're actively working in, or are you just exploring?"
+
+  "Actively working" → extract context, create a context file for it
+  "Just exploring" → don't update domain focus map, treat as research task only
+
+D.4 COMPLETION FOLLOW-UP (CLOSING THE LOOP)
+  After high-stakes tasks (identified by urgency language or user flagging):
+  "How did that go?"
+
+  This is the most underused question in AI agent design. The outcome data
+  from 10 completed loops tells you more about what actually works than
+  100 internal quality reviews. It's also relationship-building — the agent
+  that asks "how did the meeting go?" is the agent that feels like a partner.
+
+──────────────────────────────────────────────────────────────────────────────
+CHANNEL E — FEED INTELLIGENCE (from previous doc, adding)
+──────────────────────────────────────────────────────────────────────────────
+
+E.1 FEED EVOLUTION MAP
+  A feed snapshot at one point in time is a weak signal.
+  Feed snapshots across 8 visits over 3 months are a map of intellectual drift.
+
+  The agent tracks topic cluster distribution across every feed visit:
+    Visit 1: 40% startup general, 30% AI, 20% VC, 10% other
+    Visit 4: 30% startup general, 45% AI, 15% VC, 10% other
+    Visit 8: 20% startup general, 55% AI, 15% VC, 10% other
+
+  The drift from visit 1 to visit 8 is a focus evolution signal. AI content
+  is growing. This isn't random — the user is engaging with it more,
+  the algorithm is responding, and the user is accepting the new focus.
+  They're moving deeper into AI, probably before they've articulated it as a goal.
+
+  Agent surfaces this when the trend is clear:
+  "I've noticed your LinkedIn feed has shifted significantly toward AI agent
+   content over the last 2 months. Is this a direction you're intentionally
+   moving toward? If so, I can update your goals and context accordingly."
+
+E.2 ENGAGEMENT DEPTH CLASSIFICATION
+  Not all feed engagement is equal. Classify what the agent observes:
+
+  Stopped scrolling + lingered (time on post) → genuine interest
+  Clicked into full post → high interest
+  Clicked into comments → very high interest (they wanted dialogue on it)
+  Clicked into profile → researching the person, not just the content
+  Clicked into external link → willing to leave the platform for this content
+  Scrolled past → seen but not engaging
+
+  The difference between scrolling past and clicking into a profile is enormous.
+  If the user clicks into 3 profiles from the same industry cluster in one session,
+  something is live in that cluster.
+
+E.3 THE PERSON WHO KEEPS APPEARING
+  Across multiple feed visits, certain accounts appear repeatedly in the visible
+  feed. This means:
+    — The algorithm has decided this person is relevant to the user
+    — The user is engaging enough with their content to keep seeing it
+    — This person is in the user's professional orbit, even if not connected
+
+  These recurring accounts are high-value nodes for the relationship graph.
+  They're people the user is passively following even if there's no direct
+  connection. When the user eventually asks about them, the agent already
+  has context.
+
+E.4 THE USER'S OWN CONTENT PERFORMANCE
+  When the agent can see the user's posted content and its engagement:
+
+  Top performing format → what their audience actually responds to
+  Top performing topic → what they're known for in their network
+  Underperforming topics → what their audience doesn't care about (even if
+    the user does) — tension between user interest and audience interest
+
+  Commenting patterns on the user's posts → who their most engaged community
+  members are. These people are more important than follower count.
+
+  The user's own content corpus is a voice sample at scale.
+  Over 50 posts: clear voice, format preferences, topic distribution,
+  posting rhythm, audience relationship style (do they reply to comments?).
+  All of this informs every piece of content the agent writes for them.
+
+──────────────────────────────────────────────────────────────────────────────
+CHANNEL F — RELATIONSHIP GRAPH INTELLIGENCE (from previous doc, adding)
+──────────────────────────────────────────────────────────────────────────────
+
+F.1 RELATIONSHIP TRAJECTORY TRACKING
+  Not just who the user knows — how those relationships are moving.
+
+  Increasing frequency of mentions → this person is becoming more important
+  Decreasing frequency → relationship cooling or deal fell through
+  Sudden disappearance → something happened. Don't ask directly. Note it.
+  Tone shift in how user refers to them → relationship dynamic changed
+    "my investor" → "the fund" (distancing language — likely friction)
+    "Sarah" → "our advisor Sarah" (formalizing — may be a role shift)
+
+F.2 RELATIONSHIP CLUSTERS
+  Groups of people who appear in the same contexts form clusters.
+
+  Cluster A: three people always mentioned together → same team, same project
+  Cluster B: two people introduced by the user to each other → user is a bridge
+  Cluster C: people who only appear in high-urgency contexts → fire-drill team
+  Cluster D: people who appear in positive emotional contexts → trusted inner circle
+
+  Cluster analysis tells you the user's relational world-view without ever
+  asking "who are your most important relationships?"
+
+F.3 THE COMMUNICATION REGISTER MAP
+  The user communicates differently with different people. If the agent can
+  observe communication samples (emails, messages), map the register variation:
+
+  Formal → clients, legal, senior executives, new contacts
+  Semi-formal → most colleagues, investors after first meeting
+  Casual → close peers, teammates they trust, advisors they know well
+  Personal → people outside work context entirely
+
+  The register map means: when the user says "draft a message to [person]",
+  the agent already knows what register to use. No need to ask "is this formal?"
+
+F.4 BRIDGE NODES IN THE NETWORK
+  Some people in the relationship graph appear across multiple clusters.
+  These are the user's bridge relationships — people who connect different
+  parts of their world.
+
+  Bridge nodes are strategically important. When the user asks "who might
+  know someone in [space]", the agent should check bridge nodes first.
+  They're more likely to have the connection than deep-cluster contacts.
+
+──────────────────────────────────────────────────────────────────────────────
+CHANNEL G — TEMPORAL PATTERN INTELLIGENCE (from previous doc, adding)
+──────────────────────────────────────────────────────────────────────────────
+
+G.1 COGNITIVE RHYTHM MAP (more granular than before)
+  Not just peak hours — peak state by hour and day.
+
+  Peak cognition window: when do deep research and complex writing tasks appear?
+  Peak decision window: when do evaluative tasks appear (reviewing, approving)?
+  Peak communication window: when do email-related tasks cluster?
+  Low-energy window: when do simple admin tasks appear?
+  Transition windows: gaps between clusters — probably meetings or breaks.
+
+  The cognitive rhythm map tells the agent WHAT KIND of help to offer at
+  different times, not just whether to surface suggestions.
+
+  At 9am: "The complex analysis you asked about yesterday — ready to work
+    on it now while you're fresh?"
+  At 3pm: "Quick admin task from your backlog: [thing]. Want to knock it out?"
+  At 7pm (if user is working late): simpler, faster, no options — just execution.
+
+G.2 SEASONAL CYCLE DETECTION
+  Over 3+ months, recurring patterns emerge tied to external cycles.
+
+  Month-end: specific task types cluster (reporting, admin, closings)
+  Quarter-end: strategic tasks cluster (reviews, planning, evaluations)
+  Conference seasons: research + networking tasks spike
+  Holiday approach: rush + wrap-up tasks
+  New year / new quarter: goal-setting + planning tasks
+
+  When the agent has seen one cycle, it can prepare for the next.
+  "Last month-end you needed [X] — should I start preparing that now?"
+
+G.3 STRESS CYCLE DETECTION
+  Combination signals that indicate a sustained high-pressure period:
+    — Urgency markers in prompts for 3+ consecutive days
+    — Late-night task timestamps
+    — Shorter prompts than normal
+    — Higher correction rate than normal
+    — Frustrated language appearing
+
+  Stress cycles are not random. They often repeat — fundraising stress,
+  launch stress, deal-closing stress. After seeing one stress cycle and
+  its resolution, the agent knows the shape of the next one.
+  "You went through a similar crunch in March. That time, what helped most
+  was having me handle all the scheduling communications. Want me to do
+  the same this time?"
+
+G.4 RECOVERY PATTERN DETECTION
+  After a stress cycle ends, how does the user come back?
+  Some users dive back in immediately. Others decompress — lighter tasks,
+  more exploratory work, shorter sessions. Knowing the recovery pattern
+  tells the agent not to push heavy cognitive work on the first day back.
+
+──────────────────────────────────────────────────────────────────────────────
+CHANNEL H — OUTPUT QUALITY FEEDBACK LOOP (from previous doc, adding)
+──────────────────────────────────────────────────────────────────────────────
+
+H.1 THE CORPUS INTELLIGENCE ENGINE
+  Over months, the agent has produced hundreds of pieces of content for
+  the user. This corpus is not being used. It should be.
+
+  What the corpus enables:
+
+  Style consistency check: new drafts compared against corpus to ensure
+    voice consistency. "This doesn't sound like how you usually write
+    about [topic]."
+
+  Evergreen topic identification: top 10 topics across the corpus.
+    These are the user's real working domains. Build pre-loaded context
+    for each of them so every related task starts with background.
+
+  Quality benchmark: which corpus items did the user edit minimally (hits)?
+    Which did they heavily rewrite (misses)? The hits are templates.
+    Reproduce the conditions that produced them.
+
+  Vocabulary evolution: compare vocabulary in corpus from month 1 vs month 6.
+    The drift shows how the user's focus and language have evolved.
+
+H.2 DOWNSTREAM OUTCOME TRACKING (where accessible)
+  When the agent can observe what happens after the output is used:
+
+  Email sent → reply received? How fast? What tone?
+  Post published → engagement relative to user's average?
+  Document submitted → feedback received (in subsequent tasks)?
+  Meeting prepared for → how did it go (user tells agent in next session)?
+
+  Downstream outcomes are the most honest quality signal. The agent that
+  helped draft an email that got a "thanks but no" response learned something.
+  The agent that helped prepare a pitch deck that led to a term sheet learned
+  something better. Track these outcomes and connect them back to the
+  task approach that produced them.
+
+──────────────────────────────────────────────────────────────────────────────
+CHANNEL I — DECISION PATTERN INTELLIGENCE (NEW)
+How this user makes decisions, not just what decisions they make
+──────────────────────────────────────────────────────────────────────────────
+
+This is one of the most underexplored extraction vectors. Decision style is
+fundamental to how the agent should present information and options.
+
+I.1 OPTIONS SEEKER VS RECOMMENDATION SEEKER
+  Some users want options: "give me three ways to handle this"
+  Others want recommendations: "just tell me what to do"
+  Others want data first: "show me the numbers, I'll decide"
+  Others want precedent: "what did we do last time in a similar situation?"
+
+  Detectable from prompts:
+  "What would you recommend?" → recommendation seeker
+  "Give me options" → options seeker
+  "What are the pros and cons?" → analytical before deciding
+  "What did we do before?" → precedent-based decider
+
+  Once the decision style is mapped, the agent stops presenting information
+  in the wrong format. The recommendation seeker gets one clear answer.
+  The options seeker gets three. Never mix them up again.
+
+I.2 INFORMATION GATHERING BEFORE DECIDING
+  How many research tasks precede a decision task?
+  Light researcher (1-2 research tasks before deciding) → moves fast,
+    trusts intuition, doesn't want to be overwhelmed with data
+  Heavy researcher (5+ research tasks before deciding) → careful, wants
+    completeness, distrusts gaps, needs confidence before committing
+
+  This maps directly to how much the agent should offer proactively.
+  Heavy researchers want the agent to surface related information they
+  didn't think to ask for. Light researchers find that annoying.
+
+I.3 REVERSAL RATE TRACKING
+  How often does the user start down one path and reverse course?
+
+  Low reversal rate → decisive, consistent, doesn't second-guess
+  High reversal rate → explores many paths, changes mind frequently,
+    or is operating in a high-uncertainty environment
+
+  High reversal rate + high options-seeking → user is in exploratory mode.
+    Agent should be collaborative and offer branching paths.
+  High reversal rate + low options-seeking → user is indecisive or has
+    external pressure changing direction. Agent should ask about constraints
+    before committing to any approach.
+
+I.4 APPROVAL SEEKING PATTERNS
+  Does the user often validate their own decisions with the agent?
+  "Does this make sense?", "Am I thinking about this right?",
+  "Is this a good approach?", "What would you do?"
+
+  These questions are often not actually seeking disagreement — they're
+  seeking confidence confirmation. The agent should recognize this pattern
+  and provide grounded validation with one potential concern, not a full
+  counter-argument. The user who asks "does this make sense?" usually wants
+  "yes, here's why it works, one thing to watch for is..."
+
+──────────────────────────────────────────────────────────────────────────────
+CHANNEL J — INFORMATION DIET INTELLIGENCE (NEW)
+What they consume tells you how they think
+──────────────────────────────────────────────────────────────────────────────
+
+J.1 SOURCE AUTHORITY MAP
+  When users paste links, cite sources, or reference content, what sources?
+
+  Academic papers → values rigor, original research, skeptical of summaries
+  Industry reports → trusts institutional authority (McKinsey, a16z, etc.)
+  Newsletters → curated content, trusts specific voices
+  Twitter/X threads → fast-moving information, values recency over depth
+  Long-form articles → willing to invest time, values nuance
+  Podcasts → auditory learner, values conversation and depth
+  Data/statistics → quantitative orientation, needs numbers to trust claims
+  Personal blogs → values practitioner experience over institutional voice
+  News → current events oriented, tracks what's happening in real-time
+
+  The source authority map tells the agent what kind of evidence to use
+  when the agent needs to make a case or inform a decision. Citing a
+  McKinsey report to a user who only trusts founder blogs is the wrong move.
+  Citing raw data to someone who learns from stories is equally wrong.
+
+J.2 CONTENT DEPTH PREFERENCE
+  Does the user paste long-form content or short snippets?
+  Do their research tasks generate 2-page summaries or 5 bullet points?
+  When the agent asks clarifying questions, how much do they elaborate?
+
+  High depth preference → synthesis matters more than brevity. The user
+    wants the nuance, not just the top line.
+  Low depth preference → they want the answer, not the reasoning. Get to
+    the point faster. They'll ask if they want more.
+
+J.3 CONSUMPTION-PRODUCTION RATIO
+  Is this user primarily a consumer of content or a producer?
+
+  Mostly consumption tasks (research, summarize, find, extract) →
+    curate-and-synthesize is their dominant mode. They gather to decide.
+  Mostly production tasks (write, draft, create, build) →
+    they produce output constantly. Writing assistance is their highest ROI.
+  Balanced →
+    both modes matter, but at different times. Map WHEN each mode is active.
+
+J.4 INFORMATION ANXIETY SIGNALS
+  Some users want MORE information before they feel safe deciding.
+  Signs: follow-up research tasks after initial research. "Can you also check..."
+  after the first answer. Asking the same question differently to cross-check.
+
+  Information anxiety is distinct from thoroughness. Thoroughness seeks
+  completeness. Information anxiety seeks reassurance. The agent should
+  respond to information anxiety with confidence, not more data:
+  "The sources are consistent on this point. You have what you need to decide."
+
+──────────────────────────────────────────────────────────────────────────────
+CHANNEL K — COGNITIVE STATE SIGNALS (NEW)
+The agent reads how the user is functioning right now
+──────────────────────────────────────────────────────────────────────────────
+
+K.1 COGNITIVE LOAD DETECTION
+  Multiple signals that combine to indicate current cognitive load:
+
+  Overload signals:
+    — Prompt length shorter than user's average for that task type
+    — Typos and grammar errors above baseline
+    — Tasks started and immediately abandoned
+    — Duplicate tasks (asking for something they already asked for)
+    — Task type shift to simpler than usual (avoidance of hard things)
+    — Frustrated language in otherwise simple requests
+
+  When 3+ overload signals co-occur: agent shifts to "high-load mode":
+    — Outputs are shorter and more direct
+    — Options are reduced to 1 (or 2 max with clear recommendation)
+    — No exploration, no "you might also consider"
+    — No long preambles — answer first
+    — Small wins first — complete easy tasks before complex ones
+
+  Coming off overload (signals decreasing):
+    — Prompt length returns to baseline
+    — More elaboration in prompts
+    — Exploratory task types return
+    Agent gradually re-expands its operational mode.
+
+K.2 ENERGY STATE INFERENCE
+  Time of day + task type + prompt character = energy state proxy.
+
+  High energy: complex tasks, long prompts, willingness to iterate
+  Medium energy: standard tasks, normal prompts, clear boundaries
+  Low energy: simple tasks, short prompts, less iteration
+  Burnt out: very short prompts, tasks they'd normally not outsource,
+    possible avoidance of hard tasks entirely
+
+  The agent that matches its operating mode to the user's energy state
+  is the agent that feels frictionless. The agent that delivers a full
+  3-option analysis to someone running on fumes is the agent that creates work.
+
+K.3 CONFIDENCE CYCLE
+  Users go through confidence cycles in their relationship with the agent.
+
+  High confidence periods: short prompts, low edits, fast approvals.
+    The agent is trusted. Don't change what's working.
+  Low confidence periods: long prompts, high edits, slow approvals.
+    Either the agent made a significant error, or external factors are
+    making the user second-guess everything. Check for a reset trigger event.
+
+K.4 MENTAL MODEL SIGNALS
+  What does the user think is true that might not be?
+  What assumptions do they carry in their prompts?
+
+  "Can you help me write an email to convince him to invest" assumes
+  the investor is invest-able. Agent might know from context that this
+  investor doesn't invest in this stage. That's a gentle correction opportunity.
+
+  "Find the CEO of Company X" assumes Company X has a single CEO.
+  If the agent finds co-CEOs, that's worth surfacing.
+
+  Tracking the assumptions users carry reveals their mental model.
+  When the agent gently corrects an assumption and the user updates it,
+  that's a successful model update. When the user pushes back, the agent's
+  mental model of the user's beliefs updates.
+
+──────────────────────────────────────────────────────────────────────────────
+CHANNEL L — RESISTANCE AND AVOIDANCE MAPPING (NEW)
+What they push back on and what they quietly avoid
+──────────────────────────────────────────────────────────────────────────────
+
+L.1 RESISTANCE TAXONOMY
+  When the user pushes back on agent output, classify the pushback:
+
+  Factual resistance: "that's not correct" → agent got a fact wrong.
+    Correction stored. Confidence in that claim category reduced.
+
+  Framing resistance: "that's not how I'd put it" → agent framed correctly
+    but the user disagrees with the frame. This is the most valuable signal.
+    What frame does the user prefer? Understand the worldview beneath the frame.
+
+  Scope resistance: "that's too much" / "that's not enough" → calibration.
+    Straightforward — store depth preference for this task type.
+
+  Strategic resistance: "that's not the right move" → agent misunderstood
+    the strategic context. The user has goals and constraints the agent
+    doesn't know about. One of these = ask for context. Three of these on
+    the same topic = the agent's model of this domain needs rebuilding.
+
+  Consistent resistance in one domain = systematic blind spot.
+  Map it. Name it. Fix the blind spot with targeted micro-extraction.
+
+L.2 AVOIDANCE PATTERN CLASSIFICATION
+  Task types with high abandonment or low follow-through:
+
+  Capability avoidance: user could do this but finds it unpleasant.
+    High automation opportunity. They'd love help here.
+
+  Skill avoidance: user doesn't know how to approach this task.
+    The agent should offer to lead more actively, not just execute.
+
+  Priority avoidance: task feels important but isn't urgent. Gets
+    pushed endlessly. Agent should either decompose it into smaller steps
+    or surface it as a suggestion: "You've started this 4 times..."
+
+  Emotional avoidance: task involves something emotionally charged.
+    (Difficult conversation to draft, bad news to deliver, rejection to write.)
+    Agent should approach these with more care — offer a softer first draft,
+    check the emotional context, ask if they want to talk through it first.
+
+  Identity avoidance: user doesn't think of themselves as someone who does X.
+    Don't push. Note it. If they eventually come to it, don't make a big deal.
+
+L.3 THE THINGS THEY DO THEMSELVES
+  When the user mentions they've handled something without the agent:
+  "I already sent that", "I took care of the analysis", "I handled it"
+
+  These glimpses of invisible work reveal task categories the user keeps.
+  Why do they keep them?
+    — Highly sensitive (can't delegate even to AI)
+    — Faster to do themselves than explain
+    — Don't trust agent on that type yet
+    — Don't realize agent can help
+
+  The "don't realize" category is a growth opportunity. When the invisible
+  work pattern is clearly within agent capability, surface it once:
+  "I noticed you've mentioned handling [type of task] yourself a few times.
+   I can do that. Want to try it once and see if it's faster this way?"
+  One offer. If declined, never mention it again. Map it as kept work.
+
+──────────────────────────────────────────────────────────────────────────────
+CHANNEL M — LANGUAGE EVOLUTION TRACKING (NEW)
+How the user's vocabulary changes reveals where they're going
+──────────────────────────────────────────────────────────────────────────────
+
+M.1 VOCABULARY ARRIVAL DETECTION
+  New words appearing in a user's prompts that weren't there before.
+  This is a leading indicator of focus shift, often 4-6 weeks before
+  the user updates their stated goals.
+
+  "Series B" appears for the first time → fundraising shift incoming
+  "AI agents" appears frequently after not appearing → new technical focus
+  "Enterprise" starts appearing where "startup" used to → market shift
+  Names of new people appearing → new relationships forming
+  New platform names → adopting new tools
+  New industry terms → entering a new domain
+
+  When a new word appears 3+ times in 2 weeks, it's not noise. Surface it:
+  "I've noticed [term] appearing in your recent work. Is this a new area
+   you're moving into? Should I add context about it?"
+
+M.2 VOCABULARY DEPARTURE DETECTION
+  Words that disappear after being frequent are equally important.
+  Things left behind: completed projects, abandoned ideas, exited relationships.
+
+  "Series A" disappears after appearing frequently → round closed or abandoned
+  A person's name stops appearing → relationship ended or project closed
+  A product name stops appearing → they shipped it or killed it
+  An industry term stops → they exited that space
+
+  Vocabulary departure is the system saying "that chapter closed."
+  The agent should quietly retire related context rather than surfacing it.
+
+M.3 VOCABULARY DRIFT DIRECTION
+  Over 6 months: which direction is the vocabulary moving?
+  More technical → user is going deeper into implementation
+  More business → user is moving toward a strategic role
+  More emotional → user is dealing with personal/team dynamics
+  More financial → fundraising or business scaling mode
+  More relational → sales, community, or network-building phase
+
+  Drift direction tells the agent what to pre-load. Moving toward technical?
+  Load more implementation context. Moving toward business? Load more
+  market and competitor context.
+
+──────────────────────────────────────────────────────────────────────────────
+CHANNEL N — EXTERNAL WORLD MONITORING (NEW)
+The agent watches the world for things the user would want to know
+──────────────────────────────────────────────────────────────────────────────
+
+N.1 PASSIVE WORLD MONITORING
+  Based on the user's behavioral model (domain focus, relationships, goals),
+  the agent periodically monitors the world for events that matter.
+
+  This is NOT spam. Three rules:
+    1. Only monitor domains explicitly in the user's focus map
+    2. Surface only when something actually changes (not routine noise)
+    3. Surface once, with clear relevance statement, then move on
+
+  What to monitor:
+
+  Competitor moves: if the user has competitors identified (from relationship
+    graph or task history), watch for their major announcements, funding,
+    product launches. "Your competitor just announced [X]. Worth knowing?"
+
+  Contact updates: if someone in the user's relationship graph gets promoted,
+    joins a new company, or appears in the news. "John just became CTO at [company].
+    Your relationship with him was [context]. Relevant?"
+
+  Domain events: conferences, regulatory changes, funding announcements in the
+    user's domain. Not every news item — only structurally significant ones.
+
+  Opportunity patterns: if the user is hiring, fundraising, or selling —
+    surface relevant signals. A company the user was talking to just raised
+    a round → now they have budget. Worth following up?
+
+N.2 SIGNAL VS NOISE FILTERING FOR WORLD EVENTS
+  The world is full of events. Most don't matter to this specific user.
+  Filtering criteria:
+    — Is this person or company in the relationship graph? (high priority)
+    — Is this domain in the user's top-3 focus areas? (medium priority)
+    — Does this match a stated goal? (high priority)
+    — Has the user mentioned this topic in the last 30 days? (medium priority)
+    — Is this the kind of event the user has asked about before? (medium priority)
+
+  Events that hit 2+ criteria get surfaced. Events that hit only 1 are stored
+  but not surfaced unless the user asks.
+
+N.3 THE TIMING OF WORLD SIGNALS
+  When to surface world intelligence matters as much as what to surface.
+
+  Not mid-task. World signals should surface at session start: "Before we
+  begin — a few things from your world that might be relevant today: [X]."
+
+  Not when the user is in high-load mode. Hold world signals until load drops.
+
+  Not more than 2 per session. World intelligence is context enrichment,
+  not a news feed. If the agent has 5 relevant signals, rank them and
+  show the top 2. The rest stay in the queue.
+
+──────────────────────────────────────────────────────────────────────────────
+CHANNEL O — GOAL COMPLETION AND ACHIEVEMENT TRACKING (NEW)
+What they've finished shapes what they can attempt next
+──────────────────────────────────────────────────────────────────────────────
+
+O.1 GOAL COMPLETION DETECTION
+  Most AI agents update goals when the user says "update my goals."
+  Goals actually complete silently — the task cluster around them disappears,
+  or the user mentions it in passing ("we closed the round", "we shipped").
+
+  Completion signals:
+    — Celebratory language in a prompt ("just closed", "finally shipped", "done!")
+    — Task cluster around a stated goal goes to zero
+    — Past tense reference to something that was in the future ("the campaign
+       we ran last month" — this was a goal, now it's a past event)
+    — New tasks appear that only make sense after a prior goal completed
+
+  When a goal completion is detected: acknowledge it. Briefly. Then remove
+  it from active goals and store it as an achievement. The achievement record
+  matters — it's a confidence builder that the agent can use to calibrate
+  how ambitious the next goals should be.
+
+O.2 GOAL LIFETIME PATTERNS
+  Some users complete goals in 2-3 weeks. Others take months. Some abandon
+  them. The completion rate and velocity by goal type tells the agent:
+  — What goal size this user can actually finish (vs what they say they'll do)
+  — Which types of goals they consistently complete (strength signal)
+  — Which types they consistently abandon (avoidance or wrong goal signal)
+
+  The agent that knows the user's goal velocity doesn't suggest a 6-month
+  initiative to someone who has a 2-week completion horizon. It breaks it
+  into 2-week chunks instead.
+
+O.3 THE ACHIEVEMENT CORPUS
+  A record of everything this user has accomplished with Jarvis's help.
+  Not just completed goals — completed tasks that produced good outcomes,
+  communications that landed well, analyses that led to good decisions.
+
+  The achievement corpus serves two functions:
+  1. Confidence in difficult moments: "You've done harder things than this.
+     You closed [deal] last September. Same muscle."
+  2. Pattern recognition for success: what conditions produce wins for this
+     user? Time of day, task type, preparation level, team involved?
+     The agent should try to replicate winning conditions.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE SYNTHESIS MECHANISMS
+How signals from 15 channels combine into intelligence
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Single-channel signals are often noise. Cross-channel signals are intelligence.
+
+──────────────────────────────────────────────────────────────────────────────
+SYNTHESIS 1 — THE FOCUS CONVERGENCE SIGNAL
+──────────────────────────────────────────────────────────────────────────────
+A new focus area is confirmed when it shows up across MULTIPLE channels:
+  — Task prompts contain new domain vocabulary (Channel A)
+  — Feed visits show 30%+ increase in related content (Channel E)
+  — New people in relationship graph are from that domain (Channel F)
+  — Pasted content comes from related sources (Channel B)
+  — One micro-extraction confirms it's intentional (Channel D)
+
+When 3+ channels independently signal the same focus area, it's real.
+The agent should update the behavioral model and pre-load relevant context.
+Single-channel focus signals are held until confirmed by a second channel.
+
+──────────────────────────────────────────────────────────────────────────────
+SYNTHESIS 2 — THE STRESS STATE COMPOSITE
+──────────────────────────────────────────────────────────────────────────────
+Stress state is confirmed when signals co-occur across cognitive + temporal channels:
+  — Prompt length drops below 50% of baseline (Channel A)
+  — Urgency markers appear 3+ times in 3 days (Channel A)
+  — Late-night task timestamps appear (Channel G)
+  — Correction rate doubles (Channel B)
+  — Simple task types dominate (Channel K)
+  — Abandonment rate increases (Channel L)
+
+When 4+ stress signals co-occur: high-pressure mode activates automatically.
+Outputs become shorter, options are eliminated, agent is more decisive.
+When stress signals clear across all channels: normal mode resumes.
+
+──────────────────────────────────────────────────────────────────────────────
+SYNTHESIS 3 — THE RELATIONSHIP IMPORTANCE COMPOSITE
+──────────────────────────────────────────────────────────────────────────────
+A person's importance to the user is confirmed when multiple channels agree:
+  — Mentioned frequently in task prompts (Channel A)
+  — Appears repeatedly in communication graph (Channel C)
+  — Appears repeatedly in feed (Channel E)
+  — High emotional temperature in mentions (Channel A.4)
+  — User runs research tasks about them or their work (Channel H corpus)
+
+High-importance composite → person gets a detailed relationship node.
+Low-composite → person is a one-off encounter, minimal storage.
+
+──────────────────────────────────────────────────────────────────────────────
+SYNTHESIS 4 — THE GOAL REALITY CHECK
+──────────────────────────────────────────────────────────────────────────────
+Stated goals vs actual behavior across all channels:
+  — Task distribution (Channel G+H) vs stated goal areas
+  — Time allocation inferred from task timing (Channel G)
+  — Focus convergence signals (Synthesis 1) vs stated goals
+  — Goal completion velocity vs goal ambition level (Channel O)
+
+When actual behavior diverges from stated goals by >40% for 3+ weeks:
+  Goal drift surface: "Something has shifted. Your stated priorities and
+  your actual work are pointing in different directions. Worth a quick check?"
+
+──────────────────────────────────────────────────────────────────────────────
+SYNTHESIS 5 — THE AUTOMATION OPPORTUNITY SIGNAL
+──────────────────────────────────────────────────────────────────────────────
+An automation opportunity is confirmed when:
+  — Same task pattern appears 3+ times (existing rule), AND
+  — Cognitive load is low when the task appears (Channel K) — meaning
+    the user is doing this manually, not because it's complex
+  — Edit rate on this task type is low (Channel B) — meaning the agent
+    gets it right, it's just not automated
+  — Urgency signals are present (Channel A) — meaning this task blocks other work
+
+All four conditions together = highly confident automation opportunity.
+Two conditions = candidate, not yet ready to surface.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE ACTION SURFACE
+What becomes possible when all 15 channels are running
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Things the agent can do that it cannot do today:
+
+1. WRITE IN THE USER'S VOICE ON ANY PLATFORM WITHOUT ASKING
+   Not "write an email in a professional tone." Write an email in exactly
+   the voice they use with this specific person based on 20 observed samples.
+
+2. KNOW WHO SOMEONE IS BEFORE THE USER EXPLAINS
+   "Draft a message to Sarah" → agent already has: Sarah's role, the
+   relationship history, the appropriate register, the last time they interacted,
+   any relevant context from the relationship graph. No explanation needed.
+
+3. CHANGE HOW IT WORKS BASED ON THE USER'S CURRENT STATE
+   The agent that detects cognitive overload and automatically simplifies
+   its outputs without being asked is the agent that reduces friction
+   instead of adding to it.
+
+4. SURFACE WORLD EVENTS THAT MATTER, FILTER OUT ONES THAT DON'T
+   Competitor raised a round → surfaces it. Industry conference happening →
+   surfaces it only if the user has gone to conferences before.
+   Random news → silently discarded.
+
+5. PREPARE FOR GOALS BEFORE THEY'RE STATED
+   Vocabulary evolution (Channel M) says the user is moving toward fundraising.
+   Agent quietly starts building fundraising context 6 weeks before the user
+   asks for help with a pitch deck.
+
+6. TELL THE USER SOMETHING TRUE ABOUT THEMSELVES THEY DIDN'T KNOW
+   "You finish technical goals reliably but struggle to close communication-heavy
+   goals. This is consistent across 8 months of data. Worth knowing?"
+   This is only possible with enough cross-channel signal over enough time.
+
+7. KNOW WHEN NOT TO OFFER MORE
+   The agent that knows Channel J (information diet) and Channel I (decision
+   style) knows when to stop providing information and tell the user to decide.
+   This is as valuable as providing information.
+
+8. PREDICT WHAT THEY NEED BEFORE THEY ASK
+   Task timing (Channel G) says they always prep for their Monday team meeting
+   on Sunday evening. At 7pm Sunday, the agent has the prep materials ready.
+   They didn't ask. It was just there.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IMPLEMENTATION PRIORITY ORDER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The 15 channels are not equal in build complexity or immediate payoff.
+
+TIER 1 — BUILD FIRST (highest signal, lowest complexity)
+  Channel A deeper: vocabulary tribe detection, negative space map
+  Channel B deeper: edit magnitude taxonomy, paste archaeology
+  Channel K:  cognitive load detection
+  Channel L:  resistance and avoidance mapping
+  These add to existing background review. Low infrastructure cost.
+
+TIER 2 — BUILD SECOND (high signal, moderate complexity)
+  Channel I:  decision pattern intelligence
+  Channel M:  language evolution tracking
+  Channel O:  goal completion tracking
+  Channel J:  information diet intelligence
+  These need signal accumulation over 4-6 weeks before being useful.
+
+TIER 3 — BUILD THIRD (very high value, high complexity)
+  Channel E deeper: feed evolution map, engagement depth
+  Channel F deeper: relationship trajectory, cluster analysis, register map
+  Channel G deeper: cognitive rhythm map, seasonal detection
+  Channel N:  external world monitoring
+  These need relationship graph and temporal data from Tier 1 and 2 first.
+
+TIER 4 — BUILD LAST (transformational, requires full data foundation)
+  The five synthesis mechanisms
+  The eight action surface capabilities
+  These are where the intelligence actually shows. But they only work when
+  the 15 channels below them have been running long enough to produce
+  trustworthy signal. Rush these and you get hallucinated intelligence.
+  Wait for data and you get real intelligence.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE ONE PRINCIPLE THAT GOVERNS ALL OF THIS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Never use extracted data to impress the user.
+Use it to serve them without friction.
+
+The agent that shows its work ("I noticed from your feed that...") is
+the agent that makes the user conscious of being analyzed. That's uncomfortable.
+
+The agent that just writes better emails, surfaces the right things at the
+right time, knows who people are without being told, and adapts its style
+to the user's current state — that agent feels like it understands.
+
+The goal is not for the user to know how smart the system is.
+The goal is for the user to feel like the system just gets them.
+That feeling is the product.
+
+═══════════════════════════════════════════════════════════════════════════════

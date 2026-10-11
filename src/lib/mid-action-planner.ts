@@ -1,9 +1,7 @@
 // mid-action-planner.ts
 // When agent gets confused mid-task, generate a new plan
 
-import OpenAI from 'openai'
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+import { resolveRuntime } from './model-router.js'
 
 export interface MidActionPlanInput {
   taskPrompt: string
@@ -25,8 +23,9 @@ export async function getMidActionPlan(
   input: MidActionPlanInput
 ): Promise<MidActionPlanResult> {
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+    const rt = resolveRuntime()
+    const response = await rt.fastClient.chat.completions.create({
+      model: rt.modelFor('low'),
       max_tokens: 250,
       messages: [
         {

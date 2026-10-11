@@ -1,0 +1,83 @@
+{
+  "productivity": [
+    "notion.so", "notionhq.com", "airtable.com", "coda.io", "roamresearch.com",
+    "monday.com", "asana.com", "clickup.com", "todoist.com", "trello.com",
+    "basecamp.com", "linear.app", "height.app", "shortcut.com",
+    "jira.atlassian.com", "confluence.atlassian.com", "atlassian.net",
+    "obsidian.md", "logseq.com", "craft.do", "evernote.com",
+    "app.asana.com", "app.clickup.com"
+  ],
+  "communication": [
+    "gmail.com", "mail.google.com", "outlook.com", "outlook.live.com",
+    "superhuman.com", "hey.com", "fastmail.com",
+    "slack.com", "discord.com", "teams.microsoft.com",
+    "telegram.org", "whatsapp.com",
+    "zoom.us", "meet.google.com", "loom.com",
+    "cal.com", "calendly.com", "calendar.google.com",
+    "app.slack.com", "app.zoom.us"
+  ],
+  "dev": [
+    "github.com", "gitlab.com", "bitbucket.org",
+    "stackoverflow.com", "npmjs.com", "pypi.org", "crates.io",
+    "docs.rs", "developer.mozilla.org", "devdocs.io",
+    "codepen.io", "replit.com", "codesandbox.io",
+    "vercel.com", "netlify.com", "railway.app", "render.com",
+    "fly.io", "aws.amazon.com", "console.cloud.google.com",
+    "portal.azure.com", "digitalocean.com", "supabase.com",
+    "planetscale.com", "heroku.com", "neon.tech",
+    "docs.github.com", "api.github.com"
+  ],
+  "design": [
+    "figma.com", "canva.com", "adobe.com", "sketch.com",
+    "framer.com", "webflow.com", "dribbble.com", "behance.net",
+    "unsplash.com", "pexels.com", "freepik.com",
+    "coolors.co", "color.adobe.com", "fontawesome.com",
+    "fonts.google.com", "www.figma.com"
+  ],
+  "data": [
+    "sheets.google.com", "docs.google.com",
+    "excel.office.com", "office.com",
+    "tableau.com", "looker.com", "metabase.io",
+    "grafana.com", "grafana.org", "mixpanel.com",
+    "amplitude.com", "posthog.com", "datadog.com",
+    "segment.com", "census.dev", "rows.com",
+    "retool.com", "databricks.com", "snowflake.com",
+    "bigquery.cloud.google.com", "console.cloud.google.com"
+  ],
+  "content": [
+    "wordpress.com", "ghost.org", "substack.com", "medium.com",
+    "hashnode.com", "beehiiv.com", "convertkit.com",
+    "mailchimp.com", "hubspot.com",
+    "buffer.com", "hootsuite.com", "later.com",
+    "twitter.com", "x.com", "linkedin.com",
+    "instagram.com", "facebook.com",
+    "youtube.com", "tiktok.com", "producthunt.com",
+    "app.hubspot.com", "app.convertkit.com"
+  ],
+  "finance": [
+    "stripe.com", "braintreepayments.com", "paypal.com",
+    "square.com", "mercury.com", "ramp.com", "brex.com",
+    "quickbooks.com", "xero.com", "freshbooks.com", "wave.com",
+    "coinbase.com", "binance.com", "kraken.com",
+    "robinhood.com", "fidelity.com", "dashboard.stripe.com"
+  ],
+  "research": [
+    "google.com", "bing.com", "duckduckgo.com",
+    "perplexity.ai", "wikipedia.org",
+    "scholar.google.com", "arxiv.org",
+    "pubmed.ncbi.nlm.nih.gov", "jstor.org",
+    "reddit.com", "news.ycombinator.com",
+    "techcrunch.com", "crunchbase.com", "pitchbook.com"
+  ],
+  "ai_tools": [
+    "chat.openai.com", "platform.openai.com",
+    "claude.ai", "anthropic.com",
+    "gemini.google.com", "bard.google.com",
+    "replicate.com", "huggingface.co",
+    "cohere.com", "together.ai",
+    "jasper.ai", "copy.ai", "writesonic.com",
+    "midjourney.com", "runway.ml",
+    "elevenlabs.io", "stability.ai",
+    "cursor.sh", "github.com/features/copilot"
+  ]
+}

@@ -1,14 +1,10 @@
 import { Request, Response, NextFunction } from 'express'
-import { supabase } from '../lib/supabase.js'
+import { db } from '../lib/db.js'
 
-// Extend Express Request to include user
 declare global {
   namespace Express {
     interface Request {
-      user?: {
-        id: string
-        email: string
-      }
+      user?: { id: string; email: string }
     }
   }
 }
@@ -24,21 +20,13 @@ export async function authenticateUser(
       res.status(401).json({ error: 'Missing or invalid authorization header' })
       return
     }
-
     const token = authHeader.substring(7)
-
-    const { data, error } = await supabase.auth.getUser(token)
-
-    if (error || !data.user) {
+    const row = db.prepare('SELECT user_id FROM api_keys WHERE key = ?').get(token) as any
+    if (!row) {
       res.status(401).json({ error: 'Invalid or expired token' })
       return
     }
-
-    req.user = {
-      id: data.user.id,
-      email: data.user.email || ''
-    }
-
+    req.user = { id: row.user_id, email: row.user_id }
     next()
   } catch (error) {
     console.error('[Auth] Authentication error:', error)
@@ -58,23 +46,11 @@ export function optionalAuth(
     const authHeader = req.headers.authorization
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7)
-
-      supabase.auth.getUser(token).then(({ data }) => {
-        if (data.user) {
-          req.user = {
-            id: data.user.id,
-            email: data.user.email || ''
-          }
-        }
-        next()
-      }).catch(() => {
-        next()
-      })
-    } else {
-      next()
+      const row = db.prepare('SELECT user_id FROM api_keys WHERE key = ?').get(token) as any
+      if (row) req.user = { id: row.user_id, email: row.user_id }
     }
-  } catch (error) {
-    console.error('[Auth] Optional auth error:', error)
+    next()
+  } catch {
     next()
   }
 }

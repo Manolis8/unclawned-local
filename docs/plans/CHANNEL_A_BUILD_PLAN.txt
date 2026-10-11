@@ -1,0 +1,1330 @@
+═══════════════════════════════════════════════════════════════════════════════
+CHANNEL A — BUILD PLAN
+"What They Type" — Language as Fingerprint
+Implementation from zero to working signal
+═══════════════════════════════════════════════════════════════════════════════
+
+This is the execution plan for building Channel A of the Extraction Layer.
+Not theory. Build decisions, schema, logic, failure modes, and test protocols.
+
+Channel A is the right place to start for one reason:
+  — It requires zero external integrations (no calendar, no email, no browser)
+  — Every interaction already has the raw material (the message text)
+  — The signal lives in data you already capture
+  — The logic is deterministic — no ML required to get started
+  — It's the fastest path from "nothing" to "the agent knows something new"
+
+The goal of this document: after building Channel A, the agent knows:
+  1. Which professional world this user lives in (vocabulary tribe)
+  2. How calibrated the relationship is right now (prompt length trend)
+  3. What this user has never asked for (negative space)
+  4. How confident this user feels about each task type (hedging level)
+  5. What this specific user sounds like when frustrated (frustration fingerprint)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 0 — ARCHITECTURE DECISIONS BEFORE WRITING A SINGLE LINE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Before anything: answer these four questions. The entire build depends on them.
+
+──────────────────────────────────────────────────────────────────────────────
+DECISION 1: WHEN DOES EXTRACTION RUN?
+──────────────────────────────────────────────────────────────────────────────
+
+Option A — Real-time: extract signals after every single message.
+  Pros: freshest possible data, state always current
+  Cons: adds latency to every interaction, extraction errors block the user
+
+Option B — End of session: extract once when the session ends.
+  Pros: has the full session context, doesn't touch live response path
+  Cons: if session doesn't formally "end", data is lost
+
+Option C — Batched background: runs every N tasks or on a timer.
+  Pros: zero latency impact, can retry on failure, can process in bulk
+  Cons: profile is slightly stale, needs a queue
+
+→ BUILD CHOICE: End-of-task, non-blocking.
+  After the agent responds to a task, the extraction runs asynchronously
+  in the background. The user doesn't wait for it. If it crashes, it logs
+  the failure and retries next time.
+
+  Why not real-time: extraction must NEVER slow down a response.
+  Why not batched timer: end-of-task is near-real-time without the latency risk.
+
+  Implementation: after task response is sent, fire-and-forget:
+    extractChannelASignals(taskId, userId, messageText, taskType)
+
+──────────────────────────────────────────────────────────────────────────────
+DECISION 2: HOW EXPENSIVE IS EACH EXTRACTOR?
+──────────────────────────────────────────────────────────────────────────────
+
+Five sub-channels. Three cost tiers:
+
+  Free (pure string/math):
+    A.2 — Prompt evolution tracking (just measure length, compute trend)
+    A.4 — Hedging frequency (regex match against phrase list)
+
+  Cheap (dictionary lookup + frequency table):
+    A.1 — Vocabulary tribe detection (curated word → tribe mapping)
+    A.3 — Negative space map (accumulate task types over time)
+
+  Learned (requires calibration period, evolves per user):
+    A.5 — Frustration vocabulary fingerprint (starts with defaults, personalizes)
+
+→ BUILD CHOICE: No LLM calls in the extraction pipeline itself.
+  The extraction must be cheap enough to run after every task.
+  Signal analysis runs by pattern matching and math.
+  The LLM only touches Channel A outputs when USING the profile to shape a
+  response — not when BUILDING the profile.
+
+  This means: the vocabulary tribe is not AI-detected. It's detected by a
+  curated dictionary of tribe-specific terms maintained as a JSON file.
+  This file grows. You update it manually when you discover a gap.
+  This is intentional. LLM-based tribe detection is flaky at small sample sizes.
+
+──────────────────────────────────────────────────────────────────────────────
+DECISION 3: WHAT IS A "TASK TYPE"?
+──────────────────────────────────────────────────────────────────────────────
+
+Channel A extraction requires knowing what type of task was requested.
+Task type is used to:
+  — Normalize prompt length (a 500-word prompt for "write a full blog post"
+    is normal; the same length for "what day is it" is very long)
+  — Build the negative space map (what task types have they NEVER requested)
+  — Segment hedging analysis (maybe they hedge on writing but not research)
+
+Task type classification options:
+  A. Let the existing task logger tag it (if it already does)
+  B. Simple regex/keyword classifier run on the first message
+  C. Explicit user tagging (user says "this is a writing task")
+  D. LLM classification once at task start
+
+→ BUILD CHOICE: Lightweight rule-based classifier (Option B).
+  Build a task type classifier that runs on the opening message with
+  simple keyword rules. Outputs one of:
+
+  TASK TYPES (V1):
+    "write"       — drafting, composing, writing content
+    "research"    — finding information, summarizing content
+    "analyze"     — reviewing, evaluating, comparing things
+    "plan"        — strategy, roadmapping, goal-setting
+    "admin"       — scheduling, organizing, logistics
+    "code"        — programming, debugging, technical tasks
+    "review"      — proofreading, editing, giving feedback
+    "brief"       — short one-line requests that don't fit above
+    "unknown"     — catch-all for unclassifiable messages
+
+  This is not perfect. It gets better over time as you expand the rules.
+  The goal is 80% accuracy — enough to build useful segment profiles.
+
+──────────────────────────────────────────────────────────────────────────────
+DECISION 4: WHAT DOES THE USER PROFILE LOOK LIKE?
+──────────────────────────────────────────────────────────────────────────────
+
+The output of Channel A is a JSON blob per user called `channel_a_profile`.
+This profile is read by the agent when generating responses.
+
+Channel A profile structure:
+{
+  "last_updated": "ISO timestamp",
+  "vocabulary_tribe": {
+    "primary_tribe": "startup_operator",   // highest scoring tribe
+    "secondary_tribe": "technical",        // second highest
+    "tribe_scores": {
+      "startup_operator": 0.72,
+      "technical": 0.48,
+      "vc_investor": 0.12,
+      "marketer": 0.19,
+      "enterprise": 0.08,
+      "academic": 0.03
+    },
+    "tribe_word_hits": {                   // which specific words triggered each tribe
+      "startup_operator": ["ship", "runway", "founder", "ARR", "traction"],
+      "technical": ["deploy", "PR", "stack", "endpoint", "async"]
+    },
+    "sample_size": 47                      // number of messages analyzed
+  },
+  "prompt_evolution": {
+    "baseline_length_by_type": {           // established baseline per task type
+      "write": 180,
+      "research": 95,
+      "analyze": 140,
+      "brief": 32
+    },
+    "current_trend": "shortening",         // "shortening" | "lengthening" | "stable"
+    "calibration_health": "good",          // "good" | "regressing" | "unknown"
+    "trend_window_days": 14,               // how many days the trend is based on
+    "lengthening_sessions_in_a_row": 0,    // alert if this hits 3+
+    "baseline_established": true           // false until 10+ samples per type
+  },
+  "negative_space": {
+    "task_types_seen": ["write", "research", "analyze", "brief"],
+    "task_types_never_seen": ["plan", "admin", "code", "review"],
+    "weeks_since_profile_started": 4,
+    "negative_space_confident": false,     // true after 8+ weeks
+    "never_suggest": []                    // manually added do-not-suggest list
+  },
+  "hedging_profile": {
+    "overall_hedging_rate": 0.18,          // fraction of messages with hedging
+    "hedging_by_type": {
+      "write": 0.45,                       // hedges heavily on writing tasks
+      "research": 0.04,                    // very confident on research tasks
+      "analyze": 0.21
+    },
+    "high_hedging_types": ["write"],       // task types where user is uncertain
+    "low_hedging_types": ["research"],     // task types where user is confident
+    "sample_size": 47
+  },
+  "frustration_fingerprint": {
+    "known_patterns": [
+      {
+        "pattern": "I know I've said this before",
+        "occurrences": 3,
+        "first_seen": "ISO timestamp",
+        "last_seen": "ISO timestamp"
+      },
+      {
+        "pattern": "still not right",
+        "occurrences": 2,
+        "first_seen": "ISO timestamp",
+        "last_seen": "ISO timestamp"
+      }
+    ],
+    "default_patterns_active": true,       // using defaults until personalized
+    "personalized": false,                 // true after 2+ confirmed patterns
+    "frustration_count_last_30_days": 1,
+    "last_frustration": "ISO timestamp or null"
+  }
+}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 1 — DATABASE SCHEMA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Three new tables. All in Supabase.
+
+──────────────────────────────────────────────────────────────────────────────
+TABLE 1: channel_a_raw_signals
+──────────────────────────────────────────────────────────────────────────────
+
+One row per extraction run (one per task). This is the raw signal store.
+Never deleted. Used to rebuild profiles if needed.
+
+CREATE TABLE channel_a_raw_signals (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         UUID NOT NULL REFERENCES users(id),
+  task_id         UUID,                    -- references the task this came from
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  -- Raw capture
+  message_text    TEXT NOT NULL,           -- the user's raw message
+  message_length  INT NOT NULL,            -- character count
+  word_count      INT NOT NULL,            -- word count
+  task_type       TEXT NOT NULL,           -- classified task type
+
+  -- A.1 signals
+  tribe_word_hits JSONB,                   -- { "startup_operator": ["ship", "ARR"], ... }
+
+  -- A.4 signals
+  hedging_detected    BOOLEAN DEFAULT FALSE,
+  hedging_phrases     JSONB,               -- ["I think", "maybe", "not sure if"]
+
+  -- A.5 signals
+  frustration_detected    BOOLEAN DEFAULT FALSE,
+  frustration_phrases     JSONB            -- ["still wrong", "I already said"]
+);
+
+CREATE INDEX idx_channel_a_user_id ON channel_a_raw_signals(user_id);
+CREATE INDEX idx_channel_a_created_at ON channel_a_raw_signals(created_at);
+CREATE INDEX idx_channel_a_task_type ON channel_a_raw_signals(task_type);
+
+──────────────────────────────────────────────────────────────────────────────
+TABLE 2: channel_a_profiles
+──────────────────────────────────────────────────────────────────────────────
+
+One row per user. The compiled profile. Rebuilt from raw_signals.
+This is what the agent reads.
+
+CREATE TABLE channel_a_profiles (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         UUID NOT NULL UNIQUE REFERENCES users(id),
+  last_updated    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  profile_version INT NOT NULL DEFAULT 1,   -- increments each rebuild
+  total_samples   INT NOT NULL DEFAULT 0,   -- total messages analyzed
+
+  vocabulary_tribe        JSONB,            -- tribe scores and hits
+  prompt_evolution        JSONB,            -- length trends and calibration health
+  negative_space          JSONB,            -- task types seen and never seen
+  hedging_profile         JSONB,            -- hedging rates by task type
+  frustration_fingerprint JSONB             -- known frustration patterns
+);
+
+──────────────────────────────────────────────────────────────────────────────
+TABLE 3: channel_a_word_frequency
+──────────────────────────────────────────────────────────────────────────────
+
+Running word frequency table per user. Used to rebuild tribe scores and
+detect vocabulary arrival/departure (feeds into Channel M later).
+
+CREATE TABLE channel_a_word_frequency (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID NOT NULL REFERENCES users(id),
+  word        TEXT NOT NULL,
+  count       INT NOT NULL DEFAULT 1,
+  first_seen  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_seen   TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  UNIQUE(user_id, word)
+);
+
+CREATE INDEX idx_word_freq_user ON channel_a_word_frequency(user_id);
+CREATE INDEX idx_word_freq_count ON channel_a_word_frequency(user_id, count DESC);
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 2 — THE VOCABULARY TRIBE DICTIONARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This is the single most important asset in Channel A and the one that needs
+to be maintained over time. A JSON file. Lives in the codebase.
+Location: src/data/vocabulary-tribes.json
+
+Structure:
+{
+  "tribes": {
+    "startup_operator": {
+      "weight": 1.0,
+      "terms": [
+        "ship", "runway", "burn", "MRR", "ARR", "churn", "founder",
+        "cofounder", "deck", "raise", "term sheet", "cap table",
+        "Series A", "Series B", "seed", "pre-seed", "angel",
+        "traction", "pivot", "PMF", "product-market fit",
+        "go-to-market", "GTM", "ICP", "ideal customer profile",
+        "growth", "retention", "activation", "onboarding",
+        "weekly active", "DAU", "MAU", "NPS", "churn rate",
+        "north star", "OKR", "sprint", "MVP", "beta",
+        "launch", "v1", "v2", "iteration", "iterate",
+        "team", "hire", "firing", "culture", "values",
+        "investor", "board", "advisor", "vesting",
+        "cohort", "experiment", "A/B", "conversion"
+      ]
+    },
+    "vc_investor": {
+      "weight": 1.0,
+      "terms": [
+        "portfolio", "fund", "LP", "GP", "carry", "management fee",
+        "IRR", "MOIC", "DPI", "TVPI",
+        "thesis", "bet", "sector", "vertical",
+        "lead investor", "follow-on", "pro-rata", "SAFE", "convertible note",
+        "pre-money", "post-money", "valuation",
+        "diligence", "due diligence", "reference check",
+        "deal flow", "pipeline", "sourcing", "inbound", "outbound",
+        "vintage", "fund life", "liquidation preference",
+        "participating preferred", "anti-dilution"
+      ]
+    },
+    "technical": {
+      "weight": 1.0,
+      "terms": [
+        "deploy", "deployment", "PR", "pull request", "merge",
+        "branch", "commit", "repo", "repository",
+        "API", "endpoint", "webhook", "payload",
+        "async", "await", "sync", "queue",
+        "database", "schema", "migration", "query",
+        "frontend", "backend", "fullstack",
+        "TypeScript", "JavaScript", "Python", "Go", "Rust",
+        "Docker", "Kubernetes", "CI/CD", "pipeline",
+        "debug", "bug", "issue", "fix", "refactor",
+        "test", "unit test", "integration test",
+        "latency", "throughput", "performance", "optimization",
+        "LLM", "model", "embedding", "token", "inference",
+        "agent", "tool", "function call", "prompt engineering"
+      ]
+    },
+    "marketer": {
+      "weight": 1.0,
+      "terms": [
+        "campaign", "creative", "copy", "CTA", "headline",
+        "ad", "ads", "performance", "CPM", "CPC", "ROAS", "CAC",
+        "funnel", "top of funnel", "TOFU", "MOFU", "BOFU",
+        "landing page", "conversion rate", "A/B test",
+        "email list", "open rate", "click rate", "unsubscribe",
+        "content", "SEO", "organic", "paid",
+        "audience", "segment", "persona",
+        "brand", "brand voice", "positioning",
+        "social", "LinkedIn", "Twitter", "Instagram",
+        "reach", "impressions", "engagement",
+        "newsletter", "subscriber", "drip campaign"
+      ]
+    },
+    "enterprise": {
+      "weight": 1.0,
+      "terms": [
+        "stakeholder", "alignment", "buy-in", "sponsor",
+        "presentation", "deck", "slides",
+        "procurement", "contract", "legal", "compliance",
+        "RFP", "SOW", "SLA", "KPI",
+        "rollout", "deployment", "change management",
+        "headcount", "budget", "opex", "capex",
+        "enterprise", "B2B", "account", "client",
+        "quarterly review", "QBR", "business case",
+        "C-suite", "executive", "VP", "director",
+        "org chart", "team structure", "reporting line"
+      ]
+    },
+    "academic": {
+      "weight": 1.0,
+      "terms": [
+        "research", "paper", "study", "literature",
+        "hypothesis", "methodology", "framework",
+        "citation", "reference", "source",
+        "peer review", "journal", "publication",
+        "data", "sample size", "statistical significance",
+        "qualitative", "quantitative", "mixed methods",
+        "findings", "conclusion", "abstract",
+        "conference", "proceedings", "thesis", "dissertation",
+        "faculty", "professor", "PhD", "postdoc"
+      ]
+    }
+  }
+}
+
+IMPORTANT NOTES ABOUT THE DICTIONARY:
+  1. Terms are exact match OR substring match — not regex. Keep them simple.
+  2. Multi-word terms ("term sheet", "product-market fit") match as substrings.
+  3. Case-insensitive matching. Always lowercase the message before matching.
+  4. Weight is 1.0 for all initially. Later: increase weight for rare tribe-specific
+     terms that are VERY diagnostic (e.g., "MOIC" is almost exclusively VC speak),
+     decrease weight for common terms that appear across tribes.
+  5. ADD to this file constantly. Every time you see a term that signals a world
+     and isn't in here, add it. This is a living asset.
+  6. Terms DO overlap across tribes intentionally. "sprint" is startup AND tech.
+     That's fine — a user hitting both tribes will score in both.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 3 — THE HEDGING PHRASE LIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Location: src/data/hedging-phrases.json
+
+Same structure — a curated list. Grows over time.
+
+{
+  "strong_hedges": [
+    "i'm not sure but",
+    "i think maybe",
+    "not sure if this makes sense",
+    "this might be wrong",
+    "correct me if",
+    "feel free to change",
+    "i might be overthinking",
+    "is this the right approach",
+    "does this make sense",
+    "what do you think",
+    "let me know if",
+    "i could be wrong",
+    "not 100% sure",
+    "rough idea but",
+    "just a thought"
+  ],
+  "soft_hedges": [
+    "i think",
+    "i believe",
+    "maybe",
+    "perhaps",
+    "possibly",
+    "might",
+    "could be",
+    "not sure",
+    "unsure",
+    "kind of",
+    "sort of",
+    "something like",
+    "along the lines of",
+    "if that makes sense",
+    "or something"
+  ]
+}
+
+RULE: A message scores as "hedging" if it contains 1+ strong hedge OR 2+ soft hedges.
+Single soft hedge is noise. Multiple soft hedges or one strong hedge is signal.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 4 — THE FRUSTRATION PHRASE LIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Location: src/data/frustration-phrases.json
+
+{
+  "default_patterns": [
+    "that's not what i meant",
+    "that's not right",
+    "this is wrong",
+    "still not right",
+    "still wrong",
+    "i already said",
+    "i already told you",
+    "i know i've said this before",
+    "as i mentioned",
+    "again,",
+    "no, what i meant was",
+    "not quite",
+    "that's not it",
+    "you misunderstood",
+    "that's not what i asked",
+    "ugh",
+    "sigh",
+    "never mind",
+    "forget it",
+    "this isn't working",
+    "why can't you",
+    "you keep",
+    "every time"
+  ]
+}
+
+CRITICAL NOTE about frustration detection:
+  The default list catches generic frustration. The real value is PER-USER
+  frustration vocabulary. User A says "ugh". User B says "nope, still not it".
+  User C says "this isn't what I'm looking for".
+
+  How to personalize:
+  When the agent detects a message that FOLLOWS a rejection (user corrected agent
+  output), extract the opening phrase of that correction message. If the same
+  user uses the same opening phrase 3+ times in different rejection contexts,
+  that phrase is THIS USER'S frustration marker.
+
+  Store it in the frustration_fingerprint.known_patterns array.
+  Set personalized: true when 2+ confirmed patterns are stored.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 5 — THE EXTRACTION PIPELINE (what the code actually does)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: src/lib/channel-a-extractor.ts
+
+The pipeline runs in this exact order after every task:
+
+──────────────────────────────────────────────────────────────────────────────
+STEP 1: NORMALIZE THE MESSAGE
+──────────────────────────────────────────────────────────────────────────────
+
+Input: raw message text
+Output: normalized text, word count, character count
+
+What normalization does:
+  — Lowercase everything
+  — Strip URLs (they're noise, not vocabulary)
+  — Strip email addresses
+  — Strip code blocks (if message contains code, the code is not the user's vocabulary)
+  — Strip markdown formatting characters (*, #, `, etc.)
+  — Tokenize: split into words, filter stopwords
+
+Stopwords to filter:
+  All standard English stopwords: the, a, an, is, are, was, were, in, on,
+  at, to, for, of, and, or, but, not, with, from, by, this, that, it, be,
+  as, do, did, have, has, had, will, would, could, should, may, might...
+
+  Don't use an external library — maintain a small stopword list in the codebase.
+  External NLP dependencies are not worth it for this use case.
+
+After normalization: you have an array of meaningful words.
+
+──────────────────────────────────────────────────────────────────────────────
+STEP 2: CLASSIFY THE TASK TYPE
+──────────────────────────────────────────────────────────────────────────────
+
+Input: normalized first 200 characters of message (task intent is in the opener)
+Output: task_type string from the defined set
+
+Classifier rules (check in order, first match wins):
+
+  "code" IF message contains any of:
+    ["debug", "bug", "error", "function", "class", "api", "endpoint",
+     "code", "script", "refactor", "test", "deploy", "implement",
+     "algorithm", "loop", "variable", "typescript", "javascript", "python"]
+
+  "research" IF message contains any of:
+    ["find", "search", "look up", "what is", "who is", "how does",
+     "summarize", "explain", "tell me about", "research", "learn about",
+     "background on", "information on"]
+
+  "write" IF message contains any of:
+    ["write", "draft", "compose", "create", "email", "message",
+     "post", "article", "blog", "letter", "proposal", "report",
+     "description", "bio", "script", "copy", "content"]
+
+  "analyze" IF message contains any of:
+    ["analyze", "analyse", "review", "evaluate", "assess", "compare",
+     "pros and cons", "feedback on", "opinion on", "thoughts on",
+     "critique", "audit"]
+
+  "plan" IF message contains any of:
+    ["plan", "strategy", "roadmap", "priorities", "goals", "outline",
+     "brainstorm", "ideas for", "approach to", "how should i",
+     "how do i", "help me think", "where to start"])
+
+  "admin" IF message contains any of:
+    ["schedule", "calendar", "meeting", "book", "organize",
+     "track", "manage", "list", "todo", "task", "reminder",
+     "invoice", "expense", "form"])
+
+  "review" IF message contains any of:
+    ["proofread", "edit", "revise", "check", "correct", "improve",
+     "better version", "rewrite", "fix this", "clean up"])
+
+  Length check:
+    IF normalized message <= 30 characters AND no type matched → "brief"
+
+  Fallback → "unknown"
+
+Store task_type with the raw signal. This is how the negative space map is built.
+
+──────────────────────────────────────────────────────────────────────────────
+STEP 3: VOCABULARY TRIBE DETECTION (A.1)
+──────────────────────────────────────────────────────────────────────────────
+
+Input: array of normalized words + full normalized message (for multi-word terms)
+Output: tribe_word_hits per tribe
+
+How it works:
+  1. Load vocabulary-tribes.json
+  2. For each tribe, check each term against the message:
+     — Single words: check if word is in normalized word array
+     — Multi-word terms ("term sheet"): check if normalized message contains substring
+  3. Collect all hits per tribe
+  4. Upsert into channel_a_word_frequency:
+     — For each hit word/phrase, increment count, update last_seen
+     — If not exists, insert with count = 1
+
+Return: { tribe_word_hits: { "startup_operator": ["ship", "ARR"], ... } }
+Store this in channel_a_raw_signals.tribe_word_hits
+
+──────────────────────────────────────────────────────────────────────────────
+STEP 4: HEDGING DETECTION (A.4)
+──────────────────────────────────────────────────────────────────────────────
+
+Input: lowercase full message text
+Output: hedging_detected boolean + hedging_phrases array
+
+How it works:
+  1. Load hedging-phrases.json
+  2. Check strong_hedges: does the message contain any strong hedge phrase?
+     If yes → hedging_detected = true, add to hedging_phrases
+  3. Count soft_hedges matches
+     If count >= 2 → hedging_detected = true, add all to hedging_phrases
+  4. Store result
+
+Return: { hedging_detected: true, hedging_phrases: ["i think", "maybe"] }
+
+──────────────────────────────────────────────────────────────────────────────
+STEP 5: FRUSTRATION DETECTION (A.5)
+──────────────────────────────────────────────────────────────────────────────
+
+Input: lowercase full message text + user's current frustration_fingerprint
+Output: frustration_detected boolean + frustration_phrases array
+
+How it works:
+  1. Load frustration-phrases.json default_patterns
+  2. Load user's known_patterns from their channel_a_profile (if exists)
+  3. Merge both lists, user-specific patterns first
+  4. Check message against merged list
+  5. If any match → frustration_detected = true
+
+Return: { frustration_detected: true, frustration_phrases: ["still not right"] }
+
+IMPORTANT: Frustration detection has a false positive problem.
+  "as i mentioned" is frustration if it's the 3rd message on the same topic.
+  "as i mentioned" is normal reference if it's first appearance.
+
+  Context filter: only flag as frustration if the task has 2+ prior messages
+  (it's a correction in a back-and-forth, not an intro).
+  task_turn_count > 1 is required to flag frustration.
+
+──────────────────────────────────────────────────────────────────────────────
+STEP 6: INSERT RAW SIGNAL ROW
+──────────────────────────────────────────────────────────────────────────────
+
+Take all the outputs from steps 1-5 and insert one row into
+channel_a_raw_signals.
+
+This is the permanent record. It should always succeed.
+If any earlier step failed, insert with what you have + an error flag.
+Never drop a message because one signal failed to extract.
+
+──────────────────────────────────────────────────────────────────────────────
+STEP 7: REBUILD THE USER PROFILE
+──────────────────────────────────────────────────────────────────────────────
+
+After inserting the raw signal, rebuild the user's channel_a_profile.
+This aggregates all raw signals for this user into the compiled profile.
+
+This step can be expensive (reads many rows) but it only runs per-user,
+and the profile row is cached. Two options:
+
+  Option A: Rebuild on every task (full rebuild from raw signals)
+  Option B: Incremental update (update the profile JSON in-place)
+
+→ CHOICE: Incremental update for most fields, full rebuild once per week.
+
+  Incremental update (after every task):
+    — Update tribe scores: add new hits to running totals, recompute scores
+    — Update prompt length: add this message's length to running stats
+    — Update negative space: add this task_type to task_types_seen if new
+    — Update hedging: update hedging_by_type[task_type] running average
+    — Update frustration: if frustration_detected, log timestamp and phrase
+
+  Full rebuild (weekly background job):
+    — Reads all raw signals for this user
+    — Recomputes everything from scratch
+    — Handles schema changes, fixes drift from bugs
+    — Stores rebuilt profile with incremented profile_version
+
+Profile update function pseudocode:
+
+  async function updateChannelAProfile(userId, newSignal):
+    profile = await getOrCreateChannelAProfile(userId)
+
+    // A.1: Update tribe scores
+    for each [tribe, words] in newSignal.tribe_word_hits:
+      profile.vocabulary_tribe.tribe_word_hits[tribe] += words (merge/dedupe)
+    recomputeTribeScores(profile)  // normalize word hit counts to 0-1 scores
+
+    // A.2: Update prompt evolution
+    taskType = newSignal.task_type
+    currentBaseline = profile.prompt_evolution.baseline_length_by_type[taskType]
+    if currentBaseline exists:
+      // Running average (simple, not exponential weighted — change later if needed)
+      sampleCount = profile.total_samples_by_type[taskType]
+      newBaseline = (currentBaseline * sampleCount + newSignal.message_length) / (sampleCount + 1)
+      profile.prompt_evolution.baseline_length_by_type[taskType] = newBaseline
+    else:
+      profile.prompt_evolution.baseline_length_by_type[taskType] = newSignal.message_length
+
+    recomputePromptTrend(profile)  // check if last 10 are longer or shorter than baseline
+
+    // A.3: Update negative space
+    if taskType not in profile.negative_space.task_types_seen:
+      profile.negative_space.task_types_seen.push(taskType)
+      profile.negative_space.task_types_never_seen = ALL_TASK_TYPES - task_types_seen
+
+    // A.4: Update hedging profile
+    if newSignal.hedging_detected:
+      updateRollingRate(profile.hedging_profile, taskType)  // fraction of messages with hedging
+
+    // A.5: Update frustration fingerprint
+    if newSignal.frustration_detected:
+      for each phrase in newSignal.frustration_phrases:
+        existing = findInKnownPatterns(profile.frustration_fingerprint, phrase)
+        if existing:
+          existing.occurrences += 1
+          existing.last_seen = now()
+        else:
+          profile.frustration_fingerprint.known_patterns.push({
+            pattern: phrase, occurrences: 1, first_seen: now(), last_seen: now()
+          })
+
+    profile.last_updated = now()
+    profile.total_samples += 1
+
+    await upsertChannelAProfile(userId, profile)
+
+──────────────────────────────────────────────────────────────────────────────
+COMPUTE: TRIBE SCORE NORMALIZATION
+──────────────────────────────────────────────────────────────────────────────
+
+recomputeTribeScores reads from channel_a_word_frequency table for this user.
+It counts total unique tribe word hits across all messages and normalizes.
+
+Tribe score formula:
+  raw_score[tribe] = count of unique tribe words seen in all user messages
+  max_possible[tribe] = total number of terms in that tribe's dictionary
+
+  normalized_score[tribe] = raw_score[tribe] / max_possible[tribe]
+
+  This gives you a 0-1 score per tribe.
+  primary_tribe = tribe with highest normalized score
+  secondary_tribe = tribe with second highest
+
+  Confidence threshold: primary_tribe is only reported if normalized_score >= 0.05
+  (at least 5% of tribe vocabulary seen). Below that = insufficient data.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 6 — PROMPT TREND COMPUTATION (A.2 in detail)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This is the calibration health signal. It's the most operationally important
+sub-channel — it tells you when the agent is failing the user.
+
+recomputePromptTrend(profile):
+
+  1. Get the last 20 raw signals (ordered by created_at DESC)
+     Filter to the same task types that have baselines
+
+  2. For each message, compute: deviation = length / baseline_for_type - 1.0
+     0.0 = exactly at baseline
+     +0.5 = 50% longer than baseline (lengthening)
+     -0.3 = 30% shorter than baseline (shortening)
+
+  3. Compute average deviation over last 20 messages
+  4. Compute average deviation over 20 messages before that (messages 21-40)
+
+  5. Compare:
+     If recent_avg < historical_avg by > 0.15: trend = "shortening" (good)
+     If recent_avg > historical_avg by > 0.15: trend = "lengthening" (bad)
+     Otherwise: trend = "stable"
+
+  6. Compute calibration_health:
+     If trend = "shortening" → "good"
+     If trend = "stable" → "good"
+     If trend = "lengthening" → "regressing"
+     If < 10 total samples → "unknown" (not enough data)
+
+  7. Compute lengthening_sessions_in_a_row:
+     Count how many consecutive recent sessions have above-baseline lengths.
+     If 3+ in a row → alert flag (this is calibration regression, not noise).
+
+CALIBRATION REGRESSION ACTION:
+When calibration_health flips from "good" to "regressing":
+  — Log an internal event: "calibration_regression_detected" for this user
+  — This event is read by the action layer (Action Layer, from ACTION_DEEP_PLAN)
+    which will decide whether and how to surface the insight to the user
+  — The extraction layer itself does NOT surface anything — it only captures
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 7 — HOW THE PROFILE FEEDS INTO AGENT BEHAVIOR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Extraction is worthless unless it changes behavior. Here's the exact injection
+point: the agent's system prompt is constructed fresh at the start of each task.
+
+Step 1: Load the user's channel_a_profile at task start.
+
+Step 2: Compile a Channel A context block:
+
+  function buildChannelAContextBlock(profile):
+
+    if profile.total_samples < 5:
+      return ""  // Not enough data. Don't inject noise.
+
+    lines = []
+
+    // A.1 — Vocabulary tribe
+    if profile.vocabulary_tribe.tribe_scores[primary] >= 0.05:
+      lines.push("User vocabulary tribe: " + primary_tribe)
+      lines.push("Known domain terms: " + first 5 tribe_word_hits[primary_tribe])
+
+    // A.2 — Calibration health
+    if prompt_evolution.calibration_health == "regressing":
+      lines.push("[CALIBRATION ALERT] User prompt length is increasing — possible friction")
+
+    // A.3 — Negative space
+    if negative_space.task_types_never_seen.length > 0 AND negative_space.weeks_since_start >= 6:
+      lines.push("Never-seen task types (do not proactively suggest): " + never_seen.join(", "))
+
+    // A.4 — Hedging
+    high_hedging_types = hedging_profile.high_hedging_types
+    low_hedging_types = hedging_profile.low_hedging_types
+    if high_hedging_types.length > 0:
+      lines.push("User hedges heavily on: " + high_hedging_types.join(", ") + " — offer options/ask before executing")
+    if low_hedging_types.length > 0:
+      lines.push("User is confident on: " + low_hedging_types.join(", ") + " — just execute")
+
+    // A.5 — Current frustration detection
+    // NOTE: This is checked per-message, not from profile
+    // At message receipt time: if frustration_detected in THIS message:
+    //   append "[FRUSTRATION DETECTED]" to context — agent handles with care
+
+    return lines.join("\n")
+
+Step 3: Inject this block into the system prompt before every response.
+
+The block is SHORT. It adds maybe 3-5 lines to the system prompt.
+It does NOT tell the agent everything about the profile — only what's
+relevant RIGHT NOW for THIS task.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 8 — PROBLEMS AHEAD (what will go wrong and how to handle it)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+──────────────────────────────────────────────────────────────────────────────
+PROBLEM 1: THE COLD START — FIRST 10 SESSIONS ARE GARBAGE
+──────────────────────────────────────────────────────────────────────────────
+
+What happens: you have 3 messages. The tribe score says "startup_operator" at
+0.4 because the user said "ship" once. The agent behaves accordingly.
+The signal is noise, not intelligence.
+
+Solution: profile injection is gated on sample_size.
+
+  < 5 samples → inject NOTHING from Channel A
+  5-15 samples → inject ONLY the single most confident signal (tribe if >= 0.15)
+  15-30 samples → inject tribe + hedging profile
+  30+ samples → full Channel A context block active
+
+  These thresholds are configurable. The defaults above are conservative on purpose.
+  A wrong assumption baked in early is worse than a missing assumption.
+
+──────────────────────────────────────────────────────────────────────────────
+PROBLEM 2: PROMPT LENGTH NORMALIZATION ACROSS TASK TYPES
+──────────────────────────────────────────────────────────────────────────────
+
+What happens: user writes a 500-word message providing context for a complex
+writing task. Then a 20-word message for a quick lookup. The raw length trend
+says "HUGE DROP" — calibration regression! But it's not. They're just doing
+different task types.
+
+Solution: length is ALWAYS normalized PER TASK TYPE.
+  The baseline is computed separately for each of the 9 task types.
+  Trend computation only compares messages of the SAME task type.
+  Never compare a "write" prompt length to a "brief" prompt length.
+
+  This requires enough samples per type before the trend is meaningful.
+  Per-type baseline requires minimum 5 messages in that type before computing trend.
+
+──────────────────────────────────────────────────────────────────────────────
+PROBLEM 3: TRIBE CONTAMINATION FROM PASTED CONTENT
+──────────────────────────────────────────────────────────────────────────────
+
+What happens: user pastes a McKinsey report excerpt into their message.
+The excerpt contains enterprise vocabulary. Now the agent thinks this user
+is an enterprise consultant. They're a startup founder.
+
+Solution: pasted content detection.
+
+  Heuristic: if message length > 400 words AND contains quotation marks,
+  or starts with typical paste patterns ("From:", "Subject:", "---",
+  or is clearly tabular/data), flag it as "contains_pasted_content = true".
+
+  Extraction behavior for pasted content:
+  — Strip the pasted block before tribe detection
+  — User's OWN words are only in the first ~50 words before the paste
+    and any words after the paste block
+  — Extract tribe only from the non-pasted sections
+
+  This heuristic is imperfect. But it prevents the worst contamination.
+  Refine it over time as you see real-world examples.
+
+──────────────────────────────────────────────────────────────────────────────
+PROBLEM 4: HEDGING THAT ISN'T ACTUALLY HEDGING
+──────────────────────────────────────────────────────────────────────────────
+
+What happens: user writes "I think they'd respond well to that approach."
+The word "I think" triggers hedging detection. But this is confident speech
+about what SOMEONE ELSE thinks — not the user hedging their own request.
+
+Solution: position filter.
+  Hedging only counts if the hedging phrase is in the FIRST THIRD of the message.
+  Hedging at the start of a prompt signals uncertainty about the task.
+  Hedging in the middle or end of a message is often describing someone else's
+  perspective or qualifying a detail — not the overall task confidence.
+
+  Implementation: only scan message[:len/3] for hedging patterns.
+
+──────────────────────────────────────────────────────────────────────────────
+PROBLEM 5: NEGATIVE SPACE REQUIRES TIME — DON'T RUSH IT
+──────────────────────────────────────────────────────────────────────────────
+
+What happens: after 2 weeks, "admin" hasn't appeared. The system marks it as
+"never-seen" and tells the agent not to suggest admin help. Then week 3,
+the user needs help scheduling. The agent doesn't offer. The user is confused
+why the agent seems less capable.
+
+Solution: negative space is only activated after 8 weeks AND 50+ samples.
+  Before that: negative_space.confident = false.
+  When confident = false: the agent IGNORES the negative space signal.
+  It does not suppress any suggestions based on absent task types.
+
+  8 weeks is long enough to cover different work phases.
+  50+ samples gives statistical weight to the absences.
+
+──────────────────────────────────────────────────────────────────────────────
+PROBLEM 6: FRUSTRATION DETECTION CREATES A SELF-DEFEATING LOOP
+──────────────────────────────────────────────────────────────────────────────
+
+What happens: agent detects frustration. It injects "[FRUSTRATION DETECTED]"
+into the context. The agent now writes a response that acknowledges the user
+seems frustrated. The user wasn't actually frustrated — they just used a
+common phrase. The acknowledgment feels patronizing. Now the user IS frustrated.
+
+Solution: frustration detection changes behavior SILENTLY.
+
+  "FRUSTRATION DETECTED" in context should NOT make the agent say
+  "I see you're frustrated with my previous response."
+
+  It should ONLY:
+  — Make the agent's next response shorter and more direct
+  — Eliminate any options/exploration in the response
+  — Skip the preamble
+  — Not add any meta-commentary about the previous response
+
+  The agent never acknowledges frustration detection out loud.
+  The behavior change is the response. Invisible. That's the goal.
+
+──────────────────────────────────────────────────────────────────────────────
+PROBLEM 7: VOCABULARY TRIBE SCORES BECOME STALE
+──────────────────────────────────────────────────────────────────────────────
+
+What happens: user was a startup operator in year 1. Now they're a VC.
+Their tribe words changed 6 months ago but the profile still says
+startup_operator because the old word hits dominate the running total.
+
+Solution: time-weighted tribe scoring.
+  Word hits older than 90 days count at 50% weight.
+  Word hits older than 180 days count at 25% weight.
+  Word hits older than 365 days are excluded.
+
+  This makes the tribe scores reflect current behavior, not history.
+  Implementation: when recomputeTribeScores runs, filter channel_a_word_frequency
+  by last_seen date and apply time-based weight multipliers.
+
+  This is NOT implemented in V1. Add it in V2. V1 uses raw counts.
+  Flag this as a known limitation when the system is live.
+
+──────────────────────────────────────────────────────────────────────────────
+PROBLEM 8: THE EXTRACTION RUNS BUT THE PROFILE ISN'T READ
+──────────────────────────────────────────────────────────────────────────────
+
+What happens: everything above is built perfectly. The profile is rich.
+But the context injection code has a bug, or is never called, or the
+system prompt construction ignores it. Weeks of data, zero impact.
+
+Solution: verification query in the debug command (see Part 9).
+  /debug channel-a must show BOTH:
+    — "signals collected: X"
+    — "profile injected in last N responses: X" (track injection, not just collection)
+
+  If signals are collected but injection count is 0 → the profile is built
+  but not being used. This is the most likely silent failure.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 9 — THE DEBUG COMMAND
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The debug command is not optional. It is part of the build.
+Without it, you cannot verify the system is working correctly.
+
+Command: /debug channel-a
+
+Output format (console or API response):
+
+  ═══════════════════════════════════════
+  CHANNEL A DEBUG REPORT
+  User: [user_id]
+  Generated: [timestamp]
+  ═══════════════════════════════════════
+
+  COLLECTION STATUS
+  ─────────────────
+  Total signals collected: 47
+  Collection period: 2025-05-01 to 2026-07-09 (68 days)
+  Task types seen: write (18), research (14), brief (9), analyze (6)
+  Task types never seen: plan, admin, code, review
+  Profile version: 8
+  Last rebuilt: 2026-07-08
+
+  A.1 — VOCABULARY TRIBE
+  ──────────────────────
+  Primary tribe: startup_operator (score: 0.72)
+  Secondary tribe: technical (score: 0.48)
+  All tribe scores:
+    startup_operator  ██████████████░░░░░░  0.72
+    technical         █████████░░░░░░░░░░░  0.48
+    marketer          ████░░░░░░░░░░░░░░░░  0.19
+    vc_investor       ██░░░░░░░░░░░░░░░░░░  0.12
+    enterprise        █░░░░░░░░░░░░░░░░░░░  0.08
+    academic          ░░░░░░░░░░░░░░░░░░░░  0.03
+
+  Top tribe words: ship (12x), founder (8x), ARR (6x), traction (5x), runway (4x)
+
+  A.2 — PROMPT EVOLUTION
+  ──────────────────────
+  Calibration health: GOOD
+  Current trend: shortening (healthy)
+  Baseline lengths by type:
+    write:    avg 183 chars | recent avg 142 chars | -22% (shortening)
+    research: avg 87 chars  | recent avg 79 chars  | -9%  (stable)
+    brief:    avg 31 chars  | recent avg 29 chars  | -6%  (stable)
+  Lengthening sessions in a row: 0
+  [ALERT: None]
+
+  A.3 — NEGATIVE SPACE
+  ─────────────────────
+  Confident (8+ weeks, 50+ samples): NO — 4.8 weeks, 47 samples
+  Suppression active: NO (waiting for confidence threshold)
+  Task types never seen: plan, admin, code, review
+  [Note: negative space not yet being used — insufficient observation period]
+
+  A.4 — HEDGING PROFILE
+  ──────────────────────
+  Overall hedging rate: 18%
+  By task type:
+    write:    45% hedging  → HIGH — agent offers options on writing tasks
+    research:  4% hedging  → LOW  — agent executes immediately on research
+    analyze:  21% hedging  → MODERATE
+    brief:     6% hedging  → LOW
+  Active behavior modifications: offer options on write tasks
+
+  A.5 — FRUSTRATION FINGERPRINT
+  ──────────────────────────────
+  Personalized: NO (using defaults + 1 confirmed pattern)
+  Confirmed patterns:
+    "still not right" — 3 occurrences — last: 2026-06-22
+  Default patterns active: YES
+  Frustration events in last 30 days: 1
+
+  INJECTION STATUS
+  ─────────────────
+  Profile injected in last 10 responses: 10/10
+  Avg context block size: 4 lines
+  Last injection timestamp: [timestamp]
+
+  ═══════════════════════════════════════
+  Raw signal table: channel_a_raw_signals
+  Profile table: channel_a_profiles
+  ═══════════════════════════════════════
+
+This command is built at the same time as the extractor. Not after.
+If you can't debug it, you can't trust it.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 10 — HOW TO TEST THAT IT WORKS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Testing Channel A requires three levels. All three must pass.
+
+──────────────────────────────────────────────────────────────────────────────
+LEVEL 1: UNIT TESTS (test the logic, not the system)
+──────────────────────────────────────────────────────────────────────────────
+
+Write unit tests for each extraction function in isolation.
+No database. No API calls. Pure input → output.
+
+TEST SET: Task Type Classifier
+
+  Input: "can you write me a cold email to an investor i met last week"
+  Expected: "write"
+
+  Input: "what is the cap table structure for an LLC vs a C-corp"
+  Expected: "research"
+
+  Input: "debug this function it keeps throwing undefined"
+  Expected: "code"
+
+  Input: "plan my Q3 priorities around the fundraise"
+  Expected: "plan"
+
+  Input: "ok"
+  Expected: "brief"
+
+  Input: "lets go"
+  Expected: "brief"
+
+  Run at least 20 inputs. Include ambiguous ones. The classifier will get
+  some wrong. Document the wrong ones. Refine the rules.
+
+TEST SET: Vocabulary Tribe Detection
+
+  Input: "I need to prep for my Series A pitch, our ARR is $1.2M and we have
+          good traction but need to explain our burn to investors"
+  Expected hits: startup_operator → ["Series A", "ARR", "traction", "burn", "investors"]
+  Expected: tribe_scores.startup_operator > 0.3
+
+  Input: "help me deploy this to production, the endpoint is timing out under load"
+  Expected hits: technical → ["deploy", "production", "endpoint"]
+
+  Input: "can you proofread this? i think it's pretty good but want a second opinion"
+  Expected: hedging_detected = true (has "i think" soft hedge)
+  Tribe hits: minimal (generic request)
+
+TEST SET: Hedging Detection
+
+  Input: "write a follow-up email to sarah"
+  Expected: hedging_detected = false
+
+  Input: "i'm not sure if this is right but maybe write a follow-up to sarah?"
+  Expected: hedging_detected = true, hedging_phrases contains "i'm not sure" and "maybe"
+
+  Input: "i think we should follow up with sarah"
+  Expected: hedging_detected = false (only 1 soft hedge, in middle of message)
+
+TEST SET: Frustration Detection
+
+  Input: "this is still not right, i need the tone to be warmer" [task_turn_count = 2]
+  Expected: frustration_detected = true, frustration_phrases = ["still not right"]
+
+  Input: "this is still not right" [task_turn_count = 0]
+  Expected: frustration_detected = false (first message, no turn context)
+
+  Input: "as i mentioned earlier, sarah is my cofounder not my advisor"
+  Scenario: task_turn_count = 3 (correction context)
+  Expected: frustration_detected = true
+
+──────────────────────────────────────────────────────────────────────────────
+LEVEL 2: INTEGRATION TESTS (test the pipeline end to end)
+──────────────────────────────────────────────────────────────────────────────
+
+These tests run against a real test database (separate from production).
+
+TEST: Signal Insertion
+
+  1. Call extractChannelASignals() with a test message
+  2. Query channel_a_raw_signals for the row
+  3. Verify: row exists, all fields populated correctly
+
+TEST: Profile Update
+
+  1. Insert 20 synthetic test messages covering different task types and vocabulary
+  2. Call updateChannelAProfile() for the test user
+  3. Query channel_a_profiles
+  4. Verify:
+     — primary_tribe matches expected (e.g., startup_operator if messages had startup vocab)
+     — task_types_seen contains all types you inserted
+     — hedging_profile.hedging_by_type reflects the hedging you injected
+     — total_samples = 20
+
+TEST: Word Frequency Table
+
+  1. Insert 5 messages all containing "ARR"
+  2. Query channel_a_word_frequency for user_id, word = "arr"
+  3. Verify: count = 5, last_seen is recent
+
+TEST: Profile Context Injection
+
+  1. Create a user with a mature profile (startup_operator, good calibration)
+  2. Call buildChannelAContextBlock(profile)
+  3. Verify: output contains expected lines about startup_operator tribe
+  4. Verify: output does NOT contain calibration alert when health is "good"
+  5. Create a user with regressing calibration
+  6. Verify: output DOES contain calibration alert
+
+TEST: Frustration Silence
+
+  1. Build a profile with frustration detected
+  2. Call buildChannelAContextBlock with frustration_detected = true
+  3. Verify: the returned string contains "[FRUSTRATION DETECTED]"
+  4. Pass that string to the agent response
+  5. Verify: agent response is shorter than baseline, no meta-commentary about frustration
+
+──────────────────────────────────────────────────────────────────────────────
+LEVEL 3: BEHAVIORAL TESTS (test that behavior actually changed)
+──────────────────────────────────────────────────────────────────────────────
+
+These are manual or semi-automated. They test the actual user experience.
+
+TEST: Tribe Context Changes Output
+
+  1. Clear database (fresh start)
+  2. Send 20 messages with heavy startup vocabulary ("ship", "ARR", "founder", etc.)
+  3. Wait for profile to build
+  4. Ask agent: "help me write a message to a contact about my work"
+  5. Observe: does the agent's output use startup-appropriate language without being told?
+  6. Compare: run the same request with a "fresh" agent that has no profile
+  7. The profiled agent's output should feel more calibrated to the startup world
+
+TEST: Hedging Triggers Collaborative Mode
+
+  1. Send 10 messages with high hedging on "write" task type
+  2. Send a new "write" request without any hedging: "draft a fundraising email"
+  3. Observe: does the agent offer options / ask a clarifying question before drafting?
+  4. Send a "research" request with same profile (research = low hedging)
+  5. Observe: does the agent just answer without offering options?
+  The difference between these two responses is the test.
+
+TEST: Frustration Changes Response Character
+
+  1. Send a message with frustration markers (turn 2+ in a conversation)
+  2. Observe: the NEXT agent response should be:
+     — Shorter than its typical response on this task type
+     — No preamble ("Of course!" or "Sure, let me help you with that...")
+     — No options presented
+     — Direct answer only
+  3. Verify this change happened WITHOUT the agent saying "I see you're frustrated"
+
+TEST: Debug Command Completeness
+
+  1. Run /debug channel-a after 20+ tasks
+  2. Manually verify EVERY field in the output against the database directly
+  3. Check that injection_count matches the number of tasks (not 0)
+  4. This is the integration test you'll run weekly for the first month
+
+──────────────────────────────────────────────────────────────────────────────
+TEST: THE COLD START GATE
+──────────────────────────────────────────────────────────────────────────────
+
+  1. Fresh user, 0 samples
+  2. Call buildChannelAContextBlock(profile)
+  3. Verify: returns "" (empty string — nothing injected)
+  4. Send 5 messages with strong startup vocabulary
+  5. Verify: only tribe context injected (not hedging, not negative space)
+  6. Send 15 more messages
+  7. Verify: hedging profile now included in context block
+  8. Verify: negative space still NOT included (< 8 weeks)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 11 — BUILD SEQUENCE (the exact order to build this)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Sprint 1 — Data foundation (build first, never touch again)
+
+  1. Create tables: channel_a_raw_signals, channel_a_profiles, channel_a_word_frequency
+  2. Write src/data/vocabulary-tribes.json (start with 6 tribes above, ~100 terms each)
+  3. Write src/data/hedging-phrases.json
+  4. Write src/data/frustration-phrases.json
+  5. Write unit tests for classifyTaskType()
+  6. Write unit tests for detectHedging()
+  7. Write unit tests for detectFrustration()
+
+Sprint 2 — Extractor pipeline
+
+  1. Write normalizeMessage() — strip, lowercase, tokenize, stopwords
+  2. Write classifyTaskType()
+  3. Write detectVocabularyTribeHits()
+  4. Write detectHedging()
+  5. Write detectFrustration()
+  6. Write insertChannelARawSignal() — the DB insert
+  7. Write the wrapper: extractChannelASignals(taskId, userId, message, priorTurnCount)
+  8. Hook into the existing task completion flow (fire-and-forget after response sent)
+  9. Integration test: verify rows appearing in channel_a_raw_signals
+
+Sprint 3 — Profile builder
+
+  1. Write updateChannelAProfile() — incremental update
+  2. Write recomputeTribeScores() — normalize scores from word frequency table
+  3. Write recomputePromptTrend() — trend and calibration health
+  4. Write the weekly full-rebuild job
+  5. Integration test: verify channel_a_profiles being updated correctly
+
+Sprint 4 — Context injection
+
+  1. Write buildChannelAContextBlock(profile)
+  2. Hook into system prompt construction (inject before every response)
+  3. Add injection tracking (counter in profile or separate log)
+  4. Integration test: verify context block is non-empty after 5+ samples
+
+Sprint 5 — Debug command + behavioral tests
+
+  1. Build /debug channel-a command with full output format above
+  2. Run behavioral tests manually
+  3. Adjust injection text based on actual agent behavior observations
+  4. Add the calibration regression event log
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE ONE THING THAT MAKES THIS WORK OR NOT WORK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The vocabulary tribe dictionary.
+
+All the pipeline logic is straightforward software. The piece that makes the
+outputs actually intelligent is the quality of the term lists. A thin list
+gives thin tribe detection. A rich, accurate list that grows over time as
+you observe real users gives precise tribe classification.
+
+In the first week: add 10 new terms you didn't think of.
+In the first month: add 50.
+When a user's tribe detection feels wrong: open the dictionary and add what's missing.
+
+The dictionary is not a one-time asset. It's the thing you maintain.
+Every channel in the system has an equivalent — a curated reference list
+that you improve as you learn. The code is infrastructure. The lists are intelligence.
+
+═══════════════════════════════════════════════════════════════════════════════

@@ -1,0 +1,924 @@
+═══════════════════════════════════════════════════════════════════════════════
+JARVIS V2 — FROM TASK RUNNER TO LIFE AGENT
+Complete Deep Plan — The 100x Vision
+═══════════════════════════════════════════════════════════════════════════════
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE SHIFT IN THINKING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+V1 is a task runner. You tell it what to do. It does it. You come back tomorrow
+and start from zero again. It does not know you. It does not watch. It does not
+think about what you need. It waits.
+
+V2 is a life agent. It knows your world — your goals, your network, your
+patterns, your rhythm. It acts without being asked. When you open it, it has
+already done things. It noticed something while you were away and prepared a
+response. It tracked whether that email you sent last week got a reply. It
+drafted the LinkedIn comment you would have written if you remembered. It
+noticed you've been avoiding a particular task for 5 days and it's going to say
+something about it.
+
+The difference is not more features. The difference is the agent shifting from
+REACTIVE to PROACTIVE — from serving commands to serving your life.
+
+This is not a feature list. It is a new philosophy for what an agent is.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE FULL DATA MODEL — WHAT JARVIS KNOWS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Everything Jarvis knows lives in one of these layers. No overlaps. No guessing.
+
+LAYER 1 — WHO YOU ARE (static-ish, user-controlled)
+  SOUL.md           Agent personality. Unchanged from V1.
+  USER.md V2        Much deeper user profile. See below.
+  IDENTITY.md       NEW. Deep identity: values, decision style, fears, drivers.
+                    Written once. Never auto-updated. User-written or extracted
+                    from a 30-minute one-time conversation.
+
+LAYER 2 — YOUR WORLD (dynamic, agent-observed)
+  MEMORY.md         All observed facts. Unchanged from V1.
+  NETWORK.md        NEW. Your relationship map. Every person the agent has
+                    encountered, their status, last contact, importance tier.
+  CONTENT.md        NEW. Your content strategy, post history, what worked,
+                    what topics you own, what your audience engages with.
+  PIPELINE.md       NEW. Deals, opportunities, outreach threads, follow-up
+                    status. The agent tracks who you're chasing and what stage.
+
+LAYER 3 — WHAT'S HAPPENING NOW (session + daily)
+  SESSION.md        NEW. One per session. Goal for this session, what was done,
+                    what was discovered, what needs follow-up. Archived after
+                    every session. Never deleted. Infinitely searchable.
+  BRIEFING.md       NEW. Generated fresh when app opens. What happened since
+                    you were last here. Emails to handle, actions needed,
+                    people who posted, follow-ups due. Replaced every launch.
+  PENDING.md        NEW. The agent's working queue. Things it noticed that need
+                    your attention but aren't urgent enough to interrupt. You
+                    review it at your pace. Cleared when acted on.
+
+DATABASE
+  agent_sessions    Every task. FTS5 searchable. Unchanged from V1.
+  people_graph      NEW. Rich relationship database. See NETWORK section.
+  content_log       NEW. Every post, email, message drafted or sent.
+  pipeline_entries  NEW. Each deal/opportunity the agent is tracking.
+  proactive_queue   NEW. The agent's idea queue for background actions.
+  session_archive   NEW. Compressed session summaries for long-term recall.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FILE 1 (V2): USER.md — THE DEEP PROFILE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+V1 USER.md had 6 sections. V2 has 12. The additions are not padding — they are
+the sections that make the difference between a tool that knows facts about you
+and one that understands how you think and operate.
+
+NEW SECTIONS ADDED IN V2:
+
+  [WORK RHYTHM]
+    What time of day you do deep work vs admin.
+    Which days are focused vs meeting-heavy.
+    How long you can sustain focus before needing context switches.
+    Whether you prefer to batch communication or handle it immediately.
+    Agent learns this from task timestamps over 2 weeks, then surfaces it:
+    "Your most productive task blocks happen Tuesday-Thursday 9am-12pm.
+     I'll avoid interruptions with proactive suggestions during those windows."
+
+  [DECISION STYLE]
+    Fast-mover vs deliberate processor?
+    Do you want options or a single recommendation?
+    What evidence makes you act? Social proof? Data? Gut feeling?
+    Do you prefer to be pushed or to decide independently?
+    This section means the agent presents information the right way.
+    A fast-mover gets "Here's what I'd do. Say yes to execute." not a 5-option
+    analysis. A deliberate processor gets the tradeoffs laid out clearly.
+
+  [COMMUNICATION PATTERNS]
+    How you write to investors (formal, concise, data-forward)
+    How you write to team (direct, casual, assumes context)
+    How you write to customers (warm, clear, no jargon)
+    How you write to prospects (low-pressure, curiosity-driven)
+    How you write on LinkedIn (insights-forward, no humble-bragging)
+    Different registers for different relationships. Agent switches automatically.
+    Not guessed — extracted from actual email and post samples per category.
+
+  [TRIGGERS AND DRIVERS]
+    What makes you act immediately? (urgency cues, opportunity signals)
+    What makes you procrastinate? (unclear next step, large ambiguous task)
+    What topics make you respond fast vs slow? (categorized by email/message type)
+    What kind of praise motivates you? What kind of criticism lands well?
+    This section is used to frame agent suggestions in the language that lands.
+
+  [NETWORK PRIORITIES]
+    Tier 1 — Inner circle. Can't afford to let these go cold. Names + frequency.
+    Tier 2 — Active relationships. Should touch every 30 days. Names.
+    Tier 3 — Warm but dormant. Worth reactivating. Names + context.
+    Tier 4 — Tracked but not prioritized. Watch-list only.
+    Agent actively monitors contact frequency and surfaces alerts.
+
+  [AVOIDANCES]
+    Things you've said no to repeatedly → agent stops suggesting them.
+    Platforms you don't want to use.
+    Types of tasks you want to handle yourself (never automate).
+    Topics you won't write about publicly.
+    This section prevents the agent from being annoying.
+
+HOW USER.md V2 IS BUILT — DATA COLLECTION METHODS:
+
+  METHOD 1 — Direct setup conversation (first 20 minutes)
+    Standard profile setup. Expanded to cover new sections.
+    Partial completion is valid. Fill what matters first.
+
+  METHOD 2 — Implicit extraction from tasks (continuous)
+    Every task the agent runs adds to what it knows.
+    - Task at 7am? Work rhythm data. At 11pm? Note the late push.
+    - User rejected agent's suggestion to email at 5pm? → communication timing.
+    - User always edits the agent's LinkedIn drafts to be more direct? → voice.
+    - User consistently opens emails from Person X within 5 minutes? → tier 1.
+    - User has ignored the same task type 3 times? → avoidance signal.
+    These are never guessed — they're accumulated evidence that reaches a
+    threshold before the agent notes them.
+
+  METHOD 3 — Probing questions during idle moments
+    When the user has no pending task and opens the app, agent occasionally
+    surfaces ONE profile-deepening question. Not a form. One question.
+    "You've done 8 LinkedIn tasks this month. What's your content goal there —
+     thought leadership, lead gen, or staying visible in your industry?"
+    Answer → USER.md [GOALS] + CONTENT.md strategy hint.
+    One question per session max. Never repeated if already answered.
+
+  METHOD 4 — Correction capture
+    Every time the user edits agent output, changes a direction, or says "no
+    not like that" — the agent notes what was wrong and stages a profile update.
+    After 3 corrections of the same type, it becomes a profile fact.
+    "You've adjusted the formality of my LinkedIn drafts 3 times toward more
+     casual language. Updating your LinkedIn voice preference."
+
+  METHOD 5 — External data inference
+    From email analysis: who do you email most? Who replies fastest? Who goes
+    cold? → builds network tier assignments automatically.
+    From LinkedIn analysis: what content you engage with → interest map.
+    From calendar (if connected): meeting patterns, recurring commitments.
+    From task timestamps: work rhythm, response speed by category.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FILE 2 (NEW): SESSION.md — PER-SESSION INTELLIGENCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This is the most important new concept in V2. Every time the user opens Jarvis,
+a new SESSION.md is created. It lives for that session. When the session ends
+(app closes, user types /session end, or 4 hours of inactivity), it is
+compressed and archived to session_archive table + saved as a dated .md file.
+
+What SESSION.md tracks:
+
+  # SESSION — 2026-07-05 09:14
+  Status: active
+  Goal: [what the user said or what was inferred from first task]
+
+  ## What I Did This Session
+  - 09:14 — Checked LinkedIn inbox, found 3 messages. Drafted responses to 2.
+  - 09:31 — Researched Marco Rossi (VC at Amplify). Saved to NETWORK.md.
+  - 09:45 — Drafted outreach email to Marco. User approved and sent.
+  - 10:12 — Analyzed competitor's LinkedIn strategy. Saved observations.
+
+  ## What I Discovered
+  - Marco Rossi is actively investing in AI infra (from his recent posts)
+  - Your LinkedIn post from Monday had 3x usual engagement (Hook format worked)
+  - 2 emails from investors are awaiting response (flagged in PENDING.md)
+
+  ## Open Threads (not finished this session)
+  - Follow up with Sarah Chen (sent intro email, no reply yet — check in 3 days)
+  - LinkedIn post draft saved — user wanted to review before publishing
+
+  ## Next Session Suggestions
+  - Check if Marco replied to your email
+  - Review the LinkedIn draft and publish or revise
+  - Follow up with Sarah Chen if no reply by [date]
+
+WHY THIS MATTERS:
+
+  1. CONTINUITY — next session starts with "Last session you were working on
+     outreach to Amplify Fund. Marco hasn't replied yet. Want to follow up or
+     move to the next target?"
+
+  2. ACCOUNTABILITY — user can see exactly what was accomplished. Not a vague
+     "we did stuff" but a timestamped log. Builds trust.
+
+  3. COMPOUNDING — archived sessions are searchable. "What did we do with
+     Amplify Fund?" → agent searches archive, finds 3 sessions worth of context.
+
+  4. PATTERN DETECTION — after 20 sessions, agent can see: "You always start
+     sessions with email triage. Want me to auto-run that when you open?"
+
+SESSION CONTINUITY MECHANIC:
+
+  On launch, agent reads the last SESSION.md archive and the current open threads.
+  If session was less than 8 hours ago: continues it (same SESSION.md, appends).
+  If session was more than 8 hours ago: new SESSION.md, but last session's open
+  threads are surfaced: "Last session you left 2 things open. Want to pick up
+  where you left off?"
+
+  User can override: /session new → forces a clean start.
+  User can name a session: /session goal "Close Series A follow-ups"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE MORNING BRIEFING — PROACTIVE INTELLIGENCE ON LAUNCH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Every time the app opens (if more than 4 hours since last launch), the agent
+runs a BRIEFING before waiting for user input. This takes 10-20 seconds in
+background while the user is reading the startup screen. By the time the prompt
+appears, the briefing is ready.
+
+What the briefing does:
+
+  STEP 1 — EMAIL SCAN (if Gmail connected)
+    Opens Gmail. Scans inbox since last session.
+    Categorizes:
+      - Action required (investor, partner, important contact)
+      - Draft ready (agent proposes a reply, user approves)
+      - FYI (newsletters, notifications — summarized)
+      - Ignore (spam, automated)
+    For action-required emails: draft responses ready to review.
+    For FYI: one-line summary each.
+    Outputs: "3 emails need your attention. 2 responses drafted."
+
+  STEP 2 — NETWORK PULSE (if LinkedIn connected)
+    Checks posts from your Tier 1 and Tier 2 network since last session.
+    Flags: people who posted something worth engaging with.
+    Drafts: suggested comments (3-5 words to indicate genuine engagement).
+    Checks: any connection requests, messages, reactions on your posts.
+    Outputs: "Marco Rossi posted about AI governance — I drafted a comment.
+              Your Monday post got 847 impressions. Top engager: Sarah Chen."
+
+  STEP 3 — FOLLOW-UP TRACKER
+    Checks PENDING.md and PIPELINE.md for due follow-ups.
+    "You sent Marco an email 4 days ago. No reply. Time to follow up?"
+    Draft follow-up ready to review.
+    "Sarah Chen milestone was supposed to close this week. Check in?"
+
+  STEP 4 — OPEN THREADS FROM LAST SESSION
+    Shows what was left unfinished. 2-3 items max.
+    User can say "yes let's continue" or "skip, start fresh."
+
+  STEP 5 — ONE SUGGESTION
+    Based on pattern analysis: one action the agent thinks would be high-value.
+    "Your LinkedIn hasn't had a post in 6 days. You usually post twice a week.
+     I've drafted something based on the AI governance post you bookmarked."
+
+DISPLAY FORMAT (tight, scannable):
+
+  ════════════════════════════════════
+  BRIEFING — Saturday 9:14am
+  ════════════════════════════════════
+  📧 3 emails need attention
+     • Marco Rossi — replied to your pitch (IMPORTANT)
+     • Investor intro from friend (draft response ready)
+     • Newsletter: AI Weekly digest (summarized below)
+
+  🔗 LinkedIn since yesterday
+     • Marco posted about AI governance (comment drafted)
+     • Your post: 847 views, 23 likes (+40% vs average)
+
+  ⏰ Follow-ups due today
+     • Sarah Chen — no reply in 4 days (follow-up drafted)
+
+  📌 From last session
+     • LinkedIn post draft waiting for review
+
+  ────────────────────────────────────
+  Type a task or press Enter to start with the top email.
+  ════════════════════════════════════
+
+The briefing is non-blocking. User can type a task and the briefing continues
+in background. Or they can engage with briefing items one by one.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+NETWORK INTELLIGENCE — RELATIONSHIP AS DATA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+NETWORK.md is not a contacts list. It is a living relationship graph. Every
+person the agent encounters across any task is evaluated for importance and
+tracked. The user never has to manually maintain this.
+
+PERSON ENTRY FORMAT (V2, much richer than V1):
+
+  ## Marco Rossi
+  Tier: 1 — Inner circle / Active pursuit
+  Last contact: 2026-07-01 (email sent, AWAITING REPLY)
+  Next action: Follow up by 2026-07-06 if no reply
+  Platform: LinkedIn (@marcorossi_vc) | Email: marco@amplifyfund.com
+  Role: Partner at Amplify Fund (Series A, $50-500k checks)
+  Focus: AI infrastructure, developer tools, vertical SaaS
+  Why matters: Potential lead investor in your round. Warm intro from Sarah Chen.
+  What he responds to: Data-forward pitches. Short emails. Quick asks.
+  Relationship health: WARM (recent contact, positive signal)
+  Notes: Mentioned interest in AI governance at YC panel. Runs monthly office hours.
+  Session refs: [session-2026-07-03] [session-2026-07-05]
+
+WHAT POPULATES THIS AUTOMATICALLY:
+
+  — Agent visits LinkedIn profile during a task → extracts role, focus, recent posts
+  — Agent sends/drafts email → logs contact date, awaiting reply flag
+  — Agent reads their reply → updates status, extracts useful signals
+  — Agent sees them mentioned in another email → logs connection
+  — Agent notices they haven't been contacted in X days → surfaces alert
+
+THE RELATIONSHIP HEALTH SYSTEM:
+
+  WARM: Contact in last 30 days, last interaction positive
+  COOLING: 30-60 days no contact
+  COLD: 60+ days no contact
+  DORMANT: 90+ days, relationship at risk
+  DEAD: explicitly closed, do not re-engage
+
+  Health degrades automatically. Agent alerts on transitions:
+  "Marco is going from WARM to COOLING. You haven't been in touch in 25 days.
+   He posted something about your space yesterday. Perfect window — I drafted
+   a comment and a short follow-up email."
+
+THE FOLLOW-UP ENGINE:
+
+  Every sent email/message gets a follow-up trigger:
+  - No reply in 3 days → surface alert
+  - No reply in 7 days → draft follow-up
+  - No reply in 14 days → suggest different approach
+
+  Agent knows who typically replies fast vs slow (from history) so it doesn't
+  over-alert on slow responders. Marco usually replies within 2 days → alert
+  on day 3. Investor Y usually takes a week → alert on day 8.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CONTENT INTELLIGENCE — OWNING YOUR VOICE AT SCALE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CONTENT.md tracks everything the user has published, what performed, and builds
+a living content strategy from observed data.
+
+WHAT IT TRACKS:
+
+  — Every post written with Jarvis (date, platform, topic, format, hook type)
+  — Engagement metrics when observed (impressions, likes, comments, saves)
+  — What topics get response vs get ignored
+  — Which formats perform (list vs story vs insight vs question)
+  — What time/day gets best reach
+  — Which contacts engage most reliably (potential collaborators)
+  — Gaps in content calendar (hasn't posted in X days)
+  — Topics the user's audience is asking about that aren't being covered
+
+CONTENT STRATEGY SYSTEM:
+
+  After 10 posts observed, agent has enough data to generate a simple content
+  strategy: what formats work, what topics land, what posting rhythm is
+  sustainable. This gets written to CONTENT.md [STRATEGY].
+
+  The agent then proactively:
+  1. Notices when the user hasn't posted in longer than their usual rhythm
+  2. Drafts a post idea based on what's trending in their domain
+  3. Surfaces "Your audience engages most with your framework posts.
+     The AI governance debate going on right now is perfect for that format.
+     Want me to draft something?"
+
+  Content ideas come from:
+  — News in the user's domain (agent scans their tracked sources)
+  — Something a network contact posted that the user could respond to
+  — A question someone asked in comments on a past post
+  — A pattern in their task work that would make a good insight post
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PIPELINE TRACKING — YOUR DEALS AND OPPORTUNITIES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PIPELINE.md tracks every active deal, opportunity, or outreach thread. The
+agent populates it automatically from tasks and email analysis.
+
+ENTRY FORMAT:
+
+  ## Amplify Fund — Seed Investment
+  Stage: Initial contact sent
+  Value: $250k target (seed)
+  Key contact: Marco Rossi
+  Last action: Email sent 2026-07-01 — pitch deck attached
+  Next action: Follow up by 2026-07-06
+  Timeline: Aim to close by end of July
+  Notes: Warm intro via Sarah. Likes AI infra plays.
+  Health: ON TRACK
+
+  ## Enterprise Deal — TechCorp
+  Stage: Demo scheduled
+  Last action: Demo call 2026-06-28 — went well, asked for pricing
+  Next action: Send proposal by end of this week
+  Timeline: Close by Q3
+  Health: NEEDS ATTENTION (proposal overdue)
+
+HOW IT STAYS CURRENT:
+
+  — Agent reads email thread with Marco → updates Last action automatically
+  — Demo gets completed as a task → updates Pipeline entry
+  — User marks deal won/lost → entry archived with learnings
+  — No action in 7 days → health degrades to NEEDS ATTENTION
+
+The briefing surfaces pipeline health every morning. User doesn't have to
+maintain a CRM. The agent is the CRM.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE PROACTIVE ENGINE — ACTING WITHOUT BEING ASKED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This is the core V2 capability. The agent doesn't wait to be given tasks. It
+has a queue of actions it believes would be valuable, and it runs them when the
+user opens the app (with explicit approval for any real-world action).
+
+THE PROACTIVE QUEUE (proactive_queue table):
+
+  Each queue entry has:
+  — Action type (email draft, post draft, follow-up check, research, analysis)
+  — Trigger (what caused this to be queued)
+  — Priority (high/medium/low)
+  — Status (queued / shown / approved / dismissed)
+  — Expiry (when this action becomes irrelevant)
+
+  Items enter the queue automatically from:
+  — Follow-up tracker (3 days no reply → queue follow-up draft)
+  — Content calendar gap (5 days no post → queue post idea)
+  — Network health monitor (contact going cold → queue touch)
+  — Pattern trigger (same manual task 3x → queue skill creation)
+  — Email triage (morning scan finds action-required items)
+  — Pipeline degradation (deal going stale → queue nudge)
+
+  Items are presented at launch or when the user has nothing else.
+  User says yes → agent executes. No → dismissed. Never nagged again.
+
+WHAT PROACTIVE ACTIONS LOOK LIKE:
+
+  "Marco hasn't replied in 4 days. I've drafted a 3-sentence follow-up.
+   Here it is — say yes to send, or edit it."
+
+  "You haven't posted on LinkedIn in 8 days. Based on your content
+   strategy, I've drafted a framework post about AI hiring. Here it is."
+
+  "Sarah Chen's LinkedIn says she just closed a new round. This is a great
+   moment to reach out and congratulate her. I've drafted a message."
+
+  "You've done 'check competitor pricing' manually 4 times. I can turn
+   this into a weekly automated scan that runs every Monday. Want me to?"
+
+WHAT JARVIS DOES NOT DO PROACTIVELY (important):
+
+  — Never sends anything without user seeing and approving it first
+  — Never makes financial commitments, book meetings, sign anything
+  — Never posts to public platforms without explicit "go ahead"
+  — Never contacts anyone the user hasn't contacted before without approval
+  — Never shares user data with third parties
+  — Proactive queue items expire if not actioned — no nagging
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SESSION MEMORY AND CONVERSATION CONTINUITY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This is what makes Jarvis feel like a colleague, not a tool.
+
+HOW CONTINUITY WORKS:
+
+  Every session's key events are compressed and stored.
+  When the user opens a new session, agent loads:
+  1. Last session summary (what we did, what was left open)
+  2. Any events that happened since (emails received, replies, network activity)
+  3. Current pipeline status
+
+  Agent starts the conversation proactively:
+  "Hey — since we last talked, Marco replied to your email. He's interested
+   but wants a one-pager. Also, the TechCorp deal is overdue for a follow-up.
+   Want to handle those or start something new?"
+
+  This is not magic. This is structured data being read and surfaced intelligently.
+
+WHAT GETS SAVED FROM EACH SESSION:
+
+  IMMEDIATELY (during session):
+  — Each task completed with outcome
+  — Emails drafted/sent
+  — People researched
+  — Content published
+  — Decisions made ("user chose not to respond to X")
+  — Open threads (things started but not finished)
+
+  ON SESSION END (compressed):
+  — One-paragraph session summary for long-term archive
+  — All people encountered → NETWORK.md updated
+  — All platform observations → MEMORY.md updated
+  — Pipeline changes → PIPELINE.md updated
+  — Content published → CONTENT.md updated
+  — Follow-ups created → PENDING.md populated
+
+THE SESSION ARCHIVE:
+
+  ~/.unclawned/sessions/YYYY-MM-DD-HH-MM.md
+  Kept forever. Searchable.
+  User can say "what did we do about TechCorp in June?" → agent searches
+  all sessions for TechCorp, returns relevant context.
+
+  Sessions older than 90 days are compressed to 1-paragraph summaries
+  (full text remains, just the indexed version is smaller for performance).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DEEP DATA COLLECTION — THE CONTINUOUS LEARNING LOOP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+V1 collected data via background review after each task.
+V2 has a continuous, multi-channel data collection system.
+
+CHANNEL 1 — TASK OBSERVATION (unchanged from V1, enhanced)
+  Every task produces a digest. V2 digest is richer:
+  — People encountered (with confidence score for importance)
+  — Decisions the user made mid-task (approved/rejected what)
+  — Communication sent (email/message drafted and sent)
+  — Time taken (efficiency signal)
+  — Corrections the user made (voice/style signal)
+  — Emotional signal from task description ("urgent", "finally", "annoying")
+
+CHANNEL 2 — EMAIL INTELLIGENCE
+  Email is the richest data source most people ignore.
+  On each briefing check, agent reads new emails and extracts:
+  — WHO matters (frequency of contact, speed of user response)
+  — WHAT topics generate quick responses vs delayed
+  — WHEN the user reads and responds (work rhythm)
+  — WHAT language user uses in replies (voice per recipient type)
+  — WHAT is being discussed (current priorities, live deals)
+  — WHICH threads are going nowhere (things to cut loose)
+
+  None of this requires reading private content verbatim. The agent works at
+  the level of signals: who, when, how fast, what category, did they reply.
+
+CHANNEL 3 — LINKEDIN BEHAVIORAL DATA
+  Every LinkedIn task produces behavioral signals:
+  — Which posts the user lingered on vs scrolled past → interest map
+  — Which contacts they checked unprompted → relationship priority signal
+  — Which comments they wrote vs deleted → engagement confidence
+  — What they searched for → market intelligence signal
+  — Whose profiles they visited → prospect or research interest
+
+CHANNEL 4 — TASK TIMING AND RHYTHM
+  Agent logs timestamps for every task.
+  Over 2 weeks: emerges a work rhythm profile.
+  "User is most active Tuesday-Thursday 9am-1pm and 7-9pm.
+   Avoids tasks Monday morning and Friday afternoon.
+   Deep work tasks (research, writing) peak Tuesday/Wednesday.
+   Admin tasks (email, follow-ups) clustered end of day."
+
+  This data is used to:
+  — Time proactive suggestions for when user is receptive
+  — Warn when a follow-up deadline falls during a low-activity window
+  — Build the autonomy model for what the agent can do without asking
+
+CHANNEL 5 — CORRECTION SIGNALS
+  Every edit the user makes to agent output is a data point.
+  V2 tracks:
+  — What was changed (formality, length, tone, fact)
+  — How often (one-off vs pattern)
+  — After 3 corrections of same type → profile update staged
+
+  This means the agent self-improves without the user explicitly teaching it.
+  User just does their work. Agent watches. Profile gets more accurate.
+
+CHANNEL 6 — EXPLICIT MICRO-SURVEYS
+  At the end of select sessions (not every one), agent asks ONE question:
+  "This session felt [rushed/relaxed] — anything I should do differently?"
+  "You edited my LinkedIn draft significantly. What did I get wrong about
+   your voice there?"
+  "Is TechCorp still a live opportunity or should I stop tracking it?"
+
+  One question. Direct. Answers update the relevant profile section.
+  Never ask something the agent already knows. Never repeat a question.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+NEW CLI COMMANDS — V2 INTERFACE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  /briefing              — run the morning briefing manually
+  /briefing skip         — skip briefing for this launch
+
+  /session               — show current session summary
+  /session goal <text>   — set the goal for this session
+  /session end           — close this session (saves, archives, starts fresh)
+  /session new           — same as /session end
+  /session search <q>    — search session archive
+
+  /network               — show relationship overview by tier
+  /network <name>        — show person profile and history
+  /network update <name> — update a person entry manually
+  /network tier <name> 1 — promote person to tier 1
+
+  /pipeline              — show all active deals/opportunities
+  /pipeline add <name>   — add a new pipeline entry
+  /pipeline won <name>   — mark deal as won
+  /pipeline lost <name>  — mark deal as lost + capture lesson
+
+  /content               — show content calendar and stats
+  /content ideas         — generate 3 post ideas based on current strategy
+  /content calendar      — show posting rhythm and gaps
+
+  /pending               — show proactive queue items
+  /pending dismiss <n>   — dismiss proactive queue item
+
+  /identity              — view IDENTITY.md
+  /identity setup        — run the 30-min deep identity conversation
+
+  /briefing              — re-run this morning's briefing
+  /followups             — show all pending follow-ups across email+LinkedIn
+
+  (All V1 commands remain unchanged)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE IDENTITY.md CONVERSATION — ONE TIME, CHANGES EVERYTHING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This is the deepest data collection moment in V2. A single 30-minute
+conversation that unlocks a level of personalization nothing else can provide.
+
+Questions the agent asks (never all at once — spread across 10-15 exchanges):
+
+  On decision-making:
+  "Walk me through the last big decision you made. How did you decide?"
+  "What's the last thing you said no to that you're glad you said no to?"
+  "What information do you need before you commit to something?"
+
+  On relationships:
+  "Name 3 people who could change your life if you had a closer relationship
+   with them right now. What's stopping that?"
+  "Who do you talk to when you're stuck? Who challenges you best?"
+
+  On work:
+  "What's the thing you're best at that most people don't know about?"
+  "What would you be doing if you weren't building what you're building now?"
+  "What are you avoiding that you know you should be doing?"
+
+  On success:
+  "What does a perfect month look like for you?"
+  "What would have to happen in the next 90 days for you to feel like
+   you're on the right track?"
+
+  On fears:
+  "What's the version of failure you're actually afraid of?"
+  "What would make you give up on what you're building?"
+
+Agent synthesizes answers into IDENTITY.md — a compact document of who this
+person fundamentally is, what drives them, what they avoid, what they need.
+
+This is NEVER shown to anyone. Never synced. Never exported. It is used only
+to make every interaction more calibrated.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROBLEMS ANTICIPATED AND SOLUTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+P1 — BRIEFING BECOMES NOISE
+  If the briefing is long or noisy, users start skipping it.
+  Solution: Strict priority stack. Max 3 items per briefing category. If
+  everything is low priority, briefing is silent ("Nothing urgent. Ready for
+  your first task."). The bar for surfacing something is "user would regret
+  not knowing this today." Not just "something happened."
+
+P2 — PROACTIVE ACTIONS FEEL INTRUSIVE
+  Agent acting without being asked can feel creepy or presumptuous.
+  Solution: Always frame as "I noticed X and prepared Y — want to use it?"
+  Never "I did X for you." The distinction matters enormously. Prepared is
+  helpful. Done without asking is alarming. Also: user controls which
+  proactive action types are allowed in USER.md [AUTONOMY].
+
+P3 — SESSION.md GROWS TOO LONG
+  A 6-hour deep work session produces a massive SESSION.md.
+  Solution: Session is compressed in background as it grows. Steps more than
+  2 hours old get summarized automatically (detail preserved in archive,
+  summary kept in active SESSION.md). Archived session is always the full
+  version.
+
+P4 — NETWORK.md BECOMES A FIREHOSE
+  Agent encounters 50 people across 20 tasks. NETWORK.md becomes unmanageable.
+  Solution: Only Tier 1 and Tier 2 people appear in NETWORK.md (user assigns
+  tiers explicitly or agent proposes). Everyone else is in the database, not the
+  file. User controls what they see. Agent still tracks everyone, just doesn't
+  surface the noise.
+
+P5 — PIPELINE TRACKING FALLS BEHIND REALITY
+  Deal closes, agent doesn't know. Pipeline shows stale data.
+  Solution: Agent asks at session end (or on next launch): "Any updates to your
+  pipeline since we last talked?" One question. User updates verbally. Agent
+  updates PIPELINE.md. For tracked email threads: auto-updated when agent reads
+  new replies. For external changes: user is the source of truth.
+
+P6 — BRIEFING READS TOO MANY EMAILS = SLOW
+  Reading 50 emails every morning is slow and expensive.
+  Solution: Incremental read. Agent tracks last-read email timestamp. On each
+  briefing, reads ONLY emails since that timestamp. Prioritizes by sender tier
+  (Tier 1/2 contacts first). Caps at 20 emails per briefing. User can trigger
+  full read manually (/briefing full).
+
+P7 — EMAIL DRAFTS DON'T SOUND RIGHT
+  Agent drafts an email that misses the tone for that relationship.
+  Solution: Voice profiles per relationship type (from USER.md [COMMUNICATION
+  PATTERNS]). Before drafting any email, agent loads the profile for that
+  recipient type. Also: first 3 drafts for each recipient are shown for
+  approval before any pattern is assumed. Agent learns per-recipient voice
+  from corrections.
+
+P8 — SESSION CONTINUITY CREATES OBLIGATION
+  User comes back and agent immediately dumps last session on them.
+  They want to start fresh but feel pressure to deal with open threads.
+  Solution: Open threads are surfaced once, briefly. User can say "skip all"
+  with one command. If user starts a new task ignoring the threads, agent
+  drops it and helps with the new task. No guilt-tripping. The agent's job
+  is to serve what the user actually wants, not what they said they wanted
+  3 days ago.
+
+P9 — IDENTITY.md FEELS UNCOMFORTABLE
+  Asking deep personal questions feels invasive. User refuses or gives
+  surface-level answers that make the data useless.
+  Solution: IDENTITY.md is optional. The 30-minute conversation is optional.
+  The questions are framed as professional, not personal ("what drives you"
+  not "what are you afraid of"). The output is shown to the user before saved.
+  User can delete any part. The conversation happens over multiple sessions
+  naturally (2-3 questions per session) not in one intense block.
+
+P10 — DATA STALENESS ACROSS MANY FILES
+  NETWORK.md says Marco is at Amplify Fund. He left 3 months ago. Agent
+  confidently gives wrong advice.
+  Solution: Every entity reference has an observation_date. Files older than
+  60 days get stale markers. Agent cross-references email/LinkedIn data for
+  automatic refresh when it encounters the same person. When giving advice
+  about a person: always states observation date. "Based on what I last observed
+  about Marco (3 months ago)..."
+
+P11 — TOOL COST EXPLOSION
+  Morning briefing reads emails + LinkedIn + pipeline. That's 3-5 browser
+  operations every launch. At 3 launches/day, this is 10-15 browser ops
+  before the user has done any work.
+  Solution: Briefing is configurable. User chooses which channels are included.
+  Default: email only (most valuable, fastest). LinkedIn briefing is opt-in.
+  Pipeline is local file read (free). Briefing is cached: if nothing changed
+  since last run (checked via email timestamp), briefing reuses previous result.
+  Full briefing costs one session equivalent. Worth it for most power users.
+
+P12 — THE AGENT LEARNS WRONG PATTERNS
+  User had a bad week and did unusually late-night tasks. Agent now thinks
+  late night is normal and schedules suggestions accordingly.
+  Solution: Pattern detection requires minimum 10 data points before any
+  behavioral conclusion is drawn. Outliers (2+ standard deviations from norm)
+  are excluded. Patterns are stated with confidence: "You seem to prefer
+  mornings for deep work (based on 3 weeks of data — still early)."
+  User can correct any pattern explicitly.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IMPLEMENTATION PHASES — V2 BUILD ORDER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PHASE 8 — Session Intelligence (3-4 days)
+  What this delivers: continuity. Jarvis remembers what happened last time.
+  1. SESSION.md creation on launch (with session goal, timestamp)
+  2. Session logger: append task completions, discoveries, open threads
+  3. Session end: compress to archive (saved to ~/.unclawned/sessions/)
+  4. Session resume: on next launch, read last session → surface open threads
+  5. /session commands (goal, end, new, search)
+  6. Session search via FTS5 (extend agent_sessions or new table)
+  Value: "how did that networking thing go?" works. Colleague feeling begins.
+
+PHASE 9 — Network Intelligence (3-4 days)
+  What this delivers: never let an important relationship go cold.
+  1. NETWORK.md file with tier system + person entry format
+  2. people_graph DB table (richer than MEMORY.md [PEOPLE])
+  3. Auto-populate from background review (person encountered → propose add)
+  4. Relationship health calculator (WARM/COOLING/COLD/DORMANT)
+  5. Follow-up tracker (sent email → no reply → surface after N days)
+  6. /network commands
+  Value: pipeline + relationship awareness. Agent tracks who matters.
+
+PHASE 10 — Morning Briefing (4-5 days)
+  What this delivers: agent acts before you ask it to.
+  1. Briefing trigger on launch (if >4hr since last session)
+  2. Email scan channel (Gmail: read since last session, categorize)
+  3. Follow-up check channel (read PENDING.md + NETWORK.md health)
+  4. Open threads from last session
+  5. One content suggestion (if content gap detected)
+  6. Briefing display format (compact, scannable)
+  7. /briefing command for manual trigger
+  Value: every launch feels like briefing from a smart assistant.
+
+PHASE 11 — Pipeline Tracking (2-3 days)
+  What this delivers: agent is your CRM.
+  1. PIPELINE.md file + entry format
+  2. pipeline_entries DB table
+  3. Auto-populate from email analysis + task completion
+  4. Pipeline health monitor (stale deal → alert)
+  5. /pipeline commands
+  Value: no deals slip through the cracks. Agent surfaces them.
+
+PHASE 12 — Content Intelligence (2-3 days)
+  What this delivers: consistent content presence without the effort.
+  1. CONTENT.md file (strategy, post log, performance data)
+  2. content_log DB table (every post drafted/published)
+  3. Post performance tracking (when agent checks back on a published post)
+  4. Content gap detection (X days since last post → suggest)
+  5. Content ideas generator (based on domain news + user's topics)
+  6. /content commands
+  Value: agent notices your content is going stale and drafts something.
+
+PHASE 13 — Deep Profile V2 (3-4 days)
+  What this delivers: agent that truly knows you.
+  1. USER.md V2: add 6 new sections (work rhythm, decision style, triggers,
+     network priorities, communication patterns, avoidances)
+  2. IDENTITY.md + /identity setup conversation
+  3. Correction capture system (edit → pattern → profile update)
+  4. Micro-survey system (one question per session, end-of-session)
+  5. Implicit data extraction from task timing, email, task patterns
+  Value: agent stops making obvious mistakes. Starts feeling like it knows you.
+
+PHASE 14 — Proactive Engine (4-5 days)
+  What this delivers: agent acts without being asked.
+  1. proactive_queue DB table
+  2. Queue population from all monitoring channels
+  3. Queue presentation on launch (after briefing)
+  4. Approval flow for each queue item
+  5. Expiry and dismissal logic
+  6. Per-action-type enable/disable in USER.md [AUTONOMY]
+  Value: agent prepares things before you know you need them.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WHAT "DONE" LOOKS LIKE — THE V2 EXPERIENCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You open Jarvis on Tuesday morning. You haven't used it since Friday.
+
+  ════════════════════════════════════
+  BRIEFING — Tuesday 8:52am
+  ════════════════════════════════════
+  📧 4 emails since Friday
+     • Marco Rossi — REPLIED. He's interested. Wants a one-pager by Thursday.
+       (draft response ready)
+     • Sarah Chen — Congratulated you on the blog post. (no reply needed)
+     • 2 newsletters (summarized: AI funding up 40% in Q2, new EU AI regs)
+
+  🔗 LinkedIn
+     • Your post hit 1,200 impressions (best this month)
+     • Marco commented — worth a reply (drafted)
+     • 3 connection requests (2 match your ICP, 1 doesn't — suggestion attached)
+
+  ⏰ Pipeline
+     • TechCorp proposal is 3 days overdue. They haven't followed up — good sign.
+       (draft follow-up ready)
+     • Amplify Fund: Marco replied → moved to "Interested" stage
+
+  📌 From last session (Friday)
+     • LinkedIn post for next week was left as a draft — ready to review
+
+  💡 One suggestion
+     • You haven't touched base with James (Tier 1) in 28 days. He posted
+       something you'd find genuinely interesting. I drafted a message.
+  ════════════════════════════════════
+
+You type: "Handle Marco first."
+
+Jarvis shows you Marco's email and the draft response. You approve with edits.
+Sent. Marco is updated in NETWORK.md, pipeline moves to "One-pager needed."
+
+"Now the TechCorp follow-up."
+
+Draft is shown. You approve it. Sent. Pipeline updated. Follow-up logged.
+
+"What's my LinkedIn looking like this month?"
+
+Agent pulls from CONTENT.md. Shows posting rhythm, impressions trend, top post,
+engagement rate. "You're averaging 1.8 posts/week. Your target was 2. One slot
+left this week — want to use that LinkedIn draft from Friday?"
+
+You say yes. You edit it together. Published.
+
+"Anything else I should know?"
+
+"James's birthday is next week. He's Tier 1. Worth a personal note?"
+
+Yes. Draft sent.
+
+You've been using Jarvis for 15 minutes. You've moved 3 deals forward, posted
+content, maintained two key relationships, and you know exactly where everything
+stands. You didn't tell Jarvis what to prepare. It already knew.
+
+That is V2.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BUILD PHASE 8 FIRST. START TOMORROW.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Phase 8 (Session Intelligence) is the foundation everything else builds on.
+Without session continuity, the briefing has no history to surface. Without
+session archive, network and pipeline can't accumulate. Without the session
+logger, correction signals don't have a data source.
+
+Phase 8 also has the most immediate emotional impact: the first time Jarvis
+says "Last time you were working on the Amplify pitch — Marco still hasn't
+replied, want to follow up?" the product feels fundamentally different. That
+moment is worth more than any feature in phases 9-14.
+
+Ship phase 8. Let the user feel the difference. Then build phase 9.
+
+═══════════════════════════════════════════════════════════════════════════════

@@ -1,0 +1,861 @@
+═══════════════════════════════════════════════════════════════════════════════
+CHANNEL C — BUILD PLAN
+"What the Agent Observes" — The environment reveals the mind.
+Implementation from zero to working signal
+═══════════════════════════════════════════════════════════════════════════════
+
+Channel A reads what they TYPE. Channel B reads how they REACT.
+Channel C reads what WORLD they inhabit while doing both.
+
+The world is: what apps are open, what domains they work on, how their
+Desktop is structured, what tools they use repeatedly, what platforms
+they live in vs. visit occasionally.
+
+This is passive intelligence — collected not from messages, but from
+what the agent OBSERVES when it executes tasks on the user's behalf.
+
+Why Channel C is different from A and B:
+  — Channels A and B mine text. Channel C mines environment.
+  — Signals come from AGENT ACTIONS, not user messages.
+  — The browser agent sees domains. The local agent sees files/apps.
+  — No NLP needed — pure structural classification.
+  — One clear snapshot per task reveals more than parsing 100 prompts.
+
+What Channel C tells the agent:
+  1. What tool stack defines this person's work world
+     → Don't suggest tools they don't use. Do reference their real tools.
+  2. What domains they live in vs. visit for tasks
+     → Notion.so appearing in 40% of browser tasks = they live in Notion.
+  3. What their Desktop looks like (organized vs. chaos)
+     → Systematic vs. fluid thinker. Affects how you present output.
+  4. Which file types they work with most
+     → Heavy .xlsx user = data-driven. Heavy .md = developer/writer mindset.
+  5. What time patterns their work sessions follow
+     → Task at 6pm = after-hours worker. Task at 9am = standard schedule.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 0 — ARCHITECTURE DECISIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+──────────────────────────────────────────────────────────────────────────────
+DECISION 1: WHERE DO CHANNEL C SIGNALS COME FROM?
+──────────────────────────────────────────────────────────────────────────────
+
+Channel C signals come from THREE observation sources:
+
+  SOURCE 1: BROWSER TASK EXECUTION
+  When the agent visits websites to complete a task, it sees:
+  — Which domains were touched during task execution
+  — What type of site each domain is (productivity, social, data, dev...)
+  — How many domains were required for a task (simple vs. multi-step research)
+
+  These are already partially available: the agent uses Playwright and visits
+  pages. The hook: after task completion, log which domains were navigated.
+
+  SOURCE 2: LOCAL TASK EXECUTION
+  When the agent reads/writes files to complete a task, it sees:
+  — Which directories were touched (Desktop, Documents, specific project folders)
+  — What file types were accessed (.xlsx, .md, .pdf, .py, .csv...)
+  — What the target folder structure looks like (depth, naming patterns)
+
+  Hook: after any read_file, write_file, or list_directory tool call,
+  log the path, extension, and folder depth.
+
+  SOURCE 3: ON-DEMAND DESKTOP SCAN
+  Once at session start (or when first task runs), do a shallow scan:
+  — Desktop file count and types
+  — Home directory top-level folder names
+  — Recently modified folders (signals active projects)
+  — Running processes (signals installed/active apps)
+
+  This is the richest signal per call but also the most privacy-sensitive.
+  Run once per session, store the summary (not raw paths).
+
+→ BUILD CHOICE: All three sources. Sources 1 and 2 are automatic (hooks on
+  existing tool calls). Source 3 is once-per-session scan on task start.
+
+──────────────────────────────────────────────────────────────────────────────
+DECISION 2: WHAT DATA MODEL FITS ENVIRONMENT SIGNALS?
+──────────────────────────────────────────────────────────────────────────────
+
+Environment signals are STRUCTURAL, not NLP. They need:
+  — A table for raw observations (one row per task execution)
+  — A table for domain logs (domains seen across many tasks)
+  — A table for file type logs (file types touched across many tasks)
+  — A table for compiled profiles (one row per user)
+
+Unlike A and B where one row = one message, here one row = one task session.
+A task session may have multiple domain visits and file accesses.
+
+Store domains and file types as JSON arrays in the raw row.
+Maintain separate domain_log and file_type_log for aggregation.
+
+──────────────────────────────────────────────────────────────────────────────
+DECISION 3: PRIVACY DESIGN
+──────────────────────────────────────────────────────────────────────────────
+
+Channel C has higher privacy surface than A and B.
+The user hasn't "typed" this data — we're observing their environment.
+
+Safeguards:
+  — Never store full file paths — store only the folder name and file extension
+    Example: store "Documents/Projects" NOT "C:\Users\manol\Documents\Projects\client-x\invoices\2024-oct.xlsx"
+  — Desktop scan: store counts and types, not names
+    Example: store {pdf: 3, xlsx: 5, folder_count: 12} NOT filenames
+  — Running processes: store category (dev-tools, productivity, browser...) not raw exe names
+    unless the exe maps to a known tool (notion.exe → Notion ✓)
+  — Domain log: store domains (notion.so) not full URLs (notion.so/workspace/abc-private-page)
+  — No calendar content, no email content, no message content (those are D-E-F territory)
+
+This is behavioral fingerprinting at the STRUCTURAL level only.
+
+──────────────────────────────────────────────────────────────────────────────
+DECISION 4: HOW DOES COLLECTION FIT THE EXISTING ARCHITECTURE?
+──────────────────────────────────────────────────────────────────────────────
+
+The existing agent task flow (for browser + local tasks):
+  1. User sends message → /chat route
+  2. Orchestrator routes to browser or local
+  3. Agent executes tool calls (Playwright, file tools)
+  4. Agent returns result
+  5. Response sent to user
+
+Channel C hooks at step 3-4:
+  — After browser tool calls: log visited domains
+  — After local tool calls: log file paths accessed
+  — Before step 3 (session start): optional desktop scan
+
+Hook mechanism: same pattern as Channels A and B — fire-and-forget extraction
+that never blocks the response path.
+
+The difference: A and B hook into the /chat route (messages).
+Channel C hooks into the SKILL EXECUTION layer (the agent tool loop).
+
+→ BUILD CHOICE: Hook into runAgentLoop (or wherever the agent's tool calls
+  are processed) to capture environment observations as a side effect.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 1 — DATABASE SCHEMA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+──────────────────────────────────────────────────────────────────────────────
+TABLE 1: channel_c_task_snapshots
+──────────────────────────────────────────────────────────────────────────────
+
+One row per agent task execution. Captures environment observations for that task.
+
+CREATE TABLE IF NOT EXISTS channel_c_task_snapshots (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  session_id TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+
+  -- Task context
+  task_type TEXT,                     -- browser | local | hybrid
+  task_hour INTEGER,                  -- 0-23, hour of day task was run
+  task_day_of_week INTEGER,           -- 0=Sunday ... 6=Saturday
+
+  -- Browser observations (populated for browser/hybrid tasks)
+  domains_visited TEXT,               -- JSON array of domain strings
+  domain_categories TEXT,             -- JSON array of category strings (deduped)
+  primary_domain TEXT,                -- most-visited domain in this task
+  domain_count INTEGER DEFAULT 0,
+
+  -- Local observations (populated for local/hybrid tasks)
+  file_extensions TEXT,               -- JSON array of extensions touched (e.g. [".xlsx", ".pdf"])
+  folder_names TEXT,                  -- JSON array of folder names accessed (not full paths)
+  file_count INTEGER DEFAULT 0,
+
+  -- Desktop scan (populated once per session, first task only)
+  desktop_scanned INTEGER DEFAULT 0,  -- 1 if scan was performed this task
+  desktop_file_types TEXT,            -- JSON: { ext: count } e.g. {"pdf": 3, "xlsx": 5}
+  desktop_folder_count INTEGER,
+  home_top_folders TEXT,              -- JSON array of top-level folder names in home dir
+  active_app_categories TEXT,         -- JSON array of app categories running at scan time
+
+  -- Error handling
+  extraction_error TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_cc_snap_user ON channel_c_task_snapshots(user_id);
+CREATE INDEX IF NOT EXISTS idx_cc_snap_created ON channel_c_task_snapshots(created_at);
+CREATE INDEX IF NOT EXISTS idx_cc_snap_type ON channel_c_task_snapshots(task_type);
+
+──────────────────────────────────────────────────────────────────────────────
+TABLE 2: channel_c_domain_log
+──────────────────────────────────────────────────────────────────────────────
+
+One row per (user, domain, day) combination. Enables rolling frequency tracking.
+
+CREATE TABLE IF NOT EXISTS channel_c_domain_log (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now')),
+  domain TEXT NOT NULL,
+  domain_category TEXT,               -- productivity | dev | social | data | content | finance | communication | other
+  task_count INTEGER DEFAULT 1        -- how many tasks included this domain today
+);
+CREATE INDEX IF NOT EXISTS idx_cc_domain_user ON channel_c_domain_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_cc_domain_domain ON channel_c_domain_log(domain);
+CREATE INDEX IF NOT EXISTS idx_cc_domain_created ON channel_c_domain_log(created_at);
+
+──────────────────────────────────────────────────────────────────────────────
+TABLE 3: channel_c_profiles
+──────────────────────────────────────────────────────────────────────────────
+
+One row per user. Compiled profile.
+
+CREATE TABLE IF NOT EXISTS channel_c_profiles (
+  user_id TEXT PRIMARY KEY,
+  last_updated TEXT DEFAULT (datetime('now')),
+  profile_version INTEGER DEFAULT 1,
+  total_tasks_observed INTEGER DEFAULT 0,
+
+  tool_stack_profile TEXT,            -- JSON: dominant tools by category
+  domain_profile TEXT,                -- JSON: domain frequency by category + top domains
+  file_type_profile TEXT,             -- JSON: file type distribution + dominant work type
+  work_time_profile TEXT,             -- JSON: hour distribution + peak hour + schedule type
+  desktop_profile TEXT                -- JSON: latest desktop scan summary
+);
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 2 — CLASSIFICATION DATA FILES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: src/data/domain-categories.json
+File: src/data/app-categories.json
+File: src/data/file-type-categories.json
+
+──────────────────────────────────────────────────────────────────────────────
+DOMAIN CATEGORIES
+──────────────────────────────────────────────────────────────────────────────
+
+Category classification for domains visited during browser tasks.
+Tells us which world the user is living in when they use the agent.
+
+CATEGORY: productivity
+  notion.so, notionhq.com, airtable.com, coda.io, roamresearch.com,
+  monday.com, asana.com, clickup.com, todoist.com, trello.com, basecamp.com,
+  linear.app, height.app, shortcut.com, jira.atlassian.com, confluence.atlassian.com,
+  obsidian.md, logseq.com, craft.do, bear.app, evernote.com
+
+CATEGORY: communication
+  gmail.com, mail.google.com, outlook.com, outlook.live.com, superhuman.com,
+  hey.com, fastmail.com, slack.com, discord.com, teams.microsoft.com,
+  telegram.org, whatsapp.com, zoom.us, meet.google.com, loom.com,
+  cal.com, calendly.com, calendar.google.com
+
+CATEGORY: dev
+  github.com, gitlab.com, bitbucket.org, stackoverflow.com, npmjs.com,
+  pypi.org, crates.io, docs.rs, developer.mozilla.org, devdocs.io,
+  codepen.io, replit.com, codesandbox.io, vercel.com, netlify.com,
+  railway.app, render.com, fly.io, aws.amazon.com, console.cloud.google.com,
+  portal.azure.com, digitalocean.com, supabase.com, planetscale.com,
+  heroku.com, linear.app
+
+CATEGORY: design
+  figma.com, canva.com, adobe.com, sketch.com, framer.com, webflow.com,
+  dribbble.com, behance.net, unsplash.com, pexels.com, freepik.com,
+  coolors.co, color.adobe.com, fontawesome.com, fonts.google.com
+
+CATEGORY: data
+  sheets.google.com, docs.google.com/spreadsheets, excel.office.com,
+  tableau.com, looker.com, metabase.io, grafana.com, mixpanel.com,
+  amplitude.com, posthog.com, datadog.com, segment.com, census.dev,
+  airtable.com, rows.com, retool.com, databricks.com, snowflake.com
+
+CATEGORY: content
+  wordpress.com, ghost.org, substack.com, medium.com, hashnode.com,
+  beehiiv.com, convertkit.com, mailchimp.com, hubspot.com, framer.com,
+  squarespace.com, webflow.com, wix.com, buffer.com, hootsuite.com,
+  twitter.com, x.com, linkedin.com, instagram.com, facebook.com,
+  youtube.com, tiktok.com, producthunt.com
+
+CATEGORY: finance
+  stripe.com, braintreepayments.com, paypal.com, square.com,
+  mercury.com, ramp.com, brex.com, quickbooks.com, xero.com, freshbooks.com,
+  coinbase.com, binance.com, kraken.com, robinhood.com, fidelity.com
+
+CATEGORY: research
+  google.com, bing.com, duckduckgo.com, perplexity.ai, wikipedia.org,
+  scholar.google.com, arxiv.org, pubmed.ncbi.nlm.nih.gov, jstor.org,
+  reddit.com, hacker-news.firebaseapp.com, news.ycombinator.com
+
+CATEGORY: ai_tools
+  chat.openai.com, claude.ai, gemini.google.com, bard.google.com,
+  replicate.com, huggingface.co, cohere.com, together.ai, perplexity.ai,
+  jasper.ai, copy.ai, writesonic.com, midjourney.com, runway.ml,
+  elevenlabs.io, stability.ai, anthropic.com
+
+──────────────────────────────────────────────────────────────────────────────
+APP / PROCESS CATEGORIES (Windows)
+──────────────────────────────────────────────────────────────────────────────
+
+Category classification for running processes/applications.
+Used during desktop scan to understand what's installed and active.
+
+CATEGORY: productivity
+  notion.exe, obsidian.exe, evernote.exe, onenote.exe, logseq-desktop.exe,
+  airtable.exe, asana.exe, clickup.exe, todoist.exe, trello.exe,
+  monday.exe, linear.exe
+
+CATEGORY: dev
+  code.exe (VS Code), cursor.exe, windsurf.exe, vim.exe, nvim.exe,
+  intellij.exe, webstorm.exe, pycharm.exe, rider.exe, goland.exe,
+  git.exe, node.exe, python.exe, bun.exe, docker.exe, postman.exe,
+  insomnia.exe, tableplus.exe, dbeaver.exe, warp.exe, windowsterminal.exe,
+  powershell.exe, cmd.exe, wsl.exe
+
+CATEGORY: design
+  figma.exe, adobe-photoshop.exe, illustrator.exe, adobexd.exe,
+  sketch.exe, framer.exe, canva.exe, blender.exe, affinity-designer.exe
+
+CATEGORY: communication
+  slack.exe, teams.exe, discord.exe, zoom.exe, skype.exe, telegram.exe,
+  whatsapp.exe, thunderbird.exe, outlook.exe, superhuman.exe
+
+CATEGORY: browser
+  chrome.exe, msedge.exe, firefox.exe, brave.exe, opera.exe, arc.exe
+
+CATEGORY: office
+  excel.exe, winword.exe, powerpnt.exe, onenote.exe, access.exe,
+  soffice.exe (LibreOffice), wps.exe (WPS Office)
+
+CATEGORY: finance
+  quickbooks.exe, xero.exe, wave.exe
+
+──────────────────────────────────────────────────────────────────────────────
+FILE TYPE CATEGORIES
+──────────────────────────────────────────────────────────────────────────────
+
+Categories for file extensions touched during local tasks.
+Reveals what kind of work the user primarily does.
+
+CATEGORY: data
+  .xlsx, .xls, .csv, .tsv, .parquet, .json, .xml, .sql, .db
+
+CATEGORY: writing
+  .doc, .docx, .txt, .md, .rtf, .pages, .odt, .pdf, .tex
+
+CATEGORY: code
+  .js, .ts, .py, .go, .rs, .java, .cs, .cpp, .c, .rb, .php,
+  .html, .css, .scss, .vue, .jsx, .tsx, .sh, .ps1, .bat
+
+CATEGORY: design
+  .fig, .sketch, .psd, .ai, .svg, .png, .jpg, .jpeg, .gif, .webp, .mp4, .mov
+
+CATEGORY: presentation
+  .pptx, .ppt, .key, .odp
+
+CATEGORY: config
+  .env, .yaml, .yml, .toml, .ini, .conf, .json (when in config context)
+
+Work type inference from file types:
+  code dominant     → developer/engineer
+  data dominant     → analyst/data-driven operator
+  writing dominant  → content creator/writer/executive
+  design dominant   → designer/creative
+  mixed             → generalist / full-stack operator
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 3 — SIGNAL COLLECTION (environment-specific collection)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: src/lib/channel-c/env-scanner.ts
+File: src/lib/channel-c/domain-extractor.ts
+File: src/lib/channel-c/file-classifier.ts
+
+──────────────────────────────────────────────────────────────────────────────
+ENV SCANNER (once per session)
+──────────────────────────────────────────────────────────────────────────────
+
+Runs once at task start if no scan exists for this session.
+Uses PowerShell on Windows (already the agent's shell layer).
+
+What it collects:
+  1. Desktop file types: Get-ChildItem Desktop — count files by extension
+  2. Home top folders: Get-ChildItem ~ -Directory — names of top-level folders
+  3. Active apps: Get-Process | Sort-Object CPU -Desc | Select-Object -First 20
+     → map exe names to app categories using app-categories.json
+  4. Recent files (modified in last 7 days): quick scan of Desktop + Documents
+
+Privacy filter: no full paths, no filenames — only extensions and folder names.
+
+──────────────────────────────────────────────────────────────────────────────
+DOMAIN EXTRACTOR
+──────────────────────────────────────────────────────────────────────────────
+
+Hook into the browser tool calls. After each page navigation during task:
+  — Extract domain from URL
+  — Classify domain using domain-categories.json
+  — Add to the task's domain list
+
+Domain extraction: just hostname from URL (strip protocol, path, query)
+  "https://app.notion.so/workspace/abc" → "notion.so"
+  "https://github.com/user/repo/issues/1" → "github.com"
+
+The hook point: the Playwright wrapper (pw-tools-core) already has navigate/visit calls.
+After each successful navigate, fire the domain extraction.
+
+──────────────────────────────────────────────────────────────────────────────
+FILE CLASSIFIER
+──────────────────────────────────────────────────────────────────────────────
+
+Hook into local file tool calls. When the agent reads/writes a file:
+  — Extract file extension
+  — Classify using file-type-categories.json
+  — Extract the immediate parent folder name (not full path)
+  — Add to the task's file access list
+
+Hook point: the read_file, write_file, list_directory tools in the agent.
+After each file tool call, log the accessed extension and folder name.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 4 — SIGNAL PIPELINE (extractor + route hook)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: src/lib/channel-c/signal-inserter.ts
+File: src/lib/channel-c/extractor.ts
+
+Unlike A and B (triggered on incoming message), Channel C is triggered on
+task COMPLETION. The extractor receives the collected observations from tool
+calls that happened during the task and packages them into a snapshot row.
+
+Extractor inputs (from task context, accumulated during execution):
+  — userId, sessionId, taskType
+  — domainsVisited: string[]       (from domain-extractor hook)
+  — fileExtensions: string[]       (from file-classifier hook)
+  — folderNames: string[]          (from file-classifier hook)
+  — desktopScan?: DesktopScanResult (from env-scanner, once per session)
+
+Pipeline:
+  1. Classify all domains → domain_categories[]
+  2. Identify primary domain (most frequent)
+  3. Compute hour + day of week (from current time)
+  4. Build the snapshot row
+  5. Insert into channel_c_task_snapshots
+  6. Upsert domain log rows (one per unique domain)
+  7. Update profile
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 5 — PROFILE BUILDER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: src/lib/channel-c/profile-builder.ts
+
+──────────────────────────────────────────────────────────────────────────────
+TOOL STACK PROFILE
+──────────────────────────────────────────────────────────────────────────────
+
+  From domain_log + desktop scan:
+  dominant_categories: string[]      — categories with >15% of observed domains
+  top_tools: string[]                — specific tools seen 3+ times (notion.so, github.com...)
+  tool_stack_type: string            — 'dev' | 'operator' | 'designer' | 'analyst' | 'writer' | 'mixed'
+  uses_notion: boolean               — notion.so seen in last 30 days
+  uses_linear: boolean               — linear.app seen
+  uses_figma: boolean                — figma.com seen
+  (etc. for most common tools — these power "don't suggest Jira to someone who uses Linear")
+
+  Tool stack type classification:
+    dev dominant → 'dev'
+    productivity + content dominant → 'operator'
+    design dominant → 'designer'
+    data dominant → 'analyst'
+    writing + content dominant → 'writer'
+    mixed → 'mixed'
+
+──────────────────────────────────────────────────────────────────────────────
+DOMAIN PROFILE
+──────────────────────────────────────────────────────────────────────────────
+
+  Rolling 30-day domain frequency from domain_log:
+  top_domains: { domain: string; count: number; category: string }[]
+  category_distribution: Record<string, number>  (fraction of tasks with this category)
+  primary_category: string                        (most frequent category across all tasks)
+  research_heavy: boolean                         (research category > 30% of tasks)
+  ai_tools_heavy: boolean                         (ai_tools category > 20% of tasks)
+
+──────────────────────────────────────────────────────────────────────────────
+FILE TYPE PROFILE
+──────────────────────────────────────────────────────────────────────────────
+
+  Accumulated from all file_extensions seen:
+  by_category: Record<string, number>  (count by file category)
+  dominant_file_type: string           ('data' | 'writing' | 'code' | 'design' | 'mixed')
+  work_type_inference: string          (derived from dominant_file_type + tool_stack_type)
+  total_file_accesses: number
+
+──────────────────────────────────────────────────────────────────────────────
+WORK TIME PROFILE
+──────────────────────────────────────────────────────────────────────────────
+
+  From task_hour and task_day_of_week across all tasks:
+  hour_distribution: number[]          (24 values, count per hour)
+  peak_hour: number                    (most common hour, 0-23)
+  schedule_type: 'early_bird' | 'standard' | 'night_owl' | 'irregular'
+    early_bird: peak_hour in 5-8
+    standard: peak_hour in 9-17
+    night_owl: peak_hour in 20-24 or 0-2
+    irregular: no clear peak (standard deviation > 4)
+  works_weekends: boolean              (any tasks on Saturday/Sunday)
+  total_task_count: number
+
+──────────────────────────────────────────────────────────────────────────────
+DESKTOP PROFILE
+──────────────────────────────────────────────────────────────────────────────
+
+  From the most recent desktop scan:
+  desktop_file_count: number
+  desktop_dominant_type: string
+  home_folder_count: number
+  home_folder_names: string[]
+  organization_style: 'clean' | 'moderate' | 'cluttered'
+    clean: desktop_file_count < 10
+    moderate: 10-30
+    cluttered: > 30
+  active_app_categories: string[]      (categories of apps running at scan time)
+  last_scan_at: string
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 6 — CONTEXT INJECTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: src/lib/channel-c/context-builder.ts
+
+Cold-start gate: total_tasks_observed < 5 → return ''
+(Channel C needs fewer samples than A and B — environment changes slowly)
+
+TOOL STACK LINE:
+  If top_tools is non-empty:
+    "User's primary tools: [notion.so, github.com, figma.com] — reference these when relevant, avoid suggesting alternatives"
+  If tool_stack_type is known:
+    Adjust framing of ALL suggestions to match their world
+
+WORK TYPE LINE:
+  If work_type_inference is set:
+    For 'developer': "User is a developer — technical output is fine, avoid over-explaining basic concepts"
+    For 'analyst': "User works heavily with data — prefer structured, quantified output formats"
+    For 'designer': "User is design-oriented — visual descriptions and structure matter"
+    For 'writer': "User creates a lot of written content — mirror professional writing register"
+    For 'operator': "User is a builder/operator — bias toward actionable, direct output"
+
+SCHEDULE LINE:
+  If schedule_type is known (5+ tasks observed):
+    'early_bird': "User works early mornings — be available and direct in early-hour sessions"
+    'night_owl': "User works late — may be in focus or crunch mode"
+    'standard': (no injection — default assumption)
+
+RESEARCH INTENSITY LINE:
+  If research_heavy = true:
+    "User does frequent web research tasks — they're comfortable with multi-step information gathering"
+
+Desktop organization line: NOT injected (too personal, limited impact on output quality)
+
+Max lines: 2-3. Most users will have tool stack + work type only.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 7 — PROBLEMS AHEAD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+──────────────────────────────────────────────────────────────────────────────
+PROBLEM 1: AGENT BROWSES FOR THE USER, NOT LIKE THE USER
+──────────────────────────────────────────────────────────────────────────────
+
+What happens: User asks "research what Notion alternatives exist."
+Agent visits notion-alternatives.com, productcompare.io, Reddit, etc.
+These domains are research/content domains — but the user doesn't actually
+use these sites. The domain log fills up with research artifacts, not
+user's real tool stack.
+
+Solution: Tag each domain with the TASK CONTEXT.
+  is_research_task: boolean (was this domain visited to gather info vs. to perform a task?)
+
+  Research tasks: log domains but DON'T count toward tool_stack_profile
+  Action tasks ("post this to LinkedIn", "update my Notion page"): DO count
+  Mixed: split by task phase (research phase vs. action phase)
+
+  Classification: if task_type = 'research' or the agent's first action on
+  that domain was a "read/search" action (not a form fill or click-to-action),
+  mark as research_artifact = true in the domain log.
+
+  tool_stack_profile uses only domains where research_artifact = false.
+
+──────────────────────────────────────────────────────────────────────────────
+PROBLEM 2: DESKTOP SCAN IS A ONE-TIME SIGNAL THAT GOES STALE
+──────────────────────────────────────────────────────────────────────────────
+
+What happens: Desktop was scanned 2 months ago. User has completely
+reorganized. The profile shows "cluttered" when desktop is now clean.
+
+Solution: Re-scan every 14 days.
+  Store last_scan_at in desktop_profile.
+  Before each task: check if last_scan_at < 14 days ago. If so, re-scan.
+  The re-scan is cheap (PowerShell count + list operation, no content read).
+
+──────────────────────────────────────────────────────────────────────────────
+PROBLEM 3: RUNNING PROCESSES LIST IS NOISE
+──────────────────────────────────────────────────────────────────────────────
+
+What happens: Get-Process returns 80+ processes. Most are system/background
+(svchost, RuntimeBroker, antivirus, etc.). These have no signal value.
+
+Solution: Allowlist-only approach for process classification.
+  Only count processes that appear in app-categories.json.
+  Everything else is discarded.
+  This means we never "discover" new tools from raw process names —
+  but we also never classify "MsMpEng.exe" as meaningful.
+
+  The app-categories.json is the knowledge base. Keep it updated.
+
+──────────────────────────────────────────────────────────────────────────────
+PROBLEM 4: WORK TIME PROFILE WRONG FOR MULTI-TIMEZONE USERS
+──────────────────────────────────────────────────────────────────────────────
+
+What happens: User travels frequently. Task at 9am in NY = 3pm in London.
+The hour distribution is meaningless if the server records UTC.
+
+Solution: Record LOCAL hour from the client.
+  The local PC agent knows the local time — use it.
+  Pass localHour (0-23 in user's timezone) in the snapshot.
+  Server stores task_hour as localHour, not UTC hour.
+
+  Simple implementation: local agent sends localHour = new Date().getHours()
+  when it fires the task snapshot. Server stores it verbatim.
+
+──────────────────────────────────────────────────────────────────────────────
+PROBLEM 5: HOOK POINT DOESN'T EXIST YET IN AGENT EXECUTION
+──────────────────────────────────────────────────────────────────────────────
+
+What happens: Channel C needs to intercept tool calls as they happen during
+agent execution. But runAgentLoop is a tight loop with no current hook for
+side-channel observation.
+
+Solution: Add a lightweight observation accumulator.
+  ChannelCAccumulator class: holds state for one task execution.
+    .addDomain(domain: string): void
+    .addFileAccess(path: string): void
+    .setDesktopScan(scan: DesktopScanResult): void
+    .flush(userId, sessionId, taskType): Promise<void>  ← fires at task end
+
+  Pass accumulator into runAgentLoop as an optional parameter.
+  Tools call accumulator.addDomain() / addFileAccess() after each tool call.
+  At task completion, call accumulator.flush().
+
+  This is cleaner than a global side-channel and doesn't require
+  restructuring runAgentLoop.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 8 — DEBUG ENDPOINT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+GET /api/debug/channel-c/:userId
+
+Output:
+  ═══════════════════════════════════════════════
+  CHANNEL C DEBUG REPORT
+  User: [user_id]
+  Generated: [timestamp]
+  ═══════════════════════════════════════════════
+
+  COLLECTION STATUS
+  ─────────────────
+  Total tasks observed: 23
+  Browser tasks: 14  |  Local tasks: 6  |  Hybrid: 3
+  Desktop scans: 2 (last: 2026-07-07)
+  Cold-start gate: PASSED (needs 5 tasks)
+
+  C.1 — TOOL STACK
+  ─────────────────
+  Stack type: operator
+  Top domains (last 30 days):
+    notion.so      ████████████ 12 tasks
+    linkedin.com   ████████     8 tasks
+    gmail.com      █████        5 tasks
+    github.com     ███          3 tasks
+  Dominant categories: productivity (52%), communication (35%), dev (13%)
+
+  C.2 — WORK TYPE
+  ────────────────
+  File type distribution:
+    writing (.md .docx .txt)  ████████████ 60%
+    data (.csv .xlsx)         ████         20%
+    code (.js .ts .py)        ████         20%
+  Work type inference: operator/writer
+
+  C.3 — WORK SCHEDULE
+  ────────────────────
+  Peak hour: 10:00 (standard)
+  Schedule type: standard
+  Weekend activity: yes (2 tasks on Saturday)
+
+  C.4 — DESKTOP (last scan: 2026-07-07)
+  ───────────────────────────────────────
+  Files on desktop: 18 (moderate)
+  File types: pdf (6), xlsx (5), docx (4), png (3)
+  Home folders: Documents, Desktop, Downloads, Projects, Archive
+  Active apps at scan: browser (chrome), dev (code), productivity (notion)
+
+  CONTEXT BLOCK (what agent sees)
+  ──────────────────────────────────
+  [shows actual injected context lines]
+
+  ═══════════════════════════════════════════════
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 9 — HOW TO TEST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Tests live in: src/tests/channel-c.test.ts
+Run with: npx tsx src/tests/channel-c.test.ts
+
+LEVEL 1 — UNIT TESTS (pure logic, no DB, no file system)
+
+  Domain classification:
+    classifyDomain("notion.so") → "productivity"
+    classifyDomain("github.com") → "dev"
+    classifyDomain("docs.google.com/spreadsheets") → "data"
+    classifyDomain("unknown-startup.io") → "other"
+    extractDomain("https://app.notion.so/workspace/abc?q=1") → "notion.so"
+
+  File type classification:
+    classifyFileType(".xlsx") → "data"
+    classifyFileType(".ts") → "code"
+    classifyFileType(".pdf") → "writing"
+    classifyFileType(".fig") → "design"
+    classifyFileType(".env") → "config"
+
+  Work type inference:
+    inferWorkType({ code: 10, data: 2, writing: 1 }) → "developer"
+    inferWorkType({ data: 8, writing: 2, code: 1 }) → "analyst"
+    inferWorkType({ writing: 7, data: 1 }) → "writer"
+
+  Schedule type:
+    classifySchedule({ hour_distribution: peakAt6 }) → "early_bird"
+    classifySchedule({ hour_distribution: peakAt22 }) → "night_owl"
+    classifySchedule({ hour_distribution: spreadEvenly }) → "irregular"
+
+LEVEL 2 — INTEGRATION TESTS (real DB, mocked file system)
+
+  Signal insertion round-trip:
+    1. Call extractChannelCSignals() with known domains + file types
+    2. Query channel_c_task_snapshots
+    3. Verify domain_categories, file_extensions, primary_domain correct
+
+  Domain log accumulation:
+    1. Insert 5 snapshots with notion.so as primary domain
+    2. Query domain_log
+    3. Verify notion.so appears 5 times with category "productivity"
+
+  Profile update:
+    1. Insert 6 snapshots: 4 browser (notion.so, github.com), 2 local (.ts, .md)
+    2. Query channel_c_profiles
+    3. Verify tool_stack_profile shows productivity + dev
+    4. Verify dominant_file_type = "code" or "writing"
+
+LEVEL 3 — BEHAVIORAL TESTS (manual)
+
+  A. Tool stack shows in context
+     1. Run 5+ browser tasks involving notion.so, github.com
+     2. Check debug endpoint
+     3. Send a chat task
+     4. Observe: agent should reference Notion or GitHub when suggesting tools
+
+  B. Work type changes agent output
+     1. Run 5+ local tasks touching .ts files
+     2. Check work_type_inference = "developer"
+     3. Ask a coding question
+     4. Observe: agent doesn't over-explain basics
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BUILD SEQUENCE — 5 PARTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PART 1 — DB + DATA FILES
+  1. Add 3 tables to db.js: channel_c_task_snapshots, channel_c_domain_log, channel_c_profiles
+  2. Create src/data/domain-categories.json
+  3. Create src/data/app-categories.json
+  4. Create src/data/file-type-categories.json
+  Verify: tables exist, query works
+
+PART 2 — CORE CLASSIFIERS (pure logic, no DB, no file system calls) ✓ DONE
+  1. src/lib/channel-c/domain-classifier.ts
+     — extractDomain(url): string
+     — classifyDomain(domain): DomainCategory  (subdomain fallback: app.notion.so → notion.so)
+  2. src/lib/channel-c/file-classifier.ts
+     — classifyFileType(extension): FileCategory  (auto-adds dot if missing)
+     — extractFolderName(filePath): string        (Windows + Unix paths)
+     — extractExtension(filePath): string         (returns '' for .gitignore-style hidden files)
+     — inferWorkType(byCategoryCount): WorkTypeInference
+  3. src/lib/channel-c/env-scanner.ts
+     — scanDesktop(homeDir, desktopDir): DesktopScanResult | null (uses child_process, non-fatal)
+     — classifyProcesses(processList): AppCategoryCount (allowlist-only, strips .exe)
+     — classifySchedule(hourDistribution): ScheduleType  (peak/mean >= 2.5 = clear pattern)
+  Tests: src/tests/channel-c.test.ts — 66/66 passing
+  NOTE: classifySchedule uses peak/mean ratio (>= 2.5) not stdDev — stdDev was too sensitive
+
+PART 3 — SIGNAL PIPELINE (accumulator + extractor + DB writes) ✓ DONE
+  1. src/lib/channel-c/accumulator.ts
+     — ChannelCAccumulator class: addDomain (dedupes), addFileAccess, setDesktopScan, flush
+     — deriveTaskType(): 'browser' | 'local' | 'hybrid' from what was observed
+     — flush() is fire-and-forget (dynamic import of extractor, catches all errors)
+  2. src/lib/channel-c/signal-inserter.ts
+     — insertTaskSnapshot(input): string (returns id)
+     — upsertDomainLog(userId, domain, category, isResearchArtifact): void
+  3. src/lib/channel-c/extractor.ts
+     — extractChannelCSignals(input): Promise<void>
+     — isResearchTask: task_type in ['research', 'analyze'] → domains tagged as research artifacts
+     — profile-builder imported lazily to avoid circular dep
+  4. src/lib/channel-c/profile-builder.ts (stub — implemented in Part 4)
+  5. Wired into agent-extension.ts runAgentLoop:
+     — channelC accumulator created at loop start
+     — browser_navigate: channelC.addDomain(args.url)
+     — read_file: channelC.addFileAccess(args.path)
+     — write_file: channelC.addFileAccess(args.path)
+     — task_complete: channelC.flush(userId, taskId, deriveTaskType()) before return
+  Tests: src/tests/channel-c.test.ts — 75/75 passing
+  NOTE: Integration tests use session_id filtering (not ORDER BY created_at DESC) because
+        SQLite datetime('now') has second-level precision — same-second inserts are ambiguous
+
+PART 4 — PROFILE BUILDER ✓ DONE
+  1. src/lib/channel-c/profile-builder.ts
+     — getChannelCProfile(userId): ChannelCProfile | null
+     — updateChannelCProfile(userId, update): void
+     — computeToolStackProfile(userId): ToolStackProfile  (SQL, 30-day rolling, is_research_artifact=0)
+     — computeDomainProfile(userId): DomainProfile  (SQL, 30-day rolling, all domains)
+     — work_time_profile + file_type_profile: running accumulators in profile JSON
+     — desktop_profile: updated only when desktopScan present in signal
+  Tests: src/tests/channel-c.test.ts — 89/89 passing
+  Bugs fixed:
+    — Research task type passthrough: flush call in agent-extension now detects research
+      prompts from task text and passes 'research' taskType (not just 'browser')
+    — Desktop scan wiring: added setTimeout(0) scan at agent loop start; fires every 14 days
+
+PART 5 — CONTEXT INJECTION + DEBUG ✓ DONE
+  1. src/lib/channel-c/context-builder.ts
+     — buildChannelCContextBlock(userId): string  (cold-start: 5 tasks)
+     — buildDebugReport(userId): string  (full report with all 5 sections)
+  2. Wired into orchestrator.ts (alongside A and B — chat route)
+  3. Wired into agent-extension.ts (browser/local task route)
+  4. GET /api/debug/channel-c/:userId in tasks.ts
+  Context block produces 2-3 lines: tool stack, work type, optional schedule/research lines
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE ONE THING THAT MAKES CHANNEL C WORK OR NOT WORK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The research artifact filter (Problem 1).
+
+Without it, every research task poisons the tool stack profile with
+domains the user doesn't actually use. A research task visiting
+20 sites fills the domain log with noise.
+
+With it, tool stack = only domains where the agent PERFORMED AN ACTION
+for the user (not gathered information about). These domains are the user's
+real workflow.
+
+The filter requires knowing WHY the agent visited each domain.
+Tag visits at collection time: visited_to_read vs. visited_to_act.
+"visited_to_act" domains build the tool stack. "visited_to_read" = research artifacts.
+
+That one bit of context turns a noisy domain log into a precise tool profile.
+
+═══════════════════════════════════════════════════════════════════════════════

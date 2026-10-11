@@ -1,0 +1,56 @@
+{
+  "productivity": [
+    "notion", "obsidian", "evernote", "onenote", "logseq",
+    "roam research", "craft", "bear", "airtable", "asana",
+    "clickup", "todoist", "trello", "basecamp", "monday",
+    "linear", "height", "shortcut"
+  ],
+  "dev": [
+    "code", "cursor", "windsurf", "vim", "nvim",
+    "intellij idea", "webstorm", "pycharm", "rider", "goland",
+    "xcode", "android studio",
+    "git", "github desktop", "sourcetree",
+    "node", "python", "bun", "deno",
+    "docker", "docker desktop",
+    "postman", "insomnia", "hoppscotch",
+    "tableplus", "dbeaver", "sequel pro",
+    "warp", "windows terminal", "iterm", "hyper",
+    "powershell", "cmd", "terminal"
+  ],
+  "design": [
+    "figma", "sketch", "adobe photoshop", "adobe illustrator",
+    "adobe xd", "affinity designer", "affinity photo",
+    "canva", "framer", "blender", "procreate",
+    "adobe premiere", "davinci resolve", "final cut pro",
+    "after effects", "capcut"
+  ],
+  "communication": [
+    "slack", "microsoft teams", "discord",
+    "zoom", "skype", "google meet",
+    "telegram", "whatsapp", "signal",
+    "outlook", "thunderbird", "superhuman",
+    "loom", "cleanshot"
+  ],
+  "browser": [
+    "google chrome", "chrome", "microsoft edge", "msedge",
+    "firefox", "brave", "opera", "arc", "safari",
+    "vivaldi", "tor browser"
+  ],
+  "office": [
+    "microsoft excel", "excel",
+    "microsoft word", "word",
+    "microsoft powerpoint", "powerpoint",
+    "google docs", "google sheets", "google slides",
+    "libreoffice", "wps office",
+    "apple pages", "apple numbers", "apple keynote"
+  ],
+  "finance": [
+    "quickbooks", "xero", "wave", "freshbooks",
+    "sage", "zoho books"
+  ],
+  "media": [
+    "spotify", "apple music", "youtube music",
+    "vlc", "plex", "netflix",
+    "audacity", "garageband", "logic pro", "ableton"
+  ]
+}

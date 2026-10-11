@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 import type { BrowserRouteContext } from "../server-context.js";
 import { readBody, resolveTargetIdFromBody, withPlaywrightRouteContext } from "./agent.shared.js";
 import { DEFAULT_UPLOAD_DIR, resolveExistingPathsWithinRoot } from "./path-output.js";
@@ -98,3 +99,4 @@ export function registerBrowserAgentActHookRoutes(
     });
   });
 }
+

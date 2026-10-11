@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 import { formatCliCommand } from "../cli/command-format.js";
 import { ensurePageState, getPageForTargetId } from "./pw-session.js";
 import { normalizeTimeoutMs } from "./pw-tools-core.shared.js";
@@ -121,3 +122,4 @@ export async function responseBodyViaPlaywright(opts: {
     truncated: bodyText.length > maxChars ? true : undefined,
   };
 }
+

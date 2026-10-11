@@ -1,0 +1,69 @@
+{
+  "data": [
+    ".xlsx", ".xls", ".xlsm",
+    ".csv", ".tsv", ".psv",
+    ".parquet", ".avro", ".orc",
+    ".json", ".xml", ".yaml", ".yml",
+    ".sql", ".db", ".sqlite", ".sqlite3",
+    ".mdb", ".accdb"
+  ],
+  "writing": [
+    ".doc", ".docx", ".odt",
+    ".txt", ".md", ".mdx", ".markdown",
+    ".rtf", ".tex", ".latex",
+    ".pages", ".pdf", ".epub"
+  ],
+  "code": [
+    ".js", ".mjs", ".cjs",
+    ".ts", ".tsx", ".jsx",
+    ".py", ".pyx", ".pyi",
+    ".go",
+    ".rs",
+    ".java", ".kt", ".scala",
+    ".cs", ".fs", ".vb",
+    ".cpp", ".c", ".h", ".cc",
+    ".rb", ".php", ".swift",
+    ".html", ".htm", ".xhtml",
+    ".css", ".scss", ".sass", ".less",
+    ".vue", ".svelte",
+    ".sh", ".bash", ".zsh",
+    ".ps1", ".psm1", ".psd1",
+    ".bat", ".cmd",
+    ".r", ".rmd",
+    ".lua", ".dart", ".elm"
+  ],
+  "design": [
+    ".fig", ".sketch",
+    ".psd", ".psb",
+    ".ai", ".eps",
+    ".svg", ".svgz",
+    ".xd",
+    ".afdesign", ".afphoto",
+    ".png", ".jpg", ".jpeg", ".gif",
+    ".webp", ".heic", ".bmp", ".tiff", ".tif",
+    ".ico", ".icns",
+    ".mp4", ".mov", ".avi", ".mkv", ".webm",
+    ".blend", ".obj", ".fbx", ".stl", ".gltf", ".glb"
+  ],
+  "presentation": [
+    ".pptx", ".ppt", ".potx",
+    ".key",
+    ".odp",
+    ".gslides"
+  ],
+  "config": [
+    ".env", ".env.local", ".env.production",
+    ".toml", ".ini", ".cfg", ".conf",
+    ".editorconfig", ".eslintrc", ".prettierrc",
+    ".gitignore", ".gitattributes",
+    ".dockerignore", ".dockerfile",
+    ".lock", ".lockfile",
+    "package.json", "tsconfig.json",
+    "webpack.config.js", "vite.config.js",
+    "tailwind.config.js", "next.config.js"
+  ],
+  "archive": [
+    ".zip", ".tar", ".gz", ".bz2", ".xz",
+    ".7z", ".rar", ".dmg", ".iso"
+  ]
+}

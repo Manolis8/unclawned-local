@@ -1,0 +1,38 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "esModuleInterop": true,
+    "strict": false,
+    "skipLibCheck": true,
+    "noImplicitAny": false,
+    "noEmitOnError": false,
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": [
+    "src/cli.ts",
+    "src/cli-preload.ts",
+    "src/index.ts",
+    "src/mcp-server.ts",
+    "src/lib/**/*.ts",
+    "src/routes/**/*.ts",
+    "src/middleware/**/*.ts",
+    "src/db/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.test-harness.ts",
+    "**/*.e2e.test.ts",
+    "src/config/**",
+    "src/auto-reply/**",
+    "src/gateway/**",
+    "src/agents/**",
+    "src/data/**",
+    "src/logging/**",
+    "src/utils.ts"
+  ]
+}

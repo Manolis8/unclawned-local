@@ -1,3 +1,26 @@
 node_modules
-.env
 dist
+
+# Secrets: never commit these
+.env
+.env.*
+!config.example.env
+.dev.vars
+gateway/.wrangler
+
+# Local tool settings
+.claude/settings.local.json
+
+# Old debug dumps and logs
+debug-export*.json
+debug-export*.txt
+export.json
+export.txt
+full-export*.json
+full-export*.txt
+felo-backend-all.txt
+manolis-*.txt
+manolis-*.json
+*.log
+*.tsbuildinfo
+*.db

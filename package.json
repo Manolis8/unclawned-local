@@ -1,31 +1,43 @@
 {
-  "name": "felo-backend",
+  "name": "openclaw",
   "version": "1.0.0",
+  "description": "Local AI browser agent — runs on your machine, controlled via Chrome extension",
   "type": "module",
-  "scripts": {
-    "dev": "tsx src/index.ts",
-    "start": "tsx src/index.ts"
+  "bin": {
+    "jarvis": "./bin/jarvis.js"
   },
+  "scripts": {
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json && node -e \"const{cpSync}=require('fs');cpSync('src/data','dist/data',{recursive:true})\"",
+    "start": "node bin/jarvis.js",
+    "dev": "tsx --import ./src/cli-preload.ts src/cli.ts",
+    "cli": "tsx --import ./src/cli-preload.ts src/cli.ts",
+    "server": "tsx --import ./src/cli-preload.ts src/index.ts"
+  },
+  "files": [
+    "bin",
+    "dist"
+  ],
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "engines": {
+    "node": ">=22.7.0"
+  },
   "dependencies": {
     "@ai-sdk/xai": "^3.0.89",
     "@anthropic-ai/sdk": "^0.95.1",
-    "@nangohq/node": "^0.58.6",
-    "@supabase/phoenix": "^0.4.0",
-    "@supabase/supabase-js": "^2.99.2",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@types/crypto-js": "^4.2.2",
+    "@types/picomatch": "^4.0.3",
     "ai": "^6.0.177",
-    "cors": "^2.8.6",
     "croner": "^10.0.1",
     "crypto-js": "^4.2.0",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "express-rate-limit": "^8.3.2",
     "helmet": "^8.1.0",
-    "http-proxy-middleware": "^3.0.5",
     "openai": "^6.29.0",
+    "picomatch": "^4.0.4",
     "playwright": "^1.58.2",
     "playwright-core": "^1.52.0"
   },

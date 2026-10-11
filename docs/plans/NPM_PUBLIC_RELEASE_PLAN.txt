@@ -1,0 +1,742 @@
+================================================================================
+  OPENCLAW — NPM PUBLIC RELEASE PLAN
+  "How to ship this so people actually use it"
+  Written: 2026-07-14
+================================================================================
+
+This document covers every problem between "works on my machine" and
+"10,000 strangers installed it and it works for them too." Written 10x deep,
+problems identified before they exist, solutions included.
+
+────────────────────────────────────────────────────────────────────────────────
+  PART 1 — THE REAL PRODUCT SHAPE (what are we actually shipping?)
+────────────────────────────────────────────────────────────────────────────────
+
+What openclaw IS today:
+  ① A local HTTP + WebSocket server (src/index.ts, port 3001)
+  ② A CLI chat interface (src/cli.ts, run via `jarvis`)
+  ③ A Chrome extension relay (browser connects to the server via WebSocket)
+  ④ A SQLite local database (~/.unclawned/openclaw.db)
+  ⑤ A proactive action engine that surfaces insights across sessions
+  ⑥ Browser automation via Playwright
+
+What a NEW USER has to do today (the raw friction list):
+  • Clone the repo
+  • npm install (downloads ~900MB including playwright)
+  • Create .env file manually, google the key names
+  • Run tsx manually
+  • Somehow know about `jarvis` CLI
+  • Manually install the Chrome extension from developer mode (unpacked)
+  • Figure out how to connect the extension to the server
+
+That is 6+ manual steps with zero guidance. Nobody gets through this.
+What we need: 2 steps maximum to a working first session.
+
+────────────────────────────────────────────────────────────────────────────────
+  PART 2 — THE TARGET FIRST-RUN EXPERIENCE (what we're aiming for)
+────────────────────────────────────────────────────────────────────────────────
+
+  $ npx openclaw@latest
+
+  ┌─────────────────────────────────────────────┐
+  │  OpenClaw — Local AI Agent                  │
+  │  First-time setup — takes about 2 minutes   │
+  └─────────────────────────────────────────────┘
+
+  Step 1 / 4: Anthropic API key (required)
+  Everything runs through Claude. Get your key at:
+  → console.anthropic.com/keys
+
+  Paste your key: sk-ant-api03-...
+  ✓ Valid — Claude Sonnet confirmed.
+
+  Step 2 / 4: Web search (optional but recommended)
+  Adding an xAI key gives the agent built-in web search via Grok.
+  Without it, the agent can still browse but can't search the live web.
+  Get a free key at: console.x.ai
+
+  Paste your xAI key (or press Enter to skip):
+  → Skipped. You can add it later with: openclaw config set xai_api_key
+
+  Step 3 / 4: Browser automation
+  Installing Chromium (~180MB) — needed for web tasks.
+  Download now? (Y/n): Y
+  ↓ Downloading Chromium... done.
+
+  Step 4 / 4: Chrome extension
+  The extension lets OpenClaw see and control your active Chrome tab.
+  Install it from the Chrome Web Store:
+  → https://chrome.google.com/webstore/detail/openclaw/[id]
+
+  (Or press Enter to skip — you can still use the agent without it)
+  Press Enter when done:
+
+  ✓ Setup complete. Starting OpenClaw...
+
+  ─────────────────────────────────────────────
+   OpenClaw is ready. Type your first task.
+  ─────────────────────────────────────────────
+  >
+
+That is the entire experience. User reads 4 lines, pastes 1 key, done.
+Everything below is the engineering work to make that possible.
+
+────────────────────────────────────────────────────────────────────────────────
+  PART 3 — API KEY STRATEGY (the core problem, solved properly)
+────────────────────────────────────────────────────────────────────────────────
+
+THE SITUATION:
+  You currently use multiple providers optimized for cost:
+    • Anthropic (@anthropic-ai/sdk) — main reasoning, orchestration
+    • OpenAI (openai) — possibly embeddings or cheap classification
+    • xAI (@ai-sdk/xai) — Grok, which has native web search built in
+    • Vercel AI SDK (ai) — unified interface over the above
+
+  Asking a new user to get 3+ API keys before they see any value is
+  conversion-rate death. Studies on dev tools show >50% of signups
+  drop off at the 3rd required credential.
+
+THE SOLUTION: Tiered key model — "start with one, unlock more"
+
+  TIER 0 — Anthropic only (1 key, required)
+    • Full agent functionality
+    • Claude Haiku for cheap tasks (classify, score, summarize)
+    • Claude Sonnet for orchestration and main reasoning
+    • Browser automation via Playwright (no API)
+    • Cost estimate: ~$0.01–0.05 per typical session
+    • Missing: live web search (agent can browse but not search)
+
+  TIER 1 — Anthropic + xAI (2 keys, strongly recommended)
+    • Everything in Tier 0
+    • Grok web search built in — no Tavily/Perplexity key needed
+    • xAI free tier: 25 requests/day (enough for casual users)
+    • Cost delta: $0 for light usage
+    • This is the "recommended" configuration in setup
+
+  TIER 2 — All three (3 keys, power user)
+    • Everything in Tier 1
+    • OpenAI embeddings (text-embedding-3-small at $0.02/M tokens)
+    • Enables embedding-based memory search if we add it later
+    • Unlocked by: openclaw config set openai_api_key sk-...
+
+ROUTING TABLE (how the code decides which model to call):
+
+  Task type            | Tier 0 (Anthropic only) | Tier 1 (+ xAI)  | Tier 2 (+ OAI)
+  ─────────────────────┼─────────────────────────┼─────────────────┼────────────────
+  Score/classify/short │ Claude Haiku             │ Claude Haiku    │ Claude Haiku
+  Summarize session    │ Claude Haiku             │ Claude Haiku    │ Claude Haiku
+  Orchestrate task     │ Claude Sonnet            │ Claude Sonnet   │ Claude Sonnet
+  Web search           │ Playwright browse only   │ Grok search     │ Grok search
+  Deep reasoning       │ Claude Sonnet (or Opus)  │ Claude Sonnet   │ Claude Sonnet
+  Embeddings           │ feature disabled         │ feature disabled│ OAI embed
+
+IMPLEMENTATION: src/lib/model-router.ts (new file to create)
+
+  export function getModel(task: ModelTask, config: UserConfig): ModelBinding
+
+  type ModelTask =
+    | 'classify'       // cheap: haiku
+    | 'summarize'      // cheap: haiku
+    | 'orchestrate'    // standard: sonnet
+    | 'reason'         // standard/heavy: sonnet or opus (user config)
+    | 'search'         // requires xai key, falls back to null
+    | 'embed'          // requires openai key, falls back to null
+
+  Rules:
+    • classify/summarize → always Haiku (never upgrade)
+    • orchestrate → Sonnet unless user sets OPENCLAW_HEAVY_MODEL=opus
+    • search → Grok if key present, null if not (caller handles fallback)
+    • embed → OAI if key present, null if not (caller skips feature)
+
+KEY STORAGE: NOT .env (too easy to leak into git)
+
+  Keys go in: ~/.unclawned/config.json
+  Readable only by current user (chmod 600 on creation)
+  Structure:
+    {
+      "version": 1,
+      "anthropic_api_key": "sk-ant-...",
+      "xai_api_key": "...",           // optional
+      "openai_api_key": "sk-...",     // optional
+      "model_tier": "standard",       // cheap | standard | heavy
+      "browser_installed": true,
+      "setup_complete": true
+    }
+
+  Config CLI:
+    openclaw config list              — show all settings (keys masked)
+    openclaw config set <key> <val>  — set a value
+    openclaw config get <key>        — get a value
+
+  In code: src/lib/user-config.ts loads from config.json, merges with
+  env vars (env vars win — allows CI/docker overrides without editing file)
+
+────────────────────────────────────────────────────────────────────────────────
+  PART 4 — THE NATIVE DEPENDENCY PROBLEM (this will break installs)
+────────────────────────────────────────────────────────────────────────────────
+
+PROBLEM 1: better-sqlite3
+
+  better-sqlite3 compiles a native C++ addon at install time.
+  This requires: Python, a C++ compiler, node-gyp.
+  Most users on Mac/Windows do NOT have these installed.
+  Result: `npm install` fails with cryptic node-gyp errors.
+
+  Options ranked:
+    A) Use prebuilds — better-sqlite3 supports @mapbox/node-pre-gyp.
+       We ship compiled .node files for common platforms (win32/darwin/linux,
+       arm64/x64, Node 18/20/22). Users with matching platform skip compile.
+       Downside: we manage the prebuild matrix, adds CI complexity.
+       Verdict: BEST option if we stay with better-sqlite3.
+
+    B) Migrate to node-sqlite3-wasm
+       Pure JavaScript WASM port, zero native deps.
+       Slightly slower (WASM overhead), but SYNC like better-sqlite3.
+       API is very close — migration is ~2 hours of work.
+       No compile step. Works everywhere. Works in Docker instantly.
+       Verdict: BEST long-term option, worth the migration.
+
+    C) Migrate to @libsql/client (LibSQL / Turso)
+       Pure JS, but ASYNC — this breaks all our synchronous db calls.
+       Would require rewriting every db.prepare().get() call.
+       Verdict: too much work, skip.
+
+  RECOMMENDATION: Migrate to node-sqlite3-wasm before public release.
+  It removes an entire class of "install failed" support tickets.
+  The API is nearly identical. Migration plan:
+    1. npm install node-sqlite3-wasm
+    2. Replace `import Database from 'better-sqlite3'`
+       with   `import { DatabaseSync } from 'node:sqlite'` (Node 22.5+)
+       OR use node-sqlite3-wasm's sync API
+    3. Remove better-sqlite3, @types/better-sqlite3 from deps
+    4. Test all db queries (the sync API is identical)
+
+  FALLBACK: If staying with better-sqlite3, add prebuild CI via GitHub Actions:
+    .github/workflows/prebuild.yml
+      matrix: [win32-x64, darwin-x64, darwin-arm64, linux-x64, linux-arm64]
+      uses: prebuild-install to upload .node files to GitHub releases
+    package.json:
+      "binary": { "module_name": "better_sqlite3", "host": "..." }
+
+PROBLEM 2: Playwright browser installation
+
+  `playwright` in dependencies means npm install downloads playwright's code,
+  but NOT the browser binaries. `npx playwright install chromium` is a
+  SEPARATE COMMAND that downloads ~180MB.
+
+  Current state: probably works on your machine because you ran it manually.
+  New user: playwright is installed but Chromium isn't → agent fails silently
+  on first browser task.
+
+  Solutions:
+    A) Add postinstall script: "postinstall": "playwright install chromium"
+       Cons: downloads 180MB on every install without asking. Terrible UX.
+
+    B) Lazy install: first time a browser task is attempted, detect missing
+       browser and prompt: "Chromium not installed. Install now? (Y/n)"
+       If yes, run `npx playwright install chromium` in a child process.
+       Cons: 3-second hang in the middle of a session.
+
+    C) Setup wizard: the `openclaw setup` command (first run) asks explicitly
+       "Download browser for web tasks? (~180MB)"
+       This is what the Part 2 UX flow shows.
+       Store `"browser_installed": true` in config.json after success.
+       Cons: user can skip and be confused later.
+       Fix: if browser_installed is false, all browser commands print:
+            "Browser not installed. Run: openclaw setup --browser"
+
+  RECOMMENDATION: Option C (wizard) + Option B fallback (graceful prompt
+  when browser task is attempted without install).
+
+PROBLEM 3: tsx as runtime dependency
+
+  Currently: tsx is in `dependencies` and we run TypeScript source directly.
+  For npm distribution this means:
+    • Every user installs tsx (~50MB) just to run the code
+    • Startup is slower (TypeScript compilation on every run)
+    • Possible version conflicts with user's own tsx
+
+  Better approach: BUILD step.
+    • Add a proper tsc build: `npm run build` compiles src/ → dist/
+    • bin/jarvis.js points to dist/cli.js (compiled JS), not src/cli.ts
+    • tsx moves to devDependencies (only needed during development)
+    • Startup time: ~100ms instead of ~800ms (no transpile)
+
+  BUT: ESM + TypeScript has tricky build setup.
+  The .js-import-resolves-to-.ts trick only works with tsx.
+  In compiled output, all imports already ARE .js, so no issue.
+
+  Build pipeline:
+    tsconfig.json changes:
+      "outDir": "./dist",
+      "rootDir": "./src",
+      "declaration": false,   // don't need .d.ts for a CLI
+    package.json:
+      "scripts": {
+        "build": "tsc",
+        "prepublishOnly": "npm run build",
+        "dev": "tsx --import ./src/cli-preload.ts src/cli.ts"
+      }
+    .npmignore:
+      src/           — don't ship TypeScript source
+      *.ts           — don't ship .ts files
+      node_modules/  — obvious
+    Files shipped:
+      dist/          — compiled JS
+      bin/           — entry points (already JS)
+      package.json
+
+  bin/jarvis.js update: change to point at dist/cli.js
+    const cli = join(root, 'dist', 'cli.js')
+    spawn(process.execPath, [cli], { stdio: 'inherit' })
+    (No tsx needed at runtime — it's just Node running JS)
+
+────────────────────────────────────────────────────────────────────────────────
+  PART 5 — SETUP WIZARD (the actual code to write)
+────────────────────────────────────────────────────────────────────────────────
+
+New file: src/setup.ts (or dist/setup.js after build)
+Entry point: `openclaw setup` (or first run if config missing)
+
+  Wizard flow:
+    1. Check if config.json exists. If yes and setup_complete=true, skip.
+    2. Print welcome banner
+    3. Prompt: Anthropic API key
+       Validate: must start with 'sk-ant-', test with a tiny API call
+       (models.list() or a 1-token completion)
+       On fail: show error, allow retry
+    4. Prompt: xAI key (optional, explain what it unlocks)
+       Validate: if provided, test with models.list() on xAI API
+    5. Prompt: Install Chromium? (Y/n)
+       If Y: spawn `npx playwright install chromium`
+       Show a progress indicator (playwright prints its own progress)
+    6. Show Chrome extension instructions with link
+       Wait for user to press Enter
+    7. Write config.json (chmod 600)
+    8. Launch the agent
+
+Libraries to use for the wizard UI:
+  • @clack/prompts — beautiful, zero-dep prompts with spinners and validation
+    (better than enquirer, better than inquirer, 3KB, no native deps)
+  • OR: write it raw with readline (zero additional deps, matches your
+    current cli.ts style which already uses readline)
+
+  Given the rest of the codebase uses raw readline, stay consistent.
+  Pattern already exists in cli.ts — reuse it.
+
+Detection: "is this a first run?"
+  function needsSetup(): boolean {
+    const configPath = join(homedir(), '.unclawned', 'config.json')
+    if (!existsSync(configPath)) return true
+    const config = JSON.parse(readFileSync(configPath, 'utf8'))
+    return !config.setup_complete || !config.anthropic_api_key
+  }
+
+  In bin/jarvis.js: call this before starting the agent. If true, run setup.
+  Can also be invoked directly: `openclaw setup` or `openclaw setup --reset`
+
+────────────────────────────────────────────────────────────────────────────────
+  PART 6 — CHROME EXTENSION DISTRIBUTION
+────────────────────────────────────────────────────────────────────────────────
+
+THIS IS YOUR BIGGEST UX BOTTLENECK. Extensions can't be installed
+programmatically. The user must do it manually. Two options:
+
+OPTION A: Chrome Web Store (proper, takes 2–4 weeks)
+  • Submit to Chrome Web Store
+  • Users go to store URL, click Install, done
+  • Reviewal takes 1–4 weeks, $5 one-time developer fee
+  • After approval: update the extension without re-review (usually)
+  • CONS: Chrome Web Store review process, policies, possible rejection
+
+OPTION B: Sideloading instructions (fast, frictionless for devs)
+  • Ship the extension source in the npm package: ./extension/
+  • `openclaw setup` shows instructions:
+      1. Open chrome://extensions
+      2. Enable "Developer mode" (top right toggle)
+      3. Click "Load unpacked" → navigate to:
+         ~/.unclawned/extension   (we copy it there during setup)
+      4. Pin the extension to toolbar
+  • Users open chrome://extensions themselves
+  • CONS: developer mode warning banner, less professional, 4-step process
+  • PROS: works immediately, no review process
+
+OPTION C: Both (recommended for launch)
+  • Launch with sideloading (Option B) for initial users
+  • Submit to Chrome Web Store in parallel
+  • Once approved, switch Option A and update docs
+
+For setup wizard, copy the extension to ~/.unclawned/extension/:
+  const srcExt = join(__dirname, '..', 'extension')
+  const dstExt = join(homedir(), '.unclawned', 'extension')
+  cp -r srcExt dstExt
+  console.log(`  Open chrome://extensions → Developer mode → Load unpacked`)
+  console.log(`  Folder: ${dstExt}`)
+
+PROBLEM TO SOLVE FIRST: The extension currently connects to localhost:3001
+with a hardcoded user ID from the server's auth flow. For public release:
+  • The extension needs to show its connected user ID to the CLI
+  • OR the CLI generates a local auth token that the extension uses
+  • Current flow seems to use `felo_` prefixed keys — that's the local key
+  • Make sure the extension works without a cloud auth system
+    (it probably should work with just a local machine ID)
+
+────────────────────────────────────────────────────────────────────────────────
+  PART 7 — PACKAGE.JSON OVERHAUL
+────────────────────────────────────────────────────────────────────────────────
+
+Current package.json problems for public distribution:
+
+1. `"name": "openclaw"` — check if this is taken on npm: npmjs.com/package/openclaw
+   If taken, consider: @unclawned/cli, openclaw-agent, openclaw-ai
+
+2. `"version": "1.0.0"` — fine, but make sure you're ready for a real 1.0
+   Consider starting at 0.1.0 (easier to fix breaking changes pre-1.0)
+
+3. Missing required fields for npm:
+   "description": needs a better one-liner
+   "homepage": "https://unclawned.com" (or docs URL)
+   "repository": { "type": "git", "url": "..." }
+   "bugs": { "url": "https://github.com/.../issues" }
+   "keywords": ["ai-agent", "llm", "browser-automation", "claude", "cli"]
+   "engines": { "node": ">=18.0.0" }
+   "author": "Manolis Tsiftsis <manolistsiftsis@gmail.com>"
+   "license": "MIT" (or whatever you choose)
+
+4. `tsx` in `dependencies` — should move to devDependencies after build setup
+
+5. `playwright` is HUGE. Consider making it optional:
+   "optionalDependencies": { "playwright": "^1.58.2" }
+   The code wraps all playwright calls in try/catch already.
+   This way npm install is lighter and playwright is only used if available.
+
+6. Missing: `"files"` field — controls what goes into the published package
+   Without it, EVERYTHING in the repo ships (including .env, planning docs, etc.)
+   Add:
+   "files": [
+     "dist/",
+     "bin/",
+     "extension/",
+     "package.json",
+     "README.md"
+   ]
+
+7. Add bin entry for `openclaw` as the main command:
+   "bin": {
+     "openclaw": "./bin/openclaw.js",  ← primary command
+     "jarvis": "./bin/jarvis.js"       ← alias (backwards compat)
+   }
+   openclaw.js is the same as jarvis.js — just a symlink or copy
+
+8. @nangohq/node is in dependencies — what is this for? OAuth flows?
+   If it requires cloud config (Nango account), it breaks for local-only users.
+   Audit: is Nango used in the local/CLI path? If not, it should be optional
+   or removed from the public build.
+
+────────────────────────────────────────────────────────────────────────────────
+  PART 8 — ENVIRONMENT & CONFIG ARCHITECTURE
+────────────────────────────────────────────────────────────────────────────────
+
+CURRENT STATE: Everything is in .env (dotenv pattern)
+PROBLEM: .env is for server deployments, not CLI tools. Users can't find it.
+
+NEW PATTERN: ~/.unclawned/config.json + env var override
+
+  Priority order (highest to lowest):
+    1. Environment variables (ANTHROPIC_API_KEY, etc.)
+       → allows CI, Docker, and power users to override without touching files
+    2. ~/.unclawned/config.json
+       → the default for normal users after `openclaw setup`
+    3. ./.env in current directory (legacy, still supported)
+       → so existing dev setups don't break
+
+  src/lib/user-config.ts:
+    export interface UserConfig {
+      anthropic_api_key: string
+      xai_api_key?: string
+      openai_api_key?: string
+      model_tier: 'cheap' | 'standard' | 'heavy'
+      browser_installed: boolean
+      setup_complete: boolean
+      user_id: string  // auto-generated UUID, stable per install
+    }
+
+    export function loadConfig(): UserConfig
+    export function saveConfig(patch: Partial<UserConfig>): void
+    export function getApiKey(provider: 'anthropic' | 'xai' | 'openai'): string | null
+
+  The user_id in config.json replaces the current need for a server-side userId.
+  It's a UUID generated once at setup and used as the SQLite user identifier.
+  Stable across sessions, no server needed, no account needed.
+
+  SECURITY: config.json must be created with mode 0o600 (user read/write only)
+  On Windows: use icacls to set ACL (no chmod equivalent)
+  Node does have: fs.writeFileSync(path, data, { mode: 0o600 })
+  But on Windows this is a no-op — Windows doesn't use POSIX permissions.
+  For Windows, config.json security relies on the user's login profile.
+  This is acceptable — Windows doesn't have the shared-user threat model.
+
+────────────────────────────────────────────────────────────────────────────────
+  PART 9 — CROSS-PLATFORM PROBLEMS
+────────────────────────────────────────────────────────────────────────────────
+
+You're on Windows. Your users will be on Mac, Linux, and Windows.
+Here are the platform-specific landmines:
+
+1. PATH SEPARATORS
+   You already use path.join() throughout — good. But check any hardcoded
+   slashes: `join(root, 'src/cli-preload.ts')` → should be
+   join(root, 'src', 'cli-preload.ts'). (join() handles it but be explicit.)
+
+2. HOME DIRECTORY
+   Never use ~/. Always use os.homedir(). Already used in db.ts — good.
+   Make sure setup.ts does the same for config.json path.
+
+3. SQLITE FILE LOCKING
+   better-sqlite3 uses OS-level file locks. On Windows, SQLite WAL mode
+   can have issues with antivirus software scanning the DB file mid-write.
+   Mitigation: set PRAGMA journal_mode=WAL and PRAGMA synchronous=NORMAL
+   (already good for performance, also reduces lock duration).
+   Consider: add a retry wrapper for transient SQLITE_BUSY errors.
+
+4. PLAYWRIGHT BROWSER PATH
+   Playwright downloads browsers to a platform-specific default:
+     Mac: ~/Library/Caches/ms-playwright
+     Linux: ~/.cache/ms-playwright
+     Windows: %LOCALAPPDATA%\ms-playwright
+   This is managed by playwright — no action needed, just document it.
+
+5. CONSOLE COLOR CODES
+   Your CLI uses unicode box-drawing and emoji. On Windows, these only
+   work in Windows Terminal (wt.exe) or VS Code terminal.
+   Old cmd.exe and some PowerShell versions garble them.
+   Mitigation: detect Windows terminal capabilities:
+     const isUnicodeSafe = process.platform !== 'win32' ||
+                           process.env.WT_SESSION !== undefined ||
+                           process.env.TERM_PROGRAM === 'vscode'
+   If not safe: fall back to ASCII (─ → -, ✓ → [ok], etc.)
+
+6. SIGNALS (SIGINT, SIGTERM)
+   process.on('SIGINT', ...) works differently on Windows.
+   Current code has uncaughtException handlers — add SIGINT handler:
+     process.on('SIGINT', () => { cleanup(); process.exit(0) })
+   On Windows, Ctrl+C in cmd.exe sends SIGINT but it's often ignored.
+   Test this specifically on Windows cmd.exe.
+
+7. SPAWN IN bin/jarvis.js
+   Currently: spawn(process.execPath, [tsxCli, '--import', preload, cli])
+   The preload uses pathToFileURL() which correctly handles Windows paths.
+   After build: spawn(process.execPath, [compiledCli]) — much simpler.
+   Make sure the shebang #!/usr/bin/env node works on all platforms.
+   On Windows: npm installs a .cmd wrapper for bin entries — this is fine.
+
+8. LINE ENDINGS
+   .gitattributes should specify: *.ts text eol=lf
+   This prevents CRLF creeping into TypeScript files on Windows.
+   After the build, dist/ files will also have LF — good.
+
+────────────────────────────────────────────────────────────────────────────────
+  PART 10 — THINGS USERS WILL BREAK AND HOW TO HANDLE THEM
+────────────────────────────────────────────────────────────────────────────────
+
+PREDICTABLE SUPPORT TICKET #1: "My API key says invalid"
+  Cause: user has spaces in the pasted key, or pasted the wrong key,
+         or used an org key instead of a project key.
+  Fix: trim() the key. Validate the format (regex) before hitting the API.
+  Anthropic keys: /^sk-ant-api\d{2}-[A-Za-z0-9_-]{86}AA$/
+  Show: "Key format looks wrong. Anthropic keys start with sk-ant-api03-"
+
+PREDICTABLE SUPPORT TICKET #2: "Browser tasks don't work"
+  Cause: Playwright Chromium not installed.
+  Fix: catch PlaywrightError, check if it's about missing browser.
+  Show: "Browser not found. Run: openclaw setup --browser"
+  Auto-prompt if in interactive mode.
+
+PREDICTABLE SUPPORT TICKET #3: "Extension not connecting"
+  Cause: Server not running, or running on wrong port, or wrong user_id.
+  Fix: /status command should show extension connection state.
+  `openclaw status` should print:
+    ✓ Server: running (port 3001)
+    ✓ Database: connected (~/.unclawned/openclaw.db)
+    ✗ Extension: not connected (open Chrome and click the extension icon)
+    ✓ Anthropic API: configured
+
+PREDICTABLE SUPPORT TICKET #4: "npm install fails"
+  Cause: better-sqlite3 native compile fails (missing Python, gyp, MSVC).
+  Fix: PART 4 above — migrate to WASM-based SQLite.
+  Immediate mitigation: add prebuilt binaries for top platforms.
+
+PREDICTABLE SUPPORT TICKET #5: "Works on my Mac, broken on my Linux server"
+  Cause: playwright requires libglib, libnss, and other system libs on Linux.
+  Fix: document this. On Debian/Ubuntu:
+    sudo apt-get install libglib2.0-0 libnss3 libnspr4 libatk1.0-0 \
+      libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 \
+      libxdamage1 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 \
+      libasound2
+  OR: `npx playwright install-deps chromium`
+  Add to setup wizard: detect Linux, run install-deps automatically.
+
+PREDICTABLE SUPPORT TICKET #6: "My data is gone after update"
+  Cause: DB schema changes between versions break old DBs.
+  Fix: implement DB migrations (already have the table structure, just
+       need versioning). Add a `schema_version` table:
+       When app starts, check version. If behind, run migrations in order.
+       Pattern: src/lib/migrations/*.ts, numbered (001_, 002_, ...)
+
+PREDICTABLE SUPPORT TICKET #7: "It's too expensive"
+  Cause: user left it on 'heavy' model tier or has a tight budget.
+  Fix: show estimated session cost after each session.
+  `openclaw config set model_tier cheap` — add clear documentation.
+  Add a monthly spend tracker: count tokens used, estimate $ in session logs.
+
+PREDICTABLE SUPPORT TICKET #8: "How do I update?"
+  Cause: npm global packages don't auto-update, users forget.
+  Fix: check for updates on startup (weekly, not every run):
+    fetch https://registry.npmjs.org/openclaw/latest in background
+    if current version < latest: print one-line notice:
+    "⚡ openclaw v1.2.0 available — npm update -g openclaw"
+  Store last-check timestamp in config.json.
+
+────────────────────────────────────────────────────────────────────────────────
+  PART 11 — WHAT TO STRIP OUT / AUDIT BEFORE GOING PUBLIC
+────────────────────────────────────────────────────────────────────────────────
+
+Things in the current codebase that may not belong in a public npm package:
+
+1. @nangohq/node — Nango is a cloud OAuth management service.
+   Audit: is this used for local OAuth flows or for a cloud product feature?
+   If it requires a Nango account/secret, it can't be in a local-first tool.
+   Options: remove it, or gate the features that need it behind a flag.
+
+2. allowedOrigins in src/index.ts:
+   [ 'https://unclawned.com', 'https://test-frontend-unclawned.vercel.app' ]
+   These are YOUR domains. Public users won't be hitting your frontend.
+   For a local-first tool, CORS should allow localhost origins.
+   Make allowed origins configurable or default to localhost.
+
+3. src/middleware/auth.ts — what kind of auth?
+   If it checks for a server-side account (JWT, session), public local users
+   won't have one. Auth should either be removed or made local-key-based.
+   The `felo_` key pattern in src/index.ts looks like a local generated key.
+   Make sure the auth flow works without any cloud service dependency.
+
+4. Planning/thinking files in root (*.txt, the ones in git status):
+   VISION_AND_PLAN.txt, JARVIS_V2_PLAN.txt, etc. — add these to .gitignore
+   and .npmignore. They're dev artifacts, not part of the published package.
+
+5. `make-overdue.ts`, `seed-action-insight.ts`, `seed-test-followup.ts` in root:
+   Seeding/utility scripts. Move to scripts/ folder or remove pre-publish.
+
+6. `src/auto-reply/` directory — large set of files. Are these used by
+   the public CLI or are they part of a private feature?
+   Audit before shipping: dead code in a public package is confusing.
+
+7. app-tools.js, command-tools.js, etc. in root — same, audit or move.
+
+────────────────────────────────────────────────────────────────────────────────
+  PART 12 — DOCS & README (minimum viable)
+────────────────────────────────────────────────────────────────────────────────
+
+README.md should answer in 30 seconds:
+  • What is this? (one sentence)
+  • What can it do? (3 bullet points, concrete)
+  • How do I install? (2 commands)
+  • How do I get started? (1 command: npx openclaw@latest)
+  • What do I need? (API key list, links to get them)
+  • How much does it cost to use? (rough estimate)
+  • Where do I get help? (GitHub issues link)
+
+Do NOT write more than 200 lines of README for v1. More docs = more
+maintenance. Start minimal, add based on real user questions.
+
+────────────────────────────────────────────────────────────────────────────────
+  PART 13 — ORDERED IMPLEMENTATION PLAN
+────────────────────────────────────────────────────────────────────────────────
+
+PHASE 1 — Make it work for strangers (no code needed from them)
+  Priority: P0 (must-have before ANY public release)
+
+  1. Migrate better-sqlite3 → node-sqlite3-wasm (or add prebuilds)
+     Why: install failures will kill adoption instantly
+     Time: 2–4 hours if using wasm fork with sync API
+
+  2. Audit + remove cloud-service dependencies from local path
+     Why: @nangohq/node, allowedOrigins, auth middleware
+     Time: 2 hours
+
+  3. Implement user-config.ts (config.json, not .env)
+     Why: .env requires users to find and edit a file; config.json is written by wizard
+     Time: 3 hours
+
+  4. ****Implement model-router.ts (route tasks to right model/tier)
+     Why: without this, everything hits the expensive model
+     Time: 2 hours
+
+  5. Build pipeline: tsc → dist/, move tsx to devDeps
+     Why: shipping TS source is wrong, startup is slow
+     Time: 2 hours (tsconfig tweaks, bin updates)
+
+  6. Setup wizard: src/setup.ts
+     Why: the entire onboarding story
+     Time: 4 hours
+
+  7. `openclaw status` command
+     Why: first thing users run when something is broken
+     Time: 1 hour
+
+PHASE 2 — Make it polished (good UX for normal humans)
+  Priority: P1 (should have before any marketing push)
+
+  8. Chrome extension: move to extension/ in package, add copy step in wizard
+  9. Update checker (weekly, background)
+  10. DB migration system (schema_version table)
+  11. Cost estimator (tokens used → $ estimate per session)
+  12. Windows unicode capability detection
+  13. Playwright deps helper on Linux
+
+PHASE 3 — Make it grow (enables sharing and community)
+  Priority: P2 (nice to have, post-launch)
+
+  14. Chrome Web Store submission
+  15. `openclaw share` — export skills to a format others can import
+  16. `openclaw import <url>` — import community skills
+  17. Skills marketplace (future)
+
+────────────────────────────────────────────────────────────────────────────────
+  PART 14 — PRE-PUBLISH CHECKLIST
+────────────────────────────────────────────────────────────────────────────────
+
+Before running `npm publish`:
+
+  [ ] npm install on a clean machine (Mac + Linux + Windows) — no failures
+  [ ] `openclaw setup` completes on first run on a machine with no .env
+  [ ] `openclaw` starts and accepts a task
+  [ ] Browser task works after setup --browser
+  [ ] npx openclaw@latest works (not just npm install -g)
+  [ ] package.json has files field (audit with `npm pack --dry-run`)
+  [ ] No .env or secrets in npm pack output
+  [ ] No planning .txt files in npm pack output
+  [ ] README answers: what, how to install, cost estimate
+  [ ] package.json has engines.node, repository, homepage, bugs
+  [ ] npm name is not taken
+  [ ] GitHub repo is public (or the npm package references a valid repo)
+  [ ] LICENSE file is present
+  [ ] Version is intentional (0.1.0 for beta, 1.0.0 for stable)
+
+────────────────────────────────────────────────────────────────────────────────
+  SUMMARY: THE 3 HIGHEST-LEVERAGE THINGS
+────────────────────────────────────────────────────────────────────────────────
+
+If you only have time for 3 things before launch:
+
+  1. Fix better-sqlite3 (native compile = install failures = immediate churn)
+  2. Build the setup wizard (1 command to working = all the difference)
+  3. Set the API key strategy (tiered: Anthropic required, xAI recommended)
+     and implement model-router.ts so Haiku handles cheap tasks by default
+
+Everything else is polish. Those 3 determine whether someone who found you
+on Hacker News can actually try the thing.
+
+================================================================================
+  END OF PLAN
+================================================================================

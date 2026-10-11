@@ -1,0 +1,506 @@
+═══════════════════════════════════════════════════════════════════════════════
+  OPENCLAW INTELLIGENCE LAYER — COMPLETE REFERENCE
+  What we built, how every file works, what persists, what's missing
+═══════════════════════════════════════════════════════════════════════════════
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ANSWER: ARE CHANNELS SESSION-ONLY OR PERMANENT?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PERMANENT. Everything is stored in SQLite at ~/.unclawned/openclaw.db.
+
+Every message you send, every task you run — the channel extractors fire and
+write to the database. The profiles they build (channel_a_profiles,
+channel_b_profiles, ..., channel_o_profiles) accumulate forever across every
+session you ever run. They are never reset.
+
+If you send 500 messages over 3 months, the agent has 500 signals worth of
+data about how you think, what you avoid, how you communicate, who you work
+with, what your rhythm is, and where you've been wrong about yourself.
+
+WHAT IS SESSION-SCOPED (partial list):
+- live_state: one row per user, reflects the most recent session's signals
+  (urgency, mood, focus topic). When you close and reopen, it shows the
+  last known state until you send new messages that override it.
+- channel_d signals: per-message emotional signals, but the PROFILE that gets
+  built from them is permanent.
+- channel_f person mentions: stored with a session_id for grouping, but the
+  relationship profile built from them is permanent.
+
+SHORT VERSION: The raw signals have a session_id for grouping purposes, but
+the PROFILES and CONTEXT BLOCKS that get injected into the agent are always
+built from all historical data, not just the current session.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  THE MD FILES — WHAT THEY ARE AND HOW THEY WORK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Location: ~/.unclawned/   (that folder is the user's persistent home base)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SOUL.md
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Path:     ~/.unclawned/SOUL.md
+  File:     src/lib/soul.ts
+
+  WHAT IT IS:
+  The agent's personality and operating rules. This is NOT about the user —
+  it's about how the agent itself thinks, communicates, and handles situations.
+  It defines the character of Jarvis: blunt, direct, no filler, assumes
+  competence, doesn't apologize unnecessarily.
+
+  HOW IT'S BUILT:
+  - Default: A hardcoded default exists in soul.ts (DEFAULT_SOUL constant).
+    If the file doesn't exist yet, the agent uses this default automatically.
+  - Via /soul setup: User answers 3 questions (how should I think/communicate?
+    what should I never do? how handle uncertainty?). An LLM drafts a custom
+    SOUL.md from those answers.
+  - Via /soul edit: Opens the file in Notepad for direct editing.
+
+  HOW IT'S USED:
+  SOUL.md is injected FIRST into every system prompt, before everything else.
+  Injection order: SOUL.md → USER.md → channels A-O → synthesis → live_state
+  → behavioral_contract.
+
+  This means: if SOUL.md says "never use bullet points", that rule is in
+  place before any other context even arrives. The behavioral_contract block
+  (explicit user directives) comes AFTER the channels but it's treated as
+  highest priority by the agent since it's labeled as such.
+
+  WHO UPDATES IT:
+  User only. The agent never rewrites SOUL.md automatically.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  USER.md
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Path:     ~/.unclawned/USER.md  (generated from DB, not edited directly)
+  DB table: user_profile (key-value pairs)
+  File:     src/lib/user-profile.ts
+
+  WHAT IT IS:
+  A structured profile of the user as a person. Not their behavior patterns
+  (that's the channels) — their identity, goals, voice, and tools.
+
+  Fields it stores:
+    Identity:    name, role, company_name, company_description, target_customer
+    Voice:       formality, emoji_usage, message_length, banned_phrases,
+                 natural_phrases, voice_profile (extracted from writing samples)
+    Platforms:   email_client, social_platforms, crm_tool, notes_tool,
+                 important_folders
+    Goals:       current_goals, success_metric, automate_most, goals_updated_at
+    Autonomy:    never_without_asking, autonomy_rules
+    Domain:      expertise_areas, learning_areas
+    Settings:    write_approval (if on, agent proposes memory changes instead
+                 of writing directly)
+
+  HOW IT'S BUILT:
+  - Via /profile: Guided setup where user answers questions. Stored in
+    user_profile table. USER.md is regenerated from the DB each time.
+  - Via runBackgroundReview: After each completed task, an LLM review runs in
+    the background. If it detects the user EXPLICITLY stated a new preference
+    or goal (not inferred — only directly stated), it proposes a
+    user_profile_update staged in memory_pending for user approval.
+  - Via writing samples: /profile can collect writing samples and run voice
+    extraction (extractVoiceProfile) to build a voice_profile string that
+    captures sentence length, vocabulary, tone, punctuation patterns, etc.
+
+  HOW IT'S USED:
+  Injected second into every system prompt (after SOUL.md).
+  The SOUL.md "Writing tasks" section explicitly says: "apply the user's
+  voice profile from USER.md exactly as written."
+
+  WHO UPDATES IT:
+  User via /profile, or agent proposals that user approves via /memory.
+  Never auto-written without user awareness (even when write_approval is off,
+  user_profile_update fields are ALWAYS staged for approval).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MEMORY.md
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Path:     ~/.unclawned/MEMORY.md  (the main long-term episodic memory file)
+  DB table: agent_sessions (searchable via FTS), memory_pending (staged)
+  File:     src/lib/memory.ts + src/lib/memory-review.ts
+
+  WHAT IT IS:
+  The agent's diary — a persistent log of what has happened, who the user has
+  worked with, what has been learned, and what patterns have been observed on
+  each platform. Has 4 sections:
+
+    PROJECTS:              diary entries ("2025-01-10: Sent cold email to 12
+                           investors. All accepted for meeting.")
+    PEOPLE:               contacts with identifiers ("2025-01-10: Sarah Chen
+                           (Company: Sequoia, @sarahchen_vc) — Partner focused
+                           on fintech B2B.")
+    LESSONS:              reusable observations ("LinkedIn outreach converts
+                           2x better when sent Mon-Thu morning")
+    PLATFORM OBSERVATIONS: platform-specific patterns that help the agent
+                           operate on each platform
+
+  HOW IT'S BUILT:
+  After every completed task, runBackgroundReview fires (async, non-blocking).
+  It sends the task prompt + summary to gpt-4o-mini and extracts:
+    - A diary entry for PROJECTS
+    - A person if a specific individual was researched/contacted
+    - A platform observation if the task was browser-based
+    - A lesson if something notable worked or failed
+    - A user_profile_update if the user stated something about themselves
+
+  All writes go through writeOrStage():
+    - If write_approval is OFF (default): written directly to MEMORY.md
+    - If write_approval is ON: staged in memory_pending, shown to user for
+      approval via /memory
+
+  Memory is also capacity-managed: trimOldestProjectEntries() trims oldest
+  PROJECTS entries when near capacity. applyStaleMarking() marks old entries.
+
+  HOW IT'S USED:
+  Injected into the system prompt. The agent can read sections of MEMORY.md
+  to recall who the user has worked with, what they've been doing, etc.
+
+  NOTE: This is the place where cross-session memory lives. The YC email
+  example would be in PROJECTS: "2025-06-15: Wrote cold email to YC. Focused
+  on AI automation angle." The agent CAN reference this if it reads MEMORY.md
+  — but currently there is no mechanism that proactively surfaces it at
+  session start as a follow-up question. That's the gap described below.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  PLATFORM CONTEXT FILES  (linkedin.md, gmail.md, twitter.md, etc.)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Path:     ~/.unclawned/context/{platform}.md
+  File:     src/lib/context-files.ts
+
+  WHAT THEY ARE:
+  Per-platform operational context files. Each one covers a specific platform
+  the user uses (LinkedIn, Gmail, Instagram, Twitter, etc.) and contains:
+    - Key navigation URLs for that platform
+    - How THIS user approaches that platform (tone, what they post, goal)
+    - Operational tips for the agent specific to that platform
+    - Observed patterns (auto-appended from MEMORY.md observations)
+
+  HOW THEY'RE BUILT:
+  - After the user runs 3 tasks on a platform (tracked in user_profile table
+    as ctx_count_{platform}), the system proposes creating a context file.
+  - draftContextFile() generates the initial draft using the user's profile
+    and any platform observations from MEMORY.md.
+  - appendObservationToContextFile() auto-updates the "Observed patterns"
+    section whenever a new platform observation is written to MEMORY.md.
+
+  HOW THEY'RE USED:
+  Before each task, detectPlatform() checks if the task mentions LinkedIn,
+  Gmail, Twitter, etc. If it does, getContextForTask() loads the platform's
+  .md file and injects it into the system prompt for that task.
+
+  Max 1600 chars injected. Trimmed if over budget.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  THE NEW FILES (built in this session)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  BEHAVIORAL CONTRACT (DB table: behavioral_contract)
+  Files: src/lib/behavioral-contract/detector.ts
+         src/lib/behavioral-contract/context-builder.ts
+
+  WHAT IT IS:
+  A permanent list of EXPLICIT directives the user has stated about how they
+  want the agent to behave. Not inferred from patterns — only things the user
+  explicitly said in commands like "never use bullet points" or "from now on
+  always start with a summary."
+
+  HOW IT'S BUILT:
+  - Automatically: detectAndSaveDirectives() runs on every message in both
+    CLI (cli.ts) and HTTP (routes/tasks.ts). Looks for keywords: "always",
+    "never", "from now on", "stop", "don't" at sentence start.
+    False-positive protection: "I always..." and "I never..." (user statements)
+    are excluded. "don't" only captures if it starts the message.
+  - Manually: /correct add directive: <text> stores an explicit directive.
+  - Removal: /correct remove directive: <text> or /correct list then
+    /correct revoke <id> marks it inactive.
+
+  HOW IT'S USED:
+  buildBehavioralContractBlock() formats active directives as:
+    [EXPLICIT USER PREFERENCES — highest priority, never override with inference]
+      • never use bullet points in responses
+      • from now on always start with a summary line
+  This block is injected FIRST in the user context (before channels), so the
+  agent sees it before anything else about the user.
+
+  LIVE STATE (DB table: live_state, one row per user)
+  Files: src/lib/live-state/updater.ts
+         src/lib/live-state/context-builder.ts
+
+  WHAT IT IS:
+  The current session's emotional/cognitive/focus state. Updated on every
+  message. 6 fields:
+    urgency_level:          low / medium / high / critical
+    cognitive_load:         clear / moderate / high
+    emotional_temperature:  neutral / frustrated / pressured / energized
+    current_focus_topic:    e.g. "fundraising", "product", "hiring"
+    relationship_context:   name of person being worked with, if any
+    session_intent:         execution / exploration / review / repair
+
+  HOW IT'S BUILT:
+  updateLiveState() fires on every message (both CLI and HTTP):
+    - urgency_level: reads channel_k_signals for "urgent" markers
+    - cognitive_load: reads channel_k_profiles energy_state field
+    - emotional_temperature: counts frustration signals in channel_a_raw_signals
+    - current_focus_topic: keyword matching (fundraising/product/hiring/etc.)
+    - relationship_context: reads channel_f_person_mentions for current session
+    - session_intent: reads last 4 messages and classifies them
+
+  HOW IT'S USED:
+  buildLiveStateContextBlock() only surfaces NON-DEFAULT values:
+    [Live Session State]
+    Urgency: high | Focus: fundraising | Mood: frustrated
+  Injected LAST in user context (most immediate, most specific signal).
+  Budget-gated: only injected if >100 chars of budget remain.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  THE CHANNEL PROFILES (15 channels, all permanent SQLite)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  All channels write to SQLite. All profiles accumulate forever.
+  Fire order: all channels extract BEFORE orchestrateTask() runs.
+
+  A — Vocabulary + frustration patterns
+      Tracks word frequency, dominant verbs, frustration signals.
+      What it tells agent: how user talks, when they're frustrated, what
+      topics dominate their vocabulary.
+
+  B — Correction and approval patterns
+      Tracks how often user corrects AI output by task type. Tracks rubber-
+      stamp approvals (user just says "ok"), paste behavior (user pastes code
+      or text into tasks), latency (how fast user responds).
+      What it tells agent: which task types need the most care, where to be
+      conservative vs bold.
+
+  C — Domain expertise map
+      Tracks which domains the user asks questions about vs. gives instructions
+      about. Builds a domain confidence map.
+      What it tells agent: where user is expert (don't over-explain) vs.
+      where they're learning (provide more context).
+
+  D — Emotional baseline and pressure signals
+      Tracks emotional language patterns. Detects stress cycles.
+      What it tells agent: current emotional baseline, whether user is under
+      pressure right now.
+
+  E — Feed/browsing behavior
+      Tracks what content the user visits and engages with.
+      What it tells agent: what interests the user, what platforms they use.
+
+  F — Relationship graph
+      Tracks every person mentioned in tasks. Builds a lightweight relationship
+      profile with names, roles, context, tone.
+      What it tells agent: who the user is working with and how.
+
+  G — Time and rhythm patterns
+      Tracks when tasks happen (hour, day of week, month). Detects late-night
+      streaks, stress periods, seasonal patterns.
+      What it tells agent: the user's work rhythm, when they work best.
+
+  H — Communication corpus
+      Collects the user's actual messages and tasks as writing samples.
+      Builds a corpus that can be used for voice analysis.
+      What it tells agent: the user's natural writing style.
+
+  I — Decision style
+      Tracks how the user makes decisions: top-down vs. bottom-up,
+      decisive vs. deliberative, approval rate, reversal rate.
+      What it tells agent: whether to present recommendations (decisive user)
+      or lay out options (deliberative user).
+
+  J — Task complexity patterns
+      Tracks complexity of tasks the user gives. Detects scope creep.
+      What it tells agent: calibrate response depth to usual complexity level.
+
+  K — Urgency and cognitive load signals
+      Detects explicit urgency markers in messages. Tracks energy patterns.
+      What it tells agent: user is in high-urgency mode right now.
+
+  L — Resistance and avoidance patterns
+      Tracks when user pushes back, changes scope, avoids certain topics,
+      or keeps their own work when agent offers to replace it.
+      What it tells agent: what NOT to push on, what the user is defensive
+      about, what they have blind spots around.
+
+  M — Vocabulary drift
+      Tracks changes in the words user uses over time. Detects when user
+      has shifted focus (e.g. "investors" appearing more than "product").
+      What it tells agent: what the user is currently focused on vs.
+      what they were focused on before.
+
+  N — News and event watchlist
+      Tracks topics the user monitors. Detects recurring interests.
+      What it tells agent: what the user stays informed about.
+
+  O — Achievement detection
+      Tracks when the user mentions wins, completions, goals hit.
+      What it tells agent: what the user considers success, what they're
+      proud of, motivational context.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  FULL CONTEXT INJECTION ORDER (what the agent sees, in order)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1. SOUL.md              — who the agent IS (personality, rules)
+  2. USER.md              — who the USER is (identity, goals, voice)
+  3. MEMORY.md sections   — episodic long-term memory (diary, people, lessons)
+  4. Platform context     — only if task mentions a specific platform
+  5. Behavioral contract  — FIRST user-context block (explicit directives)
+  6. Channel A profile    — vocabulary and frustration profile
+  7. Channel B-O profiles — all other behavioral channel data
+  8. Synthesis state      — cross-channel synthesis (dominant patterns)
+  9. Live state           — LAST (most immediate, current session signals)
+
+  Budget management: each block is counted against a char budget. If budget
+  is exhausted, lower-priority blocks are skipped. Behavioral contract is
+  NOT budget-gated (always injected). Live state requires >100 chars remaining.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  THE GAP: CROSS-SESSION PROACTIVE FOLLOW-UPS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  What you described — "hey how did the YC email go?" — is the most human
+  thing an intelligent agent can do. It's the difference between a tool and
+  a collaborator.
+
+  WHAT EXISTS RIGHT NOW:
+  - MEMORY.md has diary entries. After you send the YC email, runBackgroundReview
+    writes: "2025-06-15: Drafted cold email to YC combinator, fundraising pitch."
+  - That entry is in the agent's context every session. The agent CAN reference
+    it IF something in the current conversation triggers it.
+
+  WHAT DOESN'T EXIST YET:
+  The agent never INITIATES this reference. It won't say at session start:
+  "Last time we worked on a YC email — want to follow up?" There's no
+  session-start hook, no open-items tracker, no proactive callback system.
+
+  WHAT NEEDS TO BE BUILT (the vision):
+
+  ── 1. session-followups.md (or open_items table in DB) ──────────────────────
+  A lightweight "open items" list. When the agent does something that has a
+  likely follow-up (sends an email, creates a document, schedules something,
+  pitches to someone), it writes to this list:
+    - Item: "YC cold email sent"
+    - Context: "fundraising outreach"
+    - Opened: 2025-06-15
+    - Status: open / resolved / stale
+
+  At session start, agent checks open items and can ask: "You sent that YC
+  email 3 days ago — want me to follow up or check for a response?"
+
+  ── 2. user-long-term.md ─────────────────────────────────────────────────────
+  The current USER.md covers identity and goals. But goals go stale — the
+  user sets them once and forgets to update them. A user-long-term.md would
+  be an EVOLVING document that captures:
+    - What the user is working toward (goals, updated automatically as
+      channel M detects vocabulary drift toward new topics)
+    - Major ongoing initiatives (fundraising round, product launch, etc.)
+    - The user's relationship map (key people, where they are in conversations)
+    - Things that were important but went silent (stale topics)
+
+  USER.md = static profile (who you are)
+  user-long-term.md = dynamic portrait (what you're working on RIGHT NOW,
+                      built from channel signals and memory)
+
+  ── 3. Session-start proactive message ───────────────────────────────────────
+  At the start of a new CLI/chat session (not every message, just session
+  init), the agent could:
+    1. Read MEMORY.md PROJECTS section for last 3 entries
+    2. Read open_items for any unresolved items older than 2 days
+    3. Read channel_m for any recent vocabulary drift (topic shift)
+    4. Generate 1 proactive line: "Picking up from last time: [X]. Anything
+       you want to follow up on before we start?"
+
+  This is one injected line at session init, not every message. It would
+  make the agent feel like it actually knows what's going on in your life.
+
+  ── EFFORT ESTIMATE ──────────────────────────────────────────────────────────
+  open_items table + detection logic:   ~3-4 hours
+  user-long-term.md generation:         ~2-3 hours
+  session-start proactive message:      ~1-2 hours
+
+  Total to feel like the "YC email" moment: ~6-9 hours of focused build.
+  This would be a massively differentiating feature that most AI tools
+  completely ignore because they think of memory as "facts about the user"
+  and miss that the most powerful memory is "what was left unfinished."
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  FILE MAP — WHERE EVERYTHING LIVES IN THE REPO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  src/lib/soul.ts                          SOUL.md read/write, default soul
+  src/lib/user-profile.ts                  USER.md generation, profile DB ops
+  src/lib/memory.ts                        MEMORY.md read/write, section ops
+  src/lib/memory-review.ts                 Background review after each task
+  src/lib/context-files.ts                 Platform .md files, platform detection
+  src/lib/behavioral-contract/detector.ts  Detects and stores explicit directives
+  src/lib/behavioral-contract/context-builder.ts  Formats directives for injection
+  src/lib/live-state/updater.ts            Updates live_state table per message
+  src/lib/live-state/context-builder.ts   Formats live state for injection
+  src/lib/agents/orchestrator.ts           Main agent loop, context assembly
+  src/lib/agent-extension.ts              Long-task agent, same context assembly
+  src/cli.ts                              CLI entry: channel extraction + commands
+  src/routes/tasks.ts                     HTTP route: channel extraction + tasks
+  src/lib/db.ts                           SQLite init, all table definitions
+
+  ~/.unclawned/                            USER'S PERSISTENT DATA HOME
+    SOUL.md                                Agent personality
+    USER.md                                User identity (generated from DB)
+    MEMORY.md                              Long-term episodic memory
+    context/
+      linkedin.md                          LinkedIn operational context
+      gmail.md                             Gmail operational context
+      twitter.md                           etc.
+    samples/
+      {id}.txt                             Writing samples for voice extraction
+    openclaw.db                            All SQLite data (channels, profiles, etc.)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  WHAT THE AGENT KNOWS ABOUT YOU AFTER 1 MONTH OF USE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  From USER.md + SOUL.md:
+    Your name, role, company, who your customers are, what platforms you use,
+    your writing voice down to sentence length and punctuation style, what
+    phrases you never say, what your current goals are, what you want automated.
+
+  From channels:
+    Which task types you always correct (channel B) → where to be careful
+    Which domains you're expert in vs learning (channel C) → calibrate depth
+    When you work (channel G) → rhythm, stress cycles
+    Who you work with (channel F) → relationship context in tasks
+    How you make decisions (channel I) → whether to present options or answers
+    What you resist and avoid (channel L) → what NOT to push on
+    What your vocabulary reveals about focus (channel M) → current priorities
+    When you're frustrated vs energized (channel D + K) → emotional context
+    What you consider wins (channel O) → what motivates you
+
+  From MEMORY.md:
+    Every task you've run and what happened
+    Every person you've interacted with
+    Lessons from things that worked and failed
+    Platform-specific observations about how to operate
+
+  From behavioral_contract:
+    Every explicit instruction you've given about how you want to be treated
+
+  From live_state:
+    Right now in this session: urgency level, focus topic, mood, session intent
+
+  Aggregated together, this is a portrait of a person that no other AI tool
+  builds. The question is whether the agent surfaces it intelligently — and
+  the proactive cross-session follow-up is the next unlock.
+
+═══════════════════════════════════════════════════════════════════════════════

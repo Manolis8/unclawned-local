@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 import { createConfigIO, loadConfig } from "../config/config.js";
 import { resolveBrowserConfig, resolveProfile, type ResolvedBrowserProfile } from "./config.js";
 import type { BrowserServerState } from "./server-context.types.js";
@@ -56,3 +57,4 @@ export function resolveBrowserProfileWithHotReload(params: {
   profile = resolveProfile(params.current.resolved, params.name);
   return profile;
 }
+

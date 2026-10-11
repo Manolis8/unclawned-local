@@ -1,0 +1,432 @@
+================================================================================
+  UNCLAWNED — VISION, STRATEGY & ROADMAP
+  Thinking 10x deep. No fluff.
+================================================================================
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  PART 1: THE REAL CORE VALUE — WHAT YOU'RE ACTUALLY BUILDING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The Steve Jobs analogy you reached for is right but incomplete. Let me make it
+exact.
+
+Jobs said: "The computer is the most remarkable tool we've ever built. It's
+like a bicycle for the mind." The GUI made that real — anyone could now see
+and touch their ideas. No code required. That unlocked creativity at scale.
+
+Your equivalent sentence should be:
+"Agents are the most remarkable staff you've ever had. We make them real —
+anyone can now have a team that works for them. No company required."
+
+But that's still not sharp enough. Here's the thing people would say they
+can't live without:
+
+  "I don't think about [that task] anymore. It just happens."
+
+Not "I told an AI to do it." Not "I automated it." But the feeling that a
+capable person is handling it, knows your preferences, doesn't need to be told
+twice, and gets better over time. That is the aha moment. That is delegation.
+
+The real comparison isn't to ChatGPT or Zapier or AutoGPT. The real
+comparison is to hiring your first employee. The first time a founder hires
+someone who just handles things — the relief, the freed mental space, the
+compounding value as they learn the job. That feeling. At a price anyone can
+afford. For every person, not just companies.
+
+You are not building a browser automation tool.
+You are building the infrastructure for personal delegation.
+
+The product that lets people say: "I have staff."
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  PART 2: THE AHA MOMENT — WHAT IT FEELS LIKE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+There are multiple tiers of aha. You need to hit them in order.
+
+  Tier 1 — "It actually works." (Week 1-2)
+  The agent does the thing. Correct. First try. User didn't have to babysit it.
+  Most tools fail here. You're past this. Good.
+
+  Tier 2 — "It knows me." (Month 1-2)
+  The agent posts in YOUR tone, not generic AI voice.
+  It knows you prefer bullet points.
+  It knows you don't want to follow people back unless they're investors.
+  It knows your LinkedIn is professional and your Twitter is casual.
+  This is where users stop feeling like they're using a tool and start feeling
+  like they have someone who knows them.
+
+  Tier 3 — "I forgot to worry about it." (Month 2-4)
+  The agent handles your recurring tasks without you triggering them.
+  Monday morning LinkedIn post — already done.
+  Price check on a competitor — already in your inbox.
+  New followers that match your ICP — already followed back.
+  This is the moment that creates the "I can't live without this" response.
+  Not because of a feature. Because of what disappears from your mental load.
+
+  Tier 4 — "My agents are better than me at this." (Month 4-12)
+  The agent has seen 200 of your tasks. It knows what you actually want vs.
+  what you ask for. It surfaces things you didn't think to check.
+  It gets better faster than a human employee would.
+  This is the moment where it becomes genuinely irreplaceable.
+
+  Tier 5 — "I built this for myself and others want it." (Year 1+)
+  The skills marketplace. Other people use the agents you built.
+  You make money from what you taught an agent to do.
+  The person who trained a perfect "LinkedIn lead gen agent" can sell it.
+  The person who built a "Shopify inventory manager" can publish it.
+  This is where the Steve Jobs "base for creativity" moment arrives — not
+  because you built everything, but because your platform let THEM build it.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  PART 3: WHAT THE BASE ACTUALLY LOOKS LIKE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Steve Jobs built the Mac. It didn't do your work for you. It gave you a
+canvas and a set of tools so sharp and natural that your creativity could flow
+without friction. The tool disappeared. The work appeared.
+
+Your base needs to feel like that. Here's what it must have before anything
+else:
+
+  1. AN AGENT THAT FEELS LIKE A PERSON, NOT A SCRIPT
+     Not "step 1: navigate to X, step 2: click Y." The user just says what
+     they want and the agent figures it out. When it doesn't know, it asks
+     ONE question — not five. When it's about to do something irreversible,
+     it shows the user exactly what it will do. This builds trust. Trust is
+     the product.
+
+  2. MEMORY THAT COMPOUNDS
+     Every task teaches the agent something. Not just skills (how to do a
+     thing) but preferences (how YOU want it done). Over time, the agent
+     develops a model of the user that makes it faster and more accurate.
+     The longer you use it, the less you explain. That compounding is the
+     moat. No one will switch because they'd lose their agent's knowledge
+     of them.
+
+  3. SKILLS THAT GROW WITH THE USER
+     A skill isn't a macro. It's a pattern the agent learned by watching you
+     or being trained once. Skills compose — a "research" skill and a
+     "write post" skill combine into "research and post." Users don't build
+     workflows. They teach the agent once and it generalizes.
+
+  4. THE TEAM LAYER
+     One agent is an employee. A team of agents is a department. The user
+     should be able to say "I want a research agent, a writing agent, and a
+     posting agent that work together." Boss-worker pattern: one agent breaks
+     the goal, assigns subtasks, collects results. Shared memory: what one
+     agent learns, all agents know. This is what makes complex goals
+     achievable — not one superhuman agent, but coordinated specialization.
+
+  5. THE MARKETPLACE
+     When a user's agent is great at something, they should be able to
+     publish it. Others download and use it. The original creator sees usage
+     stats. Eventually: revenue share. This turns your best users into your
+     best product developers. The ecosystem compounds the product.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  PART 4: WHAT TO BUILD AND IN WHAT ORDER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The features you listed are mostly right. The order is what matters.
+Here's the honest sequence, ruthlessly prioritized:
+
+
+  ── NOW TO 2 WEEKS ──────────────────────────────────────────────────────────
+
+  Priority: Make it undeniably great for ONE person — you.
+
+  The test: Can you go 7 days using your own product daily without being
+  frustrated by it? Not "it kind of works." Actually great.
+
+  What that requires:
+  - The post flow must be seamless (you've been working on this — good)
+  - The permission system must feel natural, not annoying
+  - 5-10 skills that work reliably for YOUR actual daily tasks
+  - Scheduler that runs at least one daily task without you touching it
+  - Memory that actually affects agent behavior (tone, preferences)
+
+  The one question to answer: "What task do I want automated the most?"
+  Build that first. Use it every day. Fix what breaks. Ship nothing else.
+
+  The "lovable" integration and other quick wins: yes, some of these CAN
+  be fast. A skill that says "create me a landing page" → opens Lovable →
+  fills in the prompt → user sees the result in real time. That's actually
+  a great demo moment and not hard to build. Could be week 2 material.
+  But only AFTER your core daily tasks work reliably.
+
+
+  ── WEEKS 3-4 (BEFORE TWENTE) ──────────────────────────────────────────────
+
+  Priority: Get the personal AI learning layer working.
+
+  This is Tier 2 of the aha moment — "it knows me." Without this, your
+  product is a smart macro runner. With this, it becomes a relationship.
+
+  What to build:
+  - After each task completion, a lightweight "what worked, what didn't"
+    log that the agent reads at the start of the next similar task
+  - Preference extraction: "I noticed you always want bullet points. Always
+    apply that?" — simple but powerful
+  - Tone learning: when user edits the agent's drafted content, store the
+    delta. Learn that this user prefers shorter sentences, no emojis, etc.
+  - Context carry-across sessions: agent knows your name, your job, your
+    main goals — pulled from a simple user profile you fill in once
+
+  This is also the window to define your user profile system clearly. Not
+  just memory of tasks — memory of the USER. Who they are, what they're
+  trying to achieve in life, what they've delegated. This context makes
+  every future interaction better.
+
+
+  ── MONTH 1-2 (EARLY TWENTE) ────────────────────────────────────────────────
+
+  Priority: Multi-agent foundation + the first version of the marketplace.
+
+  By now you should be using the product daily and it should feel genuinely
+  great. Now you're ready to build for others.
+
+  Multi-agent (supervisor + worker pattern):
+  - Define the "team" concept: a named group of agents with roles
+  - Boss agent: receives a complex goal, breaks it into subtasks,
+    assigns them to specialized worker agents in the team, collects results
+  - Shared memory store: one DB namespace per team, all agents can read/write
+  - The UI for this doesn't need to be a web app yet — even CLI works:
+    "create team: research + write + post" and the boss coordinates
+
+  Skill marketplace (v0.1):
+  - Export a skill to a shareable format (JSON + metadata)
+  - A simple GitHub-style repo or even a webpage where skills are listed
+  - Users can import a skill URL into their instance
+  - No payments yet — just community. This creates the ecosystem early.
+  - Ratings, usage counts, the "most downloaded" feeling builds culture
+
+  Communities:
+  - Start with Discord or a simple forum, not a built-in feature
+  - "Investing agents", "coding agents", "content creation agents" — just
+    channels where people share their skills and discuss
+  - This is cheap to start and tells you what to build based on what people
+    actually share and ask for
+
+
+  ── MONTH 2-4 ───────────────────────────────────────────────────────────────
+
+  Priority: Persistence, cross-session context, the "I forgot about it" moment.
+
+  - Long-running tasks: agent works over hours/days, checks in when needed
+  - Event-driven triggers: "when X happens → agent does Y"
+    Email arrives tagged urgent → task created → calendar blocked
+    This is the moment where the product stops being reactive (user asks)
+    and becomes proactive (agent acts). This is the real step-change.
+  - Auto-improving agents: after N runs, a meta-agent reviews the logs and
+    suggests or applies improvements. Users see "your agent improved" like
+    a fitness tracker showing progress.
+  - Desktop app foundation: file access, voice input/output — these open
+    up a whole class of tasks that browser-only can't touch
+
+  The auto-improving agent loop is critical and underrated. This is what
+  makes the moat DEEPENING over time, not just wide. The longer someone
+  uses it, the better their specific agents get — in a way that's
+  personalized to them and can't be replicated by someone starting fresh.
+
+
+  ── MONTH 4-6 ───────────────────────────────────────────────────────────────
+
+  Priority: Marketplace monetization + the SaaS layer.
+
+  - Creators publish agents/skills with a price tag
+  - Revenue share: creator gets 70%, platform gets 30%
+  - Users subscribe to agent "packages" (e.g., "Content Creator Pack":
+    research + write + schedule + post, $19/month)
+  - Verification system: "verified agents" that have been tested and
+    perform reliably — this is quality control that makes you trustworthy
+  - Agent analytics: creators see how their agents are being used, where
+    they fail, what users edit — feedback loop for improvement
+
+
+  ── YEAR 1 ──────────────────────────────────────────────────────────────────
+
+  Priority: The platform is the product. You're not building features.
+  You're running an ecosystem.
+
+  By year 1, if the above works, you have:
+  - Thousands of users with personal agent teams they'd never rebuild from
+    scratch (the compounding memory moat)
+  - A marketplace with hundreds of agents built by your community
+  - Revenue from subscriptions + marketplace cut
+  - Data about what humans delegate most, what they trust agents with, what
+    they want to control — the most valuable dataset in the AI agent space
+
+  The features that matter at year 1 are no longer about capability.
+  They're about trust, reliability, and discovery. Making it easier to
+  find the right agent. Making it easier to trust what it does. Making it
+  easier to build and share.
+
+  The chat-style templates you listed (Research & Synthesize, Problem Solver,
+  Idea Validator, etc.) — these become agent templates in the marketplace.
+  Not features you build. Things the community builds and you curate.
+  Your job at year 1 is curation and quality, not creation.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  PART 5: THE COFOUNDER AND TWENTE QUESTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Here is the honest answer with no softening.
+
+Don't raise pre-seed right now. The reason is simple: you said the core
+value isn't there yet. Raising before you've found the core is raising on
+your story and energy, not your product. You'll get bad terms, pressure to
+grow metrics that don't matter yet, and a board conversation when you
+need silence to think. The Jobs instinct you have — don't ship until it's
+great — is incompatible with investor pressure in the early stages.
+
+The one exception: if you find an investor who genuinely gets product
+first and will leave you alone for 6 months, and the check is enough to
+buy you 18 months of runway without taking a salary. That's rare. Most
+pre-seed is not that.
+
+On the cofounder:
+
+The reason to get a cofounder is NOT speed. Speed is a symptom of the
+right partnership. The reason to get a cofounder is that the right person
+makes the product better in ways you can't see alone. They challenge your
+assumptions. They care as much as you do. They're willing to work on this
+for 10 years, not 10 months.
+
+Twente is actually the right place. Here's why: CS students who build
+things for fun, who stay late, who have side projects — these are people
+who already proved they work when no one is paying them. That's the filter.
+
+What to do in the group chat right now:
+Write one message. Something like: "Anyone building something on the side
+or want to? I've been working on something in the AI agents space for a
+while. Looking for people who are serious about building, not just
+interested in the idea." Short. No pitch deck. No hype. See who responds
+with energy and specifics, not enthusiasm and vagueness.
+
+When you get to Twente:
+Give yourself 4-6 weeks before committing to anyone. Work alongside people
+before deciding. A cofounder is a 10-year decision. The urgency you feel
+right now is real but it will mislead you into accepting the first
+interested person rather than the right person.
+
+The cofounder you want is someone who:
+- Has already built something (doesn't matter what)
+- Finds the engineering problems interesting, not just the vision
+- Pushes back on your ideas in a way that makes them better
+- Would build this even if no one was watching
+
+What you don't want:
+- Someone excited by AI because it's exciting
+- Someone who wants to work on YOUR idea but has no ideas of their own
+- Someone who needs convincing — the right person will already feel the pull
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  PART 6: THE HONEST DIAGNOSIS OF WHERE YOU ARE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You've built more than most people would have in this time. The permission
+system, the skill library, the scheduler, the conversational state — these
+are real, working pieces of a real product. That's not nothing.
+
+The core value that's missing is this: the product doesn't yet feel
+like YOURS. You built it for yourself and it still feels like a dev tool,
+not a personal staff member. The moment it feels like YOUR agent who knows
+YOU and handles things without you thinking about it — that's when the
+core value arrives.
+
+The gap between where you are and that moment is probably not as wide as
+it feels. Here's what the gap actually is:
+
+  1. Memory that actually changes behavior (not just stores facts)
+     You need to be able to say "the agent knows I prefer X" and it just
+     does X without being told. This requires the preference learning layer.
+
+  2. One or two recurring tasks that run automatically and are actually useful
+     The scheduler exists. But does it run anything you actually care about?
+     Pick your top 2 daily tasks. Get those running automatically. Once they
+     run without you thinking about them, you'll have felt Tier 3 personally.
+     Then you'll know what to build for others.
+
+  3. The tone and voice layer
+     Your agents speak in generic AI voice. They should speak in YOUR voice.
+     Or in the voice you want when communicating professionally. This matters
+     more than almost any feature because it's what makes the output feel like
+     yours, not like you used a bot.
+
+Get those three things right and you will have your core value. Not as a
+roadmap item. As something you feel every morning.
+
+Then ship it to 10 people. Not publicly. 10 people you trust to give you
+honest feedback. Watch them. Don't explain anything. See where they get
+confused or frustrated. Fix those things. Then 100 people. Then the world.
+
+The Jobs standard isn't about having zero bugs. It's about the core
+feeling being undeniably right before you invite people in. You're close.
+You know what needs to happen. Now do those three things.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  PART 7: FEATURES RANKED BY IMPACT / EFFORT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  HIGHEST IMPACT, LOWEST EFFORT — DO FIRST
+  ─────────────────────────────────────────
+  - Tone/preference learning (watch what user edits, store the delta)
+  - User profile (name, job, goals, platforms they use — filled once)
+  - 2 automatic daily tasks running on scheduler
+  - Lovable / quick-create integration (high demo value, fast to build)
+  - Conversational memory that actually changes next-session behavior
+
+  HIGH IMPACT, MEDIUM EFFORT — DO NEXT
+  ──────────────────────────────────────
+  - Multi-agent team (boss + workers, shared memory)
+  - Auto-improving agents (log what worked, meta-agent reads and adjusts)
+  - Event-driven triggers (when X → agent does Y)
+  - Skill marketplace v0.1 (export/import skills, simple public listing)
+  - Desktop app with file access
+
+  HIGH IMPACT, HIGH EFFORT — PLAN FOR LATER
+  ───────────────────────────────────────────
+  - Full marketplace with payments and revenue share
+  - Voice input/output
+  - Long-running autonomous tasks (days-long agent work)
+  - Agent analytics for creators
+  - Enterprise/team accounts
+
+  FEATURES TO DEPRIORITIZE OR SKIP
+  ──────────────────────────────────
+  - Built-in communities (use Discord first, build it in-app only when you
+    have enough users that Discord feels too scattered)
+  - The chat templates list (Research & Synthesize, Idea Validator, etc.)
+    — these are marketplace items, not core features. Let users build them.
+  - Any feature that helps you distribute before the core value is right —
+    SEO, referral programs, viral loops — none of that matters yet
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  PART 8: THE ONE-SENTENCE NORTH STAR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Every feature, every decision, every tradeoff should be evaluated against
+one sentence. Write it somewhere you see it every day.
+
+Here's a candidate — refine it until it's exactly right:
+
+  "Give every person their own team of agents that know them, learn from
+  them, and handle the work of their life — so they can focus on what
+  only they can do."
+
+The moment that sentence describes what someone actually experiences when
+they use your product — that's the core value arriving. That's when you
+ship.
+
+Everything before that is preparation.
+
+================================================================================

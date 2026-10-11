@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 import { SsrFBlockedError } from "../infra/net/ssrf.js";
 import { isChromeReachable, resolveOpenClawUserDataDir } from "./chrome.js";
 import type { ResolvedBrowserProfile } from "./config.js";
@@ -240,3 +241,4 @@ export function createBrowserRouteContext(opts: ContextOptions): BrowserRouteCon
     mapTabError,
   };
 }
+

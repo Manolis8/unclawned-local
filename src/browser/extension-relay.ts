@@ -1029,25 +1029,52 @@ export async function ensureChromeExtensionRelayServer(opts: {
               return;
             }
             if (attached?.sessionId && attached?.targetInfo?.targetId) {
-              const prev = connectedTargets.get(attached.sessionId);
-              const nextTargetId = attached.targetInfo.targetId;
-              const prevTargetId = prev?.targetId;
-              const changedTarget = Boolean(prev && prevTargetId && prevTargetId !== nextTargetId);
-              connectedTargets.set(attached.sessionId, {
-                sessionId: attached.sessionId,
-                targetId: nextTargetId,
-                targetInfo: attached.targetInfo,
-              });
-              if (changedTarget && prevTargetId) {
+              const newSessionId = attached.sessionId;
+              const newTargetId = attached.targetInfo.targetId;
+              const prevSameSession = connectedTargets.get(newSessionId);
+
+              // Find any existing entry for the same targetId under a DIFFERENT session.
+              // This happens when the extension re-attaches to a tab (new sessionId, same
+              // targetId). Without this check, Playwright receives Target.attachedToTarget
+              // for a targetId already in its _targetRegistry → "Duplicate target" crash.
+              let staleSessionId: string | undefined;
+              for (const [sid, t] of connectedTargets) {
+                if (t.targetId === newTargetId && sid !== newSessionId) {
+                  staleSessionId = sid;
+                  break;
+                }
+              }
+
+              // Pure duplicate: same session, same targetId — just refresh metadata, no broadcast
+              if (prevSameSession && prevSameSession.targetId === newTargetId) {
+                connectedTargets.set(newSessionId, { sessionId: newSessionId, targetId: newTargetId, targetInfo: attached.targetInfo });
+                return;
+              }
+
+              // Same session, different targetId: detach old target first.
+              // IMPORTANT: no top-level sessionId → routes to Playwright's root CRSession
+              // where CRBrowser._onDetachedFromTarget is registered. If we set sessionId
+              // to the stale session, the event goes to that CRSession's handler (which
+              // doesn't listen for detach) and _targetRegistry is never updated.
+              if (prevSameSession && prevSameSession.targetId !== newTargetId) {
                 broadcastToCdpClients({
                   method: "Target.detachedFromTarget",
-                  params: { sessionId: attached.sessionId, targetId: prevTargetId },
-                  sessionId: attached.sessionId,
+                  params: { sessionId: newSessionId, targetId: prevSameSession.targetId },
                 });
               }
-              if (!prev || changedTarget) {
-                broadcastToCdpClients({ method, params, sessionId });
+
+              // Different session, same targetId: detach the stale session so Playwright
+              // removes the targetId from its registry before we re-add it below
+              if (staleSessionId) {
+                connectedTargets.delete(staleSessionId);
+                broadcastToCdpClients({
+                  method: "Target.detachedFromTarget",
+                  params: { sessionId: staleSessionId, targetId: newTargetId },
+                });
               }
+
+              connectedTargets.set(newSessionId, { sessionId: newSessionId, targetId: newTargetId, targetInfo: attached.targetInfo });
+              broadcastToCdpClients({ method, params, sessionId });
               return;
             }
           }
@@ -1151,27 +1178,10 @@ export async function ensureChromeExtensionRelayServer(opts: {
               ensureTargetEventsForClient(ws, "discover");
             }
           }
-          if (cmd.method === "Target.attachToTarget") {
-            const params = (cmd.params ?? {}) as { targetId?: string };
-            const targetId = typeof params.targetId === "string" ? params.targetId : undefined;
-            if (targetId) {
-              const target = Array.from(connectedTargets.values()).find(
-                (t) => t.targetId === targetId,
-              );
-              if (target) {
-                ws.send(
-                  JSON.stringify({
-                    method: "Target.attachedToTarget",
-                    params: {
-                      sessionId: target.sessionId,
-                      targetInfo: { ...target.targetInfo, attached: true },
-                      waitingForDebugger: false,
-                    },
-                  } satisfies CdpEvent),
-                );
-              }
-            }
-          }
+          // NOTE: do NOT send a Target.attachedToTarget event here.
+          // The reply already carries the sessionId Playwright needs for newCDPSession.
+          // Sending the event causes CRBrowser._onAttachedToTarget to fire a second time
+          // for a targetId already in _targetRegistry → "Duplicate target" assertion crash.
 
           sendResponseToCdp(ws, { id: cmd.id, sessionId: cmd.sessionId, result });
         } catch (err) {

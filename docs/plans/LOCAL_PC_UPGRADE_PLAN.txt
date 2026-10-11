@@ -1,0 +1,925 @@
+LOCAL PC LAYER — UPGRADE PLAN
+Cross-Platform Command Execution + Full File Operation Suite
+============================================================
+Written: 2026-06-27
+Status: PLANNING — no code changed yet
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WHERE WE ARE RIGHT NOW (current gaps)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. No platform profile. executeRunCommand hardcodes powershell.exe on win32
+   and /bin/sh everywhere else. The agent knows nothing about the user's OS,
+   shell version, installed tools, or privilege level before running commands.
+
+2. No edit_file / str_replace tool. This is Claude Code's primary editing tool.
+   We have overwrite (replace whole file) but not targeted replacement
+   (find this exact string, replace with this — the safe way to edit code).
+
+3. No search_in_file tool. The agent cannot grep/search for patterns inside
+   files. It can only read whole files or find files by name.
+
+4. No delete_file, move_file, copy_file tools. These destructive operations
+   are completely absent.
+
+5. No get_file_info metadata tool. No way to check file size, dates,
+   permissions, or encoding without reading the file content.
+
+6. Atomic writes absent. executeWriteFile uses writeFileSync directly.
+   If the process crashes mid-write the file is corrupted. No temp-file-then-
+   rename pattern.
+
+7. No rollback / session journal. If the agent makes a wrong edit there is
+   no way to undo it.
+
+8. No error classification. Raw shell errors are returned to the agent.
+   It has to guess what "The term 'xyz' is not recognized" means vs
+   "Access denied" vs "The system cannot find the file specified".
+
+9. ANSI codes not stripped from command output. Some tools emit color
+   codes even when piped. Agent sees garbage like ESC[32m text ESC[0m.
+
+10. System prompt does not include platform info. Even after we build a
+    platform profile, the agent won't use it unless we inject it into the
+    system prompt at session start so the LLM knows what OS it's working on.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WHAT WE ARE BUILDING (and in what order)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Phase 1 — Platform Profile (foundation, everything depends on this)
+Phase 2 — Shell Execution Engine Upgrade (uses profile)
+Phase 3 — edit_file / str_replace (most critical missing file tool)
+Phase 4 — search_in_file (grep equivalent)
+Phase 5 — delete_file + delete_directory
+Phase 6 — move_file + copy_file
+Phase 7 — get_file_info (metadata)
+Phase 8 — Atomic Writes Upgrade (upgrade existing write_file)
+Phase 9 — Rollback / Session Journal
+Phase 10 — System Prompt Platform Injection
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 1 — PLATFORM PROFILE
+File: src/lib/local-agent/platform-profile.ts (new file)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PURPOSE:
+The profile is a structured object built once at session start and cached
+for the whole session. Every other part of the local-agent reads from it.
+The agent never re-detects mid-session. The LLM never guesses what platform
+it's on.
+
+THE PROFILE OBJECT:
+  interface PlatformProfile {
+    osFamilty: 'windows' | 'mac' | 'linux'
+    osVersion: string              // "Windows 11", "macOS 14.3", "Ubuntu 22.04"
+    arch: 'x64' | 'arm64' | string
+    homeDir: string                // C:\Users\manol  or  /home/manol  or  /Users/manol
+    pathSep: '\\' | '/'
+    lineEnding: '\r\n' | '\n'
+    shell: ShellInfo               // what shell to use for commands
+    isAdmin: boolean               // is user root/admin?
+    installedRuntimes: RuntimeMap  // node, python, git, etc. — paths, versions
+    packageManager: string | null  // winget, brew, apt, dnf, pacman, etc.
+  }
+
+  interface ShellInfo {
+    bin: string        // absolute path to shell binary
+    name: 'pwsh' | 'powershell' | 'cmd' | 'zsh' | 'bash' | 'sh'
+    version: string
+    invokeFlags: string[]   // flags for non-interactive: ['-NonInteractive', '-NoProfile', '-Command']
+    utf8Prefix: string      // prepend to every command for encoding
+  }
+
+  interface RuntimeMap {
+    node?: { path: string; version: string }
+    python?: { path: string; version: string }
+    python3?: { path: string; version: string }
+    git?: { path: string; version: string }
+    // ... etc
+  }
+
+DETECTION SEQUENCE (runs at session start, all via Node.js child_process):
+
+Step 1 — OS family and arch: process.platform + process.arch
+  No shell needed. Instant.
+
+Step 2 — OS version:
+  Windows: execSync('cmd /c ver') → parses "Microsoft Windows [Version 10.0.22631]"
+  Mac: execSync('sw_vers -productVersion') → "14.3.2"
+  Linux: fs.readFileSync('/etc/os-release') → parse PRETTY_NAME
+
+Step 3 — Shell priority detection:
+  Windows order of preference:
+    a) try execSync('pwsh --version', timeout: 3000) → if succeeds: PS7
+    b) try execSync('powershell -Command "$PSVersionTable.PSVersion"') → PS5
+    c) fallback: cmd.exe (always available)
+  Mac order:
+    a) $SHELL env var → verify binary exists
+    b) if $SHELL is zsh: use zsh
+    c) else try bash
+    d) fallback: /bin/sh
+  Linux order:
+    a) $SHELL env var
+    b) try bash
+    c) fallback: /bin/sh
+
+  Shell invoke flags:
+    pwsh:       ['-NonInteractive', '-NoProfile', '-Command']
+    powershell: ['-NonInteractive', '-NoProfile', '-Command']
+    cmd:        ['/c']
+    bash/zsh/sh: ['-c']
+
+  UTF-8 prefix (prepended to every PS command):
+    PS: '[Console]::InputEncoding = [System.Text.Encoding]::UTF8; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; '
+    bash/zsh: '' (UTF-8 by default, set TERM=dumb to suppress color)
+
+Step 4 — Home directory: os.homedir() — no shell needed.
+
+Step 5 — Admin/root check:
+  Windows: execSync('net session', timeout: 2000) → exit 0 = admin, error = not admin
+  Mac/Linux: execSync('id -u') → '0' = root, else not root
+
+Step 6 — Installed runtimes (run in parallel, each with 3s timeout):
+  Windows: 'where node', 'where python', 'where python3', 'where git'
+  Mac/Linux: 'which node', 'which python3', 'which git'
+  For each found binary: also run 'binary --version' to get version string.
+  Store absolute path (not just 'node' — non-interactive shells often miss PATH).
+
+Step 7 — Package manager detection:
+  Windows: try 'winget --version' → winget; try 'choco --version' → choco; try 'scoop --version' → scoop
+  Mac: try 'brew --version' → brew
+  Linux: check /usr/bin/apt, /usr/bin/dnf, /usr/bin/pacman, /usr/bin/zypper, /usr/bin/apk
+
+IMPORTANT EDGE CASES TO HANDLE:
+- Timeout every detection step individually (3s each). If one step hangs,
+  mark that field as null/unknown and move on. Never block session start.
+- Mac GUI apps don't inherit shell PATH. Node/npm installed via nvm won't
+  be in PATH for a non-interactive shell. For runtimes, check these extra
+  locations on Mac if 'which' fails:
+    /usr/local/bin, /opt/homebrew/bin, ~/.nvm/versions/node/*/bin,
+    ~/.volta/bin, /usr/local/nvm/versions/node/*/bin
+- PowerShell execution policy on Windows. Some machines have Restricted policy
+  which blocks script execution. Detect at profile time:
+    execSync('powershell -NonInteractive -Command "Get-ExecutionPolicy"')
+  If it returns 'Restricted', add -ExecutionPolicy Bypass to every PS invocation.
+- Apple Silicon Macs have Rosetta paths AND native arm64 paths. Homebrew
+  on arm64 installs to /opt/homebrew/bin, not /usr/local/bin. Check both.
+- WSL: process.platform returns 'linux' inside WSL but it's Windows underneath.
+  Detect with: fs.existsSync('/proc/version') && file content contains 'microsoft'.
+  Mark as osFamily: 'linux', wsl: true. Use linux commands but note UNC paths
+  can be accessed via /mnt/c/.
+
+HOW THE PROFILE IS EXPOSED:
+- Module-level singleton: let cachedProfile: PlatformProfile | null = null
+- Function: getPlatformProfile(): PlatformProfile — throws if not yet initialized
+- Function: initPlatformProfile(): Promise<PlatformProfile> — called once at session start
+- Function: getPlatformSummary(): string — human-readable summary for system prompt injection
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 2 — SHELL EXECUTION ENGINE UPGRADE
+File: src/lib/local-agent/command-tools.ts (update existing)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PURPOSE:
+Replace the hardcoded shell selection in executeRunCommand with the profile-
+driven shell selection. Also normalize all output properly and classify errors.
+
+CHANGES TO executeRunCommand:
+
+1. Shell selection (replace the current hardcoded shell):
+   const profile = getPlatformProfile()
+   const shell = profile.shell.bin
+   const shellFlags = profile.shell.invokeFlags
+   const utf8Prefix = profile.shell.utf8Prefix
+
+   The exec call changes from:
+     shell: process.platform === 'win32' ? 'powershell.exe' : '/bin/sh'
+   to:
+     execFile(shell, [...shellFlags, utf8Prefix + command], { cwd, timeout })
+
+   Use execFile instead of exec — exec goes through the shell, execFile
+   invokes the binary directly. This avoids a second shell layer wrapping
+   the shell and prevents metacharacter issues in the command string.
+
+2. Output normalization (add these steps to every command result):
+   a) Strip ANSI escape codes:
+      stdout = stdout.replace(/\x1b\[[0-9;]*[mGKHF]/g, '')
+      stderr = stderr.replace(/\x1b\[[0-9;]*[mGKHF]/g, '')
+   b) Normalize line endings:
+      Already done: stdout.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+   c) Strip trailing whitespace per line:
+      stdout = stdout.split('\n').map(l => l.trimEnd()).join('\n')
+
+3. Error classification — new function classifyCommandError():
+   Takes { exitCode, stderr, stdout } and returns:
+     type: 'not-found' | 'permission-denied' | 'not-installed' | 'timeout'
+           | 'syntax-error' | 'already-exists' | 'success' | 'unknown'
+     message: string  (human-readable, platform-normalized)
+     suggestion: string  (what the agent should try next)
+
+   Classification rules:
+     Windows not-installed patterns in stderr:
+       'is not recognized as an internal or external command'
+       'The term ... is not recognized as the name of a cmdlet'
+       'could not be found'  (PS7)
+     Mac/Linux not-installed:
+       'command not found'  (exit code 127)
+       'No such file or directory' when the command itself doesn't exist
+     Permission denied:
+       Windows: exit code 5, or 'Access is denied'
+       Mac/Linux: 'Permission denied', 'EACCES', exit code 1 with permission message
+     Not found (file):
+       Windows: 'The system cannot find the file specified', exit code 2
+       Mac/Linux: 'No such file or directory' (for a file arg, not the command)
+     Syntax error:
+       Windows PS: 'Unexpected token', 'Missing closing', PS parse errors
+       bash/zsh: 'syntax error near unexpected token', 'unexpected EOF'
+     Timeout:
+       Set by execution engine, not from output — mark timedOut: true
+
+4. READONLY_COMMAND_PATTERNS: make platform-aware.
+   Currently all patterns are in one flat list. The agent tries to classify
+   commands for any platform regardless of which shell the user has.
+   This is mostly fine because we test all patterns — a Mac user's commands
+   won't match the PS patterns and vice versa. BUT: add an explicit check:
+   if command starts with Get-* or Set-* and platform is NOT windows, it
+   should be T3 (not T0), because PS-only commands should be flagged.
+   More practically: the system prompt tells the LLM what platform it's on,
+   so the LLM will generate the right commands. The classifier still needs
+   to handle them.
+
+5. Working directory handling:
+   Currently we pass cwd to exec. Keep this. But add:
+   - Resolve ~ in working_dir to profile.homeDir before passing
+   - On Windows, if working_dir contains forward slashes, normalize to backslashes
+   - Validate that working_dir exists before running (better error message)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 3 — edit_file TOOL (str_replace)
+File: src/lib/local-agent/edit-tools.ts (new file)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PURPOSE:
+This is the single most important missing tool. Claude Code's primary way to
+edit files is str_replace — find this exact string, replace with this. It is
+safer than overwriting the whole file because the agent provides enough context
+to make the match unique, so it's impossible to accidentally replace the wrong
+thing.
+
+WHY THIS IS BETTER THAN OVERWRITE:
+- Agent reads 200 lines → modifies in context → overwrites: risky because the
+  read might be stale, the agent might drop content it didn't see.
+- Agent str_replaces: reads exact context → sends old+new → engine verifies
+  uniqueness → atomic swap. Much safer for partial edits.
+
+TOOL DEFINITION:
+  Tool: edit_file
+  Parameters:
+    path: string          — file path (absolute or relative to home)
+    old_str: string       — exact content to find (must be unique in the file)
+    new_str: string       — content to replace it with
+    description: string   — one-line description of what this edit does (for audit log)
+
+ALGORITHM (previewEditFile / executeEditFile, following same preview pattern as write_file):
+
+previewEditFile(path, old_str, new_str):
+  1. Validate path (validatePath)
+  2. Check file exists
+  3. Check file is not binary
+  4. Read full file content (normalize CRLF)
+  5. Count occurrences of old_str in content
+     - 0 occurrences: throw "old_str not found in file. Provide the exact text
+       from the file including surrounding lines for context."
+     - 2+ occurrences: throw "old_str matches N locations. Provide more context
+       lines to make it unique. Matching locations: [show line numbers of each match]"
+     - Exactly 1: proceed
+  6. Find line number where match starts (for display)
+  7. Detect indentation style (tabs vs spaces) from surrounding context
+  8. Build preview showing:
+     - Match location (line N of M)
+     - What will be removed (old_str, first 10 lines)
+     - What will replace it (new_str, first 10 lines)
+  9. Return EditFilePreview object
+
+executeEditFile(preview, old_str, new_str):
+  1. Re-read the file (it may have changed since preview — that's fine, we
+     re-run the uniqueness check)
+  2. Verify old_str still appears exactly once (if not: error, stale)
+  3. Build new content: content.replace(old_str, new_str) — simple string replace
+  4. Write atomically: temp file → rename (Phase 8 atomic write pattern)
+  5. Verify: read back the file, confirm old_str is absent and new_str is present
+  6. Return EditFileResult with: lines changed, line range affected, bytes delta
+
+EDGE CASES:
+  - old_str with trailing whitespace: normalize trailing whitespace on each
+    line before comparison. Users often copy-paste with invisible trailing spaces.
+  - old_str at start/end of file (no surrounding newline): handle edge.
+  - new_str is empty string: valid — this is how you delete a block.
+  - Indentation change in new_str: don't auto-adjust. What the LLM sends is
+    what gets written. The LLM is responsible for correct indentation.
+  - old_str contains regex special chars: do NOT use regex. Use indexOf/lastIndexOf
+    for uniqueness count. String operations only, never regex on user content.
+  - File locked by another process (Windows): retry 3 times with 300ms delay.
+    If still locked, report which process has it (if detectable).
+
+SECOND TOOL IN THIS PHASE:
+  Tool: view_file_range (rename/augment existing read_file capability)
+  This is really just an alias for read_file with start_line/end_line, but
+  make it explicit so the agent calls it when it only needs part of a file.
+  The agent should always read just the part it needs before doing an edit,
+  not the whole file. The tool description should say this explicitly.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 4 — search_in_file TOOL
+File: src/lib/local-agent/read-tools.ts (add to existing)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PURPOSE:
+The agent often needs to find where something is in a file (a function name,
+an error string, a config value) before editing it. Right now it has to read
+200 lines at a time and hope the thing is there. search_in_file solves this.
+
+TOOL DEFINITION:
+  Tool: search_in_file
+  Parameters:
+    path: string           — file or directory to search
+    pattern: string        — string or regex to search for (case-insensitive by default)
+    context_lines: number  — how many lines to show before/after each match (default: 3)
+    file_extensions: string[]  — when path is a directory, only search these extensions
+    is_regex: boolean      — treat pattern as regex? (default: false, plain string search)
+    max_results: number    — cap results at this many matches (default: 50)
+
+ALGORITHM — single file search:
+  1. Read file content (stream for large files, don't load all into memory)
+  2. Split into lines, keeping line numbers
+  3. For each line: test pattern (string indexOf or RegExp.test)
+  4. For each match: record {lineNumber, lineContent, contextBefore, contextAfter}
+  5. De-duplicate overlapping context blocks (if two matches are close together,
+     merge their context rather than repeating lines)
+  6. Format output:
+     path/to/file (N matches)
+     ───────────────────────
+     Line 47 │   function parseCSV(input: string) {
+     Line 48 │     const rows = []  ← MATCH: 'parseCSV'
+     Line 49 │     for (const line of input.split('\n')) {
+  7. Always include line numbers. The agent uses them to target edit_file calls.
+
+ALGORITHM — directory search (recursive):
+  1. Walk directory tree (using the same SKIP_DIRS set from read-tools.ts)
+  2. Filter files by extension if file_extensions provided
+  3. Skip binary files (isBinaryFile check)
+  4. Run single-file search on each file
+  5. Aggregate results across files, sorted by relevance (files with most
+     matches first, then by modification date)
+  6. Cap at max_results total across all files
+  7. Report total matches found vs total shown
+
+IMPORTANT CONSTRAINTS:
+  - Never load the whole directory tree into memory before searching.
+    Process file by file, stop when max_results hit.
+  - For a directory search: show file path before each file's results.
+  - If pattern looks like a regex but is_regex is false: escape it. Never
+    let user-provided strings crash the regex engine.
+  - Line numbers in output are 1-indexed (matches what editors show users).
+
+THIS REPLACES THE NEED FOR:
+  run_command with grep/Select-String for searching. The agent should prefer
+  search_in_file over run_command for content search — it's safer (no shell),
+  faster (direct fs access), and works identically on all platforms.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 5 — delete_file + delete_directory TOOLS
+File: src/lib/local-agent/delete-tools.ts (new file)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PURPOSE:
+Delete is T4 (destructive). It always needs user confirmation with the exact
+target named. But beyond the permission layer, the implementation must be
+recoverable — use a session recycle bin, not permanent delete.
+
+SESSION RECYCLE BIN:
+  Location:
+    Windows: %TEMP%\openclaw-recycle\{sessionId}\
+    Mac/Linux: /tmp/openclaw-recycle/{sessionId}/
+  Created at session start. Cleaned up at session end (optional).
+  Files in recycle bin are named: {timestamp}-{originalFilename}
+  A sidecar .json file records original path and metadata.
+
+TOOL: delete_file
+  Parameters:
+    path: string    — file to delete
+    reason: string  — why (for audit log)
+
+  Tier: T4 (always needs confirmation)
+
+  Preview shows:
+    - Full resolved path
+    - File size and last modified date
+    - First 5 lines of content (for text files)
+    - Clear warning: "This file will be moved to the session recycle bin.
+      You can restore it this session with restore_last_delete."
+
+  Execute:
+    1. Pre-operation snapshot: if file < 1MB, record full content; else record hash + metadata
+    2. Move file to recycle bin (fs.renameSync — atomic on same filesystem)
+    3. If rename fails (cross-filesystem): copy + verify + delete original
+    4. Log to session journal
+    5. Return: original path, recycle bin path, size
+
+  What's blocked:
+    - .git/ directory contents — use git commands instead
+    - package.json, package-lock.json, yarn.lock — use npm/yarn commands
+    - node_modules/ — use npm/yarn remove
+
+TOOL: delete_directory
+  Parameters:
+    path: string    — directory to delete
+    reason: string
+
+  Tier: T4
+
+  Preview shows:
+    - Full resolved path
+    - File count (recursively)
+    - Total size in human-readable format
+    - First 10 filenames it contains
+    - Clear warning with count and size
+
+  Size/count detection before preview:
+    Walk tree counting files and summing sizes (using SKIP_DIRS, timeout 10s).
+    If tree walk takes > 10s: show "Large directory (>X files)" and proceed.
+
+  Execute:
+    1. Move entire directory to recycle bin as a unit (single rename)
+    2. If cross-filesystem: copy tree + verify + delete
+    3. Log to session journal
+
+TOOL: restore_last_delete
+  Parameters: none (restores most recent delete from session journal)
+  Or: path: string (restores specific path from journal)
+
+  Tier: T0 (no confirmation — user is undoing something)
+
+  Execute:
+    1. Find most recent delete entry in session journal
+    2. Move from recycle bin back to original path
+    3. If original path now has something else there: ask user (don't overwrite)
+
+IMPORTANT CONSTRAINT:
+  Never permanently delete. If the recycle bin move fails for any reason,
+  the operation fails — do NOT fall back to permanent delete.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 6 — move_file + copy_file TOOLS
+File: src/lib/local-agent/move-tools.ts (new file)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TOOL: move_file
+  Parameters:
+    source: string
+    destination: string
+    overwrite: boolean (default: false)
+
+  Tier: T3 (needs confirm — can overwrite or lose data)
+
+  Preview shows:
+    - Source: path, size, modified date
+    - Destination: path, whether it already exists
+    - If destination exists and overwrite=false: error in preview
+    - If destination exists and overwrite=true: warn "will replace existing file"
+
+  Same-filesystem detection:
+    Parse drive letter (Windows) or device ID (Mac/Linux: stat.dev).
+    If source.dev === destination.dev: rename operation (atomic, instant).
+    If different: copy-verify-delete (not atomic, can be interrupted).
+
+  Cross-filesystem safe move:
+    1. Copy source → destination (chunk by chunk for large files)
+    2. Compute hash of source and destination
+    3. If hashes match: delete source
+    4. If hashes don't match: delete destination, error "copy verification failed"
+    5. Never delete source until verified copy exists
+
+  Conflict handling:
+    If destination exists and overwrite=false: throw with message showing
+    what is at the destination (name, size, date) so user can decide.
+
+TOOL: copy_file
+  Parameters:
+    source: string
+    destination: string
+    overwrite: boolean (default: false)
+
+  Tier: T3
+
+  Same as move but no delete-source step. No cross-filesystem complexity.
+  Always does a byte-for-byte copy followed by hash verification.
+
+  For directories: add copy_directory variant that recursively copies.
+  Show file count and total size in preview, same as delete_directory.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 7 — get_file_info TOOL
+File: src/lib/local-agent/read-tools.ts (add to existing)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PURPOSE:
+Get metadata about a file without reading its content. The agent should
+call this before reading a large file or before editing any file.
+
+TOOL DEFINITION:
+  Tool: get_file_info
+  Parameters:
+    path: string
+
+  Tier: T0 (read-only, auto-runs)
+
+RETURNS:
+  interface FileInfo {
+    resolvedPath: string
+    exists: boolean
+    isDirectory: boolean
+    isBinary: boolean
+    size: number
+    sizeLabel: string           // "2.3 MB"
+    lineCount: number | null    // null for binary or very large files
+    encoding: 'utf-8' | 'utf-16-le' | 'utf-16-be' | 'utf-8-bom' | 'unknown'
+    lineEnding: 'CRLF' | 'LF' | 'CR' | 'mixed' | 'unknown'
+    createdAt: string           // ISO date
+    modifiedAt: string          // ISO date
+    extension: string | null
+    permissions: string         // "rw-r--r--" on Unix, "ReadWrite" on Windows
+  }
+
+ENCODING DETECTION:
+  Read first 4 bytes (BOM check):
+    [0xEF, 0xBB, 0xBF]: UTF-8 with BOM
+    [0xFF, 0xFE]: UTF-16 LE
+    [0xFE, 0xFF]: UTF-16 BE
+    No BOM: Read first 512 bytes, check for null bytes
+      → null byte present: binary or UTF-16 without BOM
+      → no null bytes: UTF-8 or ASCII
+
+LINE ENDING DETECTION:
+  Read first 8KB of file as binary.
+  Count \r\n sequences, lone \r, lone \n.
+  Classify: if only \r\n → CRLF, if only \n → LF, if only \r → CR, mixed → mixed.
+
+LINE COUNT (only for text files under 1MB):
+  Count newlines in the file. For larger files: estimate from size / avg line length.
+
+PERMISSIONS:
+  Windows: (GetAttributes) → parse ReadOnly, Hidden, System flags
+  Mac/Linux: fs.stat().mode → format as rwxrwxrwx string
+
+USE CASE FOR AGENT:
+  Before read_file: check size. If > 5MB, warn "large file, use start_line/end_line".
+  Before edit_file: check encoding. If UTF-16, note it (edit_file handles it).
+  Before write_file on existing: check encoding to match it.
+  After find_file returns multiple matches: call get_file_info on each to pick
+  the right one based on size, date, extension.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 8 — ATOMIC WRITES UPGRADE
+File: src/lib/local-agent/write-tools.ts (update existing)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PURPOSE:
+The current executeWriteFile uses writeFileSync directly. If the process
+crashes or the disk fills mid-write, the file is corrupted. Fix this with
+the temp-file-then-rename pattern.
+
+CHANGES TO executeWriteFile:
+
+For 'create' mode:
+  1. Check file doesn't exist (already done)
+  2. Write to a temp file in the same directory:
+     tmpPath = resolvedPath + '.openclaw-tmp-' + Date.now()
+  3. fs.writeFileSync(tmpPath, content, 'utf-8')
+  4. Verify: fs.readFileSync(tmpPath, 'utf-8').length === content.length
+  5. fs.renameSync(tmpPath, resolvedPath)
+  6. If rename fails: fs.unlinkSync(tmpPath); throw error
+
+For 'overwrite' mode:
+  Same temp-file-then-rename pattern. The rename atomically replaces
+  the existing file — old version or new version, never half-written.
+
+For 'append' mode:
+  Append cannot be made atomic with temp-file pattern (we'd have to
+  read the whole file + append + write temp + rename, which is wasteful
+  for a 100MB log file you're appending 1 line to).
+  Instead: use fs.appendFileSync and accept that it's not atomic.
+  Document this in the tool description. Append is low-risk (doesn't
+  destroy existing content).
+
+ENCODING MATCHING ON OVERWRITE:
+  Before overwriting, get_file_info to detect existing encoding.
+  If existing file is UTF-16: write back as UTF-16 (use Buffer + BOM).
+  If existing file is UTF-8 or UTF-8-BOM: write UTF-8.
+  Default for new files: UTF-8 without BOM.
+
+CROSS-FILESYSTEM TEMP FILE:
+  The temp file MUST be on the same filesystem as the target. Rename
+  only works within a filesystem. Always create temp in same directory
+  as target (path.dirname(resolvedPath)). Never use os.tmpdir().
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 9 — ROLLBACK / SESSION JOURNAL
+File: src/lib/local-agent/session-journal.ts (new file)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PURPOSE:
+Every modifying file operation logs to the session journal. The agent can
+call undo_last_change and the last edit is reversed.
+
+THE JOURNAL:
+  In-memory only (not persisted to disk — writing it to disk creates
+  a recursive file-write problem). Keyed by session ID.
+
+  interface JournalEntry {
+    id: string                    // unique, sequential
+    timestamp: string             // ISO
+    operation: 'write' | 'edit' | 'delete' | 'move' | 'copy'
+    targetPath: string
+    sourcePath?: string           // for move/copy
+    description: string           // from the tool call
+    preSnapshot: Snapshot | null  // before state
+    postSnapshot: Snapshot | null // after state
+    wasRolledBack: boolean
+    isRollbackable: boolean
+  }
+
+  interface Snapshot {
+    contentHash: string           // SHA-256
+    content: string | null        // full content if < 1MB, null for large files
+    size: number
+    modifiedAt: string
+    existed: boolean              // false if file didn't exist before (for new-file creates)
+  }
+
+TOOL: undo_last_change
+  Parameters:
+    steps: number (default: 1)   — how many operations to undo
+
+  Tier: T0 (undoing is always allowed, no confirmation)
+
+  Algorithm:
+    1. Find last N rollbackable entries (newest first)
+    2. For each, in reverse chronological order:
+       - If operation was 'write' (create): delete the created file
+       - If operation was 'write' (overwrite/append): restore preSnapshot content
+       - If operation was 'edit': restore preSnapshot content
+       - If operation was 'delete': move from recycle bin back to original path
+       - If operation was 'move': move back (if original location is free)
+    3. After each rollback: verify new state matches preSnapshot
+    4. If any rollback fails: stop, report which one failed and why
+    5. Mark rolled-back entries as wasRolledBack: true in journal
+
+TOOL: show_history
+  Parameters: limit (default: 10)
+  Tier: T0
+
+  Returns the last N journal entries in a human-readable format:
+    #1  [14:32:01]  edit_file  src/index.ts  "Added error handling to parseCSV"
+    #2  [14:35:22]  write_file CREATE  src/utils/csv-parser.ts  "New CSV parser utility"
+    #3  [14:40:11]  delete_file  old-test.ts  "Removed outdated test"
+
+LIMITS:
+  - Keep at most 50 entries in memory (ring buffer)
+  - Content snapshots only for files < 1MB
+  - Large files: store hash only, can detect if changed but can't restore content
+    (report this limitation when undo is attempted on a large-file operation)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 10 — SYSTEM PROMPT PLATFORM INJECTION
+File: src/lib/agent-extension.ts (update existing)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PURPOSE:
+The LLM needs to know what platform it's running commands for. Right now
+it can guess from context clues but shouldn't have to. The platform profile
+is injected into the system prompt at session start.
+
+WHAT TO INJECT (at the start of the LOCAL PC TOOLS section of SYSTEM_PROMPT):
+
+  "USER'S LOCAL MACHINE:
+   OS: macOS 14.3 (darwin/arm64)  — use macOS/Linux shell syntax only
+   Shell: zsh (at /bin/zsh)
+   Home: /Users/manol
+   Path separator: /
+   Line endings: LF (\\n)
+   Installed: node 20.11.0 (/opt/homebrew/bin/node), python3 3.12.1 (/opt/homebrew/bin/python3), git 2.43.0 (/usr/bin/git)
+   Package manager: brew
+   Admin: no
+
+   ALWAYS use POSIX shell syntax for commands on this machine.
+   NEVER use PowerShell syntax (Get-Content, Set-Location, etc.)
+   Use 'python3' not 'python'. Use 'brew install' for packages.
+   Absolute paths use forward slashes. Home dir: /Users/manol"
+
+  OR for Windows:
+   "USER'S LOCAL MACHINE:
+   OS: Windows 11 (win32/x64)  — use PowerShell syntax only
+   Shell: PowerShell 5 (at C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe)
+   Home: C:\Users\manol
+   Path separator: \\
+   Line endings: CRLF (\\r\\n)
+   Installed: node 20.11.0, git 2.43.0
+   Package manager: winget
+   Admin: no
+
+   ALWAYS use PowerShell syntax. Never use bash syntax (&&, cat, grep, etc.)
+   Use Get-Content, Select-String, ForEach-Object, Where-Object for operations.
+   Use forward slashes or double-backslashes in paths: C:\\Users\\manol or C:/Users/manol"
+
+This injection happens when initPlatformProfile() completes. The summary is
+built by getPlatformSummary() from platform-profile.ts and inserted into the
+SYSTEM_PROMPT before the session sends its first message.
+
+FOR THE READONLY_COMMAND_PATTERNS:
+  Now that the LLM knows the platform from the system prompt, it will generate
+  platform-correct commands (ls on Mac, dir/Get-ChildItem on Windows).
+  The READONLY_COMMAND_PATTERNS already covers all platforms — so T0 classification
+  will work correctly regardless. No change needed to those patterns.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOOL INVENTORY: BEFORE vs AFTER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+BEFORE (current):
+  read_file          — works, has chunking, CRLF fix
+  list_directory     — works
+  find_file          — works
+  write_file         — works but not atomic, no encoding match
+  run_command        — works but no platform profile, no error classification
+  read_clipboard     — works
+  write_clipboard    — works (injection-safe)
+  open_url           — works
+
+AFTER (after all phases):
+  read_file          — unchanged (already good)
+  list_directory     — unchanged
+  find_file          — unchanged
+  get_file_info      — NEW (Phase 7)
+  search_in_file     — NEW (Phase 4)
+  write_file         — UPGRADED (atomic writes, encoding match) (Phase 8)
+  edit_file          — NEW str_replace (Phase 3) ← most important addition
+  delete_file        — NEW (Phase 5, recycle bin)
+  delete_directory   — NEW (Phase 5, recycle bin with size preview)
+  restore_last_delete — NEW (Phase 5)
+  move_file          — NEW (Phase 6)
+  copy_file          — NEW (Phase 6)
+  undo_last_change   — NEW (Phase 9)
+  show_history       — NEW (Phase 9)
+  run_command        — UPGRADED (platform-aware shell, error classification, ANSI stripping) (Phase 2)
+  read_clipboard     — unchanged
+  write_clipboard    — unchanged
+  open_url           — unchanged
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+NEW FILES TO CREATE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  src/lib/local-agent/platform-profile.ts   — Phase 1
+  src/lib/local-agent/edit-tools.ts         — Phase 3
+  src/lib/local-agent/delete-tools.ts       — Phase 5
+  src/lib/local-agent/move-tools.ts         — Phase 6
+  src/lib/local-agent/session-journal.ts    — Phase 9
+
+FILES TO UPDATE:
+  src/lib/local-agent/command-tools.ts      — Phase 2 (shell engine upgrade)
+  src/lib/local-agent/read-tools.ts         — Phase 4 + 7 (search + get_file_info)
+  src/lib/local-agent/write-tools.ts        — Phase 8 (atomic writes)
+  src/lib/local-agent/tool-definitions.ts   — add all new tools
+  src/lib/local-agent/index.ts              — export new modules
+  src/lib/agent-extension.ts               — Phase 10 (platform injection) + new tool cases
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IMPLEMENTATION ORDER AND DEPENDENCIES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Phase 1 (platform-profile.ts)     → no dependencies, do first
+Phase 2 (command-tools.ts)        → depends on Phase 1
+Phase 10 (system prompt inject)   → depends on Phase 1, do alongside Phase 2
+Phase 3 (edit_file)               → depends on nothing (pure TS/fs)
+Phase 7 (get_file_info)           → depends on nothing
+Phase 4 (search_in_file)          → depends on nothing
+Phase 9 (session-journal.ts)      → depends on nothing (just types + in-memory)
+Phase 8 (atomic writes)           → depends on Phase 9 (journal logging)
+Phase 5 (delete tools)            → depends on Phase 9 (journal) + Phase 8 (atomic)
+Phase 6 (move/copy tools)         → depends on Phase 8 (atomic)
+
+Parallel work possible:
+  Phase 3 + Phase 7 + Phase 4 + Phase 9 can all be built simultaneously.
+  Phase 1 + Phase 10 should be built together (profile → inject).
+  Phase 2 should come after Phase 1.
+  Phases 5, 6, 8 come after Phase 9.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROBLEMS ANTICIPATED AND SOLUTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Problem: Profile detection hangs (shell not responding, tool missing)
+Solution: Every detection step has its own 3s timeout. Any timeout marks
+  that field as null and moves on. Session starts even with incomplete profile.
+  Agent is told which fields are unknown and avoids those operations.
+
+Problem: Mac GUI app doesn't have node in PATH for non-interactive shell
+Solution: Runtime detection searches extra locations (nvm, volta, homebrew arm64).
+  Store absolute binary path, not just 'node'. Commands use absolute path:
+  /opt/homebrew/bin/node --version instead of node --version.
+
+Problem: Windows execution policy blocks all scripts
+Solution: Detect at profile time. Add -ExecutionPolicy Bypass to every PS
+  invocation if policy is Restricted. This is a read-only flag, no admin needed.
+
+Problem: edit_file old_str has trailing whitespace that user didn't notice
+Solution: Normalize trailing whitespace per line in old_str before matching.
+  Log that normalization happened in the result so agent knows.
+
+Problem: edit_file called on a file that another tool is also editing
+Solution: No concurrent edits allowed. The preview step checks the content.
+  The execute step re-reads and re-verifies. If content changed between
+  preview and execute, the execute fails with "file was modified, re-run preview".
+
+Problem: delete to recycle bin fails because source and recycle bin are on
+  different filesystems (e.g. external drive)
+Solution: Detect cross-filesystem case (same stat.dev check). For cross-fs:
+  copy to recycle bin + verify hash + delete original.
+
+Problem: Large directory delete takes > 30s to count files for preview
+Solution: Walk the tree with a 5s timeout. If timeout hit: show "Directory
+  contains many files (could not count in time). Are you sure?" The user gets
+  a less informative preview but the safety gate is still there.
+
+Problem: undo_last_change on a file that was subsequently modified by the user
+Solution: Before restoring preSnapshot, check if current content hash matches
+  postSnapshot hash. If they don't match: the file was modified after the agent
+  touched it. Report: "File was modified since the agent's edit. Restoring
+  will overwrite those changes. Confirm?" — this becomes a T3 operation.
+
+Problem: session journal takes too much memory for large files
+Solution: Content snapshots capped at 1MB. Large files store hash only.
+  Agent is told at undo time: "Cannot restore content of large file — only
+  the file's hash was recorded. Can verify if correct but not restore."
+
+Problem: On Windows, rename (atomic write) fails if target is open in another app
+Solution: Retry rename 3 times with 300ms delay. If still failing: try Windows-specific
+  MoveFileEx with MOVEFILE_REPLACE_EXISTING flag via PowerShell if direct rename fails.
+  If still failing: report the locked file and which process holds it
+  (using 'handle.exe' from Sysinternals if available, else 'openfiles /query').
+
+Problem: Platform profile built before user selects a working directory
+Solution: Profile is based on the user's machine, not a project. The working
+  directory for commands is passed per-command (working_dir parameter).
+  Profile has homeDir as the default working directory.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WHAT THIS GIVES THE AGENT (user-facing impact)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+A Mac user says "add error handling to the parseCSV function in my CSV_test file"
+
+BEFORE (current system):
+  Agent: find_file("*CSV_test*") → finds CSV_test.py at /Users/manol/projects/CSV_test.py
+  Agent: read_file(full file) → gets 400 lines
+  Agent: modifies content in context
+  Agent: write_file(overwrite) → overwrites whole file ← risky, not atomic
+  No undo available.
+  No search, so agent reads 400 lines even if function is at line 47.
+
+AFTER (full system):
+  Agent: find_file("*CSV_test*") → finds CSV_test.py
+  Agent: get_file_info → "347 lines, UTF-8, LF, 8.2KB"
+  Agent: search_in_file("def parseCSV") → "Found at line 47"
+  Agent: read_file(start_line=44, end_line=65) → reads just the function
+  Agent: edit_file(old_str="def parseCSV...<exact function>", new_str="<with error handling>")
+    → uniqueness check passes
+    → atomic write (temp → rename)
+    → logged to session journal
+  If something went wrong: undo_last_change restores the file instantly.
+  All of this used /Users/manol/bin/python3 (absolute path), POSIX syntax,
+  because platform profile said: macOS, zsh, arm64.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+END OF PLAN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

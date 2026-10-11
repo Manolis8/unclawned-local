@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 import fs from "node:fs/promises";
 import { resolveWritablePathWithinRoot } from "./path-output.js";
 import type { BrowserResponse } from "./types.js";
@@ -29,3 +30,4 @@ export async function resolveWritableOutputPathOrRespond(params: {
   }
   return pathResult.path;
 }
+

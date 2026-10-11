@@ -1,0 +1,1411 @@
+═══════════════════════════════════════════════════════════════════════════════
+THE ACTION LAYER — DEEP PLAN
+From Behavioral Intelligence to Concrete Agent Behavior
+═══════════════════════════════════════════════════════════════════════════════
+
+This document builds on the previous conversation's five action modes and
+extended catalogs, and goes significantly deeper on: the action prioritization
+engine, timing layer, authorization framework, compound insights, suggestion
+lifecycle, action memory, mode interaction chains, negative action capability,
+cross-session continuity, graceful degradation, and insight delivery design.
+
+Where the previous conversation asked "what actions does the agent take," this
+document asks "how does the agent decide what to take, when, in what order,
+with what authorization, and what does it do when the action is wrong."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 1 — WHAT THE PREVIOUS CONVERSATION MISSED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The extended action catalogs are excellent. Thirty specific insight types,
+ten specific adaptive behaviors, eight specific suggestion types, six specific
+autonomous execution examples, and Ambient Intelligence as a fifth mode.
+That's a rich catalog.
+
+What's still absent:
+
+GAP 1 — THE SELECTION PROBLEM
+  Ten things are ready to surface at the start of a session. Which one?
+  The catalogs describe what the agent CAN do. Nothing describes how it decides
+  what to do when multiple options are available. Without an explicit
+  prioritization engine, the selection is arbitrary. Arbitrary selection
+  degrades trust faster than doing nothing.
+
+GAP 2 — THE TIMING PROBLEM
+  A brilliant insight surfaced at the wrong moment creates friction instead
+  of value. The previous plan mentions timing in passing but never specifies
+  the rules that govern it. Timing is not a detail — it is the difference
+  between an action that helps and one that annoys.
+
+GAP 3 — THE AUTHORIZATION PROBLEM
+  "Autonomy enabled" is mentioned as a prerequisite for Mode 4. But what
+  does that mean precisely? What is the authorization framework? What can
+  the agent do without asking? What requires per-action confirmation? What
+  requires explicit opt-in? Without a clear authorization model, users either
+  feel the agent is overstepping or not doing enough. Both are failures.
+
+GAP 4 — THE COMPOUND INSIGHT PROBLEM
+  The previous plan has thirty individual insight types. But the most
+  valuable insights are not individual — they're compound. They connect
+  three or more observations from different channels into a single conclusion
+  that none of the observations could produce alone. Compound insights require
+  their own architecture.
+
+GAP 5 — THE SUGGESTION LIFECYCLE PROBLEM
+  A suggestion doesn't just appear and get accepted or dismissed. It has a
+  lifecycle — generated, queued, staged, surfaced, reviewed, then acted on,
+  deferred, or dismissed. The full lifecycle mechanics govern how the queue
+  behaves over time and how the agent learns from what users do with suggestions.
+  This is absent from the previous plan.
+
+GAP 6 — THE ACTION MEMORY PROBLEM
+  When the agent surfaces an insight, proposes a suggestion, or executes
+  autonomously — what happens next? How does the outcome of that action
+  feed back into the model? Without action memory, the system generates
+  the same useless suggestions repeatedly without learning that they don't land.
+
+GAP 7 — THE NEGATIVE ACTION PROBLEM
+  Every mode is about what the agent DOES. There is no mode or system for
+  what the agent decides NOT to do. Knowing when to stay quiet is as
+  important as knowing when to speak. This requires explicit rules,
+  not just an absence of triggers.
+
+GAP 8 — THE CROSS-SESSION CONTINUITY PROBLEM
+  Some actions are promised in one session and need to execute in another.
+  "I'll follow up on this in 3 days" creates a commitment the agent must
+  track across sessions. The previous plan has no commitments layer.
+
+GAP 9 — THE MODE INTERACTION PROBLEM
+  The five modes interact with each other in predictable chains. An insight
+  can generate a suggestion. A suggestion can authorize autonomous execution.
+  An autonomous action can generate an insight. These chains aren't mapped.
+  Without a map, the chains either don't happen or happen incoherently.
+
+GAP 10 — THE GRACEFUL DEGRADATION PROBLEM
+  When the behavioral model has low confidence — first weeks of use, after a
+  significant reset, or in an unfamiliar domain — the agent still has to act.
+  What does it do? How does it communicate its uncertainty? Without a
+  degradation protocol, the agent either pretends to know more than it does
+  or is paralyzed.
+
+GAP 11 — THE INSIGHT DELIVERY DESIGN PROBLEM
+  A correct insight delivered badly is worse than no insight. Timing, framing,
+  length, tone, and structure of the insight itself as a communication artifact
+  are not addressed. The best insight in the world, delivered like a report
+  when it should be delivered like a question, will be ignored.
+
+This document addresses all eleven gaps.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 2 — THE ACTION PRIORITIZATION ENGINE
+How the agent decides what to do when multiple options are available
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+At any session start, there may be: 2 pending insights, 3 suggestions in the
+queue, 1 autonomous task ready, and several ambient calibrations. Without a
+clear priority engine, everything competes. Noise wins.
+
+The priority engine scores every pending action on five dimensions, produces
+a single ranked list, and surfaces the top item only.
+
+──────────────────────────────────────────────────────────────────────────────
+THE PRIORITY FORMULA
+──────────────────────────────────────────────────────────────────────────────
+
+  PRIORITY SCORE = (VALUE × RELEVANCE × CONFIDENCE × TIMING_FIT × RECENCY) / FRICTION_COST
+
+Where:
+
+  VALUE (1-10) — estimated impact if the user acts on this
+    10 = could change a stated goal trajectory or unlock a blocked path
+    7 = would save significant time or unlock a relationship opportunity
+    5 = genuinely useful but not urgent
+    3 = nice to know but low practical impact
+    1 = curiosity-level, no clear action
+    Calibrated over time by action memory (which actions produced outcomes)
+
+  RELEVANCE (0-1) — connection to user's current live state and goals
+    1.0 = directly relevant to today's focus and at least one stated goal
+    0.8 = relevant to stated goals but not today's focus
+    0.5 = relevant to current focus but not a stated goal
+    0.2 = relevant to the domain but tangential to current work
+    0.0 = not relevant to anything current
+
+  CONFIDENCE (0-1) — how certain the model is about the underlying signal
+    Pulled directly from the signal table's confidence scores
+    Cross-channel agreement multiplies confidence: two channels agreeing → +20%
+    Behavioral contract items have confidence 1.0 (they're explicit)
+
+  TIMING_FIT (0-1) — how appropriate right now is for this type of action
+    Rules (see Part 3 for full timing system):
+    Strategic insight during high urgency session → 0.1
+    Quick win during low energy window → 0.9
+    Relationship touchpoint at usual communication time → 0.8
+    Content suggestion at peak creative hours → 0.9
+    Goal drift insight when cognitive load is high → 0.1
+
+  RECENCY (decay factor, 0-1) — how fresh is the underlying signal
+    Signal from today → 1.0
+    Signal from this week → 0.9
+    Signal from last 30 days → 0.7
+    Signal from 30-90 days ago → 0.4
+    Signal older than 90 days → 0.2 (stale, flagged separately)
+
+  FRICTION_COST (1-10, inverted) — how much effort for the user to act on this
+    10 = requires significant decision-making and action
+    7 = requires a quick decision and short action
+    5 = one-click or approve-and-send type action
+    3 = reading only, no action required
+    1 = completely transparent, no user interaction
+
+High friction isn't always bad — but it means the payoff (VALUE) must be
+proportionally higher to justify surfacing it.
+
+──────────────────────────────────────────────────────────────────────────────
+THE PRIORITY TIERS
+──────────────────────────────────────────────────────────────────────────────
+
+After scoring, actions fall into three tiers:
+
+  TIER 1 (score ≥ 7.0): Surface immediately at session start. Before user types.
+    "Before we begin — [insight or prepared action]."
+
+  TIER 2 (score 4.0-6.9): Surface at a natural break point in the session.
+    Between task completions. After a task finishes and before the next starts.
+    "One thing worth knowing: [insight]."
+
+  TIER 3 (score < 4.0): Don't surface this session. Re-score next session.
+    If an item stays in Tier 3 for 3 consecutive sessions: either the timing
+    never fits (investigate why) or the value estimate is wrong (recalibrate).
+
+──────────────────────────────────────────────────────────────────────────────
+THE ONE-ITEM RULE
+──────────────────────────────────────────────────────────────────────────────
+
+Only ONE proactive item surfaces per session. Not per mode — total.
+
+The exception: if an autonomous action was taken BETWEEN sessions (agent ran
+something while user was away), that always surfaces at session start as
+a report, regardless of what else is queued. Transparent about what was done.
+That still counts as the one item. Everything else waits.
+
+The one-item rule prevents the agent from becoming a briefing machine.
+Briefing machines get skipped. One well-chosen item gets read.
+
+──────────────────────────────────────────────────────────────────────────────
+THE STARVATION PREVENTION RULE
+──────────────────────────────────────────────────────────────────────────────
+
+When a specific suggestion or insight has been in the queue for 14+ days
+without surfacing (always outscored by higher-priority items), apply a
+starvation boost: add +1.5 to its base priority score.
+
+If it still doesn't surface in 7 more days: either discard it (it's never
+going to be the right time and its window has passed) or transform it into a
+different format that has lower friction and might score higher.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 3 — THE ACTION TIMING LAYER
+When to act is as important as what to act on
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+──────────────────────────────────────────────────────────────────────────────
+THE SESSION WINDOW CLASSIFICATION
+──────────────────────────────────────────────────────────────────────────────
+
+Every session is classified into a window type at the start:
+
+  SPRINT WINDOW — user is in execution mode, high urgency, tasks lined up
+    Timing_fit for: quick wins, execution support, nothing else
+    Suppress: insights, strategic suggestions, goal drift, anything requiring reflection
+
+  DISCOVERY WINDOW — user is exploring, lower urgency, more open-ended prompts
+    Timing_fit for: insights, suggestions, compound observations
+    Suppress: autonomous execution notifications (they want to be in the loop)
+
+  REVIEW WINDOW — user is checking in, reviewing things, meta-work
+    Timing_fit for: everything — this is the ideal window for most action types
+    The agent's golden window. Surface the highest-priority item.
+
+  REPAIR WINDOW — something went wrong, user is fixing it
+    Timing_fit for: execution support only
+    Suppress: ALL proactive items. User is stressed. They don't need more items.
+
+  LOW-ENERGY WINDOW — late session, post-crunch, winding down
+    Timing_fit for: low-friction items (one-click, approve/ignore type)
+    Suppress: strategic insights, complex suggestions, anything requiring thought
+
+Window classification is derived from: live state (from Collection plan),
+time of day (from temporal pattern model), first two task types submitted.
+
+──────────────────────────────────────────────────────────────────────────────
+TIMING RULES BY ACTION TYPE
+──────────────────────────────────────────────────────────────────────────────
+
+INSIGHTS:
+  Goal drift insights → only surface in Review or Discovery windows, cognitive
+    load low, never during Sprint or Repair
+  Feed/environmental insights → surface at session start in any window except Repair
+  Relationship insights → surface during natural session breaks, not mid-task
+  Pattern insights → surface in Review or Discovery windows
+  Anomaly insights (something changed suddenly) → surface immediately regardless of window
+
+SUGGESTIONS:
+  Complex suggestions (require significant thought) → Discovery or Review windows only
+  Low-friction suggestions (one-click approvals) → any window except Repair
+  Skill-creation suggestions → only when calibration velocity is medium or higher
+    (don't ask the user to invest in skill creation when the system itself is struggling)
+  Content suggestions → peak creative hours only (from temporal model)
+
+AUTONOMOUS EXECUTIONS:
+  Between-session tasks → always reported at next session start
+  During-session preparations → surface at natural break between tasks
+  Recurring autonomous tasks → at their usual time in the user's rhythm,
+    never interrupt an active task
+
+AMBIENT INTELLIGENCE:
+  Always on. No timing considerations. Invisible.
+
+──────────────────────────────────────────────────────────────────────────────
+THE RECENCY WINDOW RULES
+──────────────────────────────────────────────────────────────────────────────
+
+COOL-DOWN RULE: After any proactive item surfaces (regardless of outcome), no
+additional proactive items for the remainder of that session. Next session only.
+
+SPACING RULE: The same type of insight cannot surface in two consecutive
+sessions. At least one session gap required between same-type surfaces.
+
+DISMISSAL LOCK: An insight or suggestion that was dismissed goes into a
+60-day lock. It cannot surface again for 60 days regardless of score.
+After 60 days: re-score. If still relevant, it can surface once more.
+If dismissed a second time: permanent archive.
+
+URGENCY OVERRIDE: The only thing that overrides timing rules is an urgent
+external event (competitor just made a major move, key relationship's message
+just came in, user's stated deadline is tomorrow). These surface regardless
+of window classification. One sentence. Factual. No reflection required.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 4 — THE ACTION AUTHORIZATION FRAMEWORK
+What the agent can do without asking
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Authorization is not binary. There is a spectrum from "always invisible" to
+"always ask." Every action type lives somewhere on this spectrum, and the
+user has control over where each type sits.
+
+──────────────────────────────────────────────────────────────────────────────
+THE FIVE AUTHORIZATION LEVELS
+──────────────────────────────────────────────────────────────────────────────
+
+LEVEL 0 — ALWAYS INVISIBLE
+  The agent does this and the user never knows it happened.
+  Examples: relationship context pre-loading, domain register calibration,
+    cognitive load detection, format adaptation, time-of-day output adjustment.
+  Rule: the action must be: reversible, non-destructive, non-observable,
+    and solely about improving output quality. No side effects outside the
+    current response.
+  Authorization: built-in. No user opt-in required. No opt-out needed.
+    (Users expect the agent to get better over time — this is how it does it.)
+
+LEVEL 1 — ALWAYS SURFACED, NO CONFIRMATION NEEDED
+  The agent acts and shows the user what it did. User can ignore or undo.
+  Examples: relationship context surfaced before an email draft
+    ("FYI — last interaction with Sarah was 3 weeks ago, the tone she uses
+     tends to be direct"), format adjustments explained briefly.
+  Rule: action is non-destructive, reversible, and informative.
+    Surfacing is informational, not a request for approval.
+  Authorization: default-on. User can turn off per category in settings.
+
+LEVEL 2 — OPT-IN BY CATEGORY, EXECUTES WITHOUT CONFIRMATION
+  User enables a category of autonomous behavior once.
+  All actions in that category execute automatically from then on.
+  Examples: "track competitor activity" (enabled once → runs weekly automatically),
+    "maintain relationship touchpoints" (enabled once → weekly check runs),
+    "prepare Monday morning briefing" (enabled once → runs every Sunday night).
+  Rule: action must be reversible, non-public, non-sending.
+    Preparation is always level 2 or lower. Sending/publishing is never level 2.
+  Authorization: explicit one-time opt-in per category. Configurable in USER.md [AUTONOMY].
+
+LEVEL 3 — OPT-IN BY CATEGORY, PER-ACTION CONFIRMATION REQUIRED
+  User has expressed interest in a type of action (opted in to the category)
+  but each specific instance requires a quick confirmation before execution.
+  Examples: "draft relationship touchpoints for my review" (opted in → drafts appear
+    for approval, not sent automatically), "suggest content timing" (opted in →
+    suggests publish times, user confirms before anything happens).
+  Rule: action has observable external effects if executed.
+    Could create public content, send messages, affect real relationships.
+  Authorization: category opt-in + per-instance confirmation. Default for most
+    communication-related autonomous tasks.
+
+LEVEL 4 — ALWAYS ASK FIRST
+  The agent never does this without explicit per-instance instruction,
+  even if the user has expressed general interest.
+  Examples: sending any communication on behalf of the user, making any booking,
+    posting any content publicly, modifying any document in a shared location.
+  Rule: irreversible or publicly visible actions. No exceptions.
+    User must initiate or explicitly confirm each time. Not a setting —
+    a hard constraint that cannot be configured away.
+  Authorization: required for each instance, no amount of trust accumulation changes this.
+
+──────────────────────────────────────────────────────────────────────────────
+THE AUTHORIZATION ESCALATION RULE
+──────────────────────────────────────────────────────────────────────────────
+
+Authorization can escalate over time within a category, but not across levels.
+Level 2 actions that consistently get confirmed quickly → the agent notes this
+but does NOT automatically escalate to a less restrictive level. Escalation
+requires explicit user direction ("you can just do this without asking me now").
+
+This matters because: the user's quick confirmation speed doesn't mean they've
+stopped caring — it might mean they've built a review habit. The agent cannot
+read the difference between "I trust you" and "I'm being fast." Only explicit
+instruction can change authorization level.
+
+Authorization can DEESCALATE automatically:
+  If 3 consecutive Level 2 executions are reversed or complained about →
+  category drops to Level 3 (per-instance confirmation) until user re-elevates.
+
+──────────────────────────────────────────────────────────────────────────────
+THE SCOPE BOUNDARY RULE
+──────────────────────────────────────────────────────────────────────────────
+
+Every Level 2 category authorization is defined with explicit parameters.
+The agent cannot expand scope beyond those parameters through confidence
+accumulation. Scope expansion requires a new authorization.
+
+Example:
+  Authorized: "prepare weekly competitive brief about Company X and Company Y"
+  Correct: agent includes Company X and Company Y only
+  Incorrect: agent adds Company Z because it appeared in the user's feed and
+    seemed relevant. This requires explicit re-authorization.
+
+The agent can SUGGEST scope expansion: "I noticed Company Z is increasingly
+active in your space. Want me to add them to the competitive monitoring?"
+But it cannot self-authorize the expansion. This is the scope creep prevention.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 5 — THE COMPOUND INSIGHT ARCHITECTURE
+The most valuable insight type no individual signal can produce
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Individual insights are useful. Compound insights are transformational.
+A compound insight connects 3+ observations from different channels (extraction
+plan) or different sub-models (collection plan) into a single conclusion that
+none of the observations could produce alone.
+
+Compound insights are rare. They require multi-channel convergence with high
+individual confidence and a clear connecting pattern. When they happen, they
+are the most surprising and memorable things the agent can surface.
+
+──────────────────────────────────────────────────────────────────────────────
+THE COMPOUND INSIGHT STRUCTURE
+──────────────────────────────────────────────────────────────────────────────
+
+A compound insight has five components when stored (though only 3 are surfaced):
+
+  STORED:
+    OBSERVATIONS — the 3-5 individual signals or sub-model findings that combine
+    CHANNELS — which extraction channels each comes from (confirms independence)
+    PATTERN — the connecting theme that makes them a compound
+
+  SURFACED:
+    INSIGHT — one clear sentence: "What these observations, taken together, suggest"
+    QUESTION — one targeted question to verify with the user before acting
+    IMPLICATION — "If this is accurate, here's what it might mean for [goal]"
+
+The stored components ensure the insight is built on real independent signal.
+The surfaced components ensure it's useful and actionable.
+
+──────────────────────────────────────────────────────────────────────────────
+COMPOUND INSIGHT GENERATION RULES
+──────────────────────────────────────────────────────────────────────────────
+
+A compound insight is only generated when:
+  — Minimum 3 observations, from at least 2 different extraction channels
+  — Each individual observation has confidence ≥ 0.6
+  — The observations are independent (different channels, different time windows)
+  — The pattern connecting them is directionally consistent (all pointing the
+    same way — contradictory signals don't make a compound insight)
+  — The compound insight is distinct from all three individual insights
+    (if it can be reduced to one of the individual observations, it's not compound)
+
+──────────────────────────────────────────────────────────────────────────────
+THE SIX COMPOUND INSIGHT CATEGORIES
+──────────────────────────────────────────────────────────────────────────────
+
+COMPOUND TYPE 1 — THE HIDDEN PRIORITY INSIGHT
+  Multiple channels agree that a focus area is more important than the stated goals.
+  Evidence signals: task distribution (Channel G), vocabulary arrival (Channel M),
+    feed topic shift (Channel E), urgency clustering (Channel A)
+  Pattern: the user's actions and environment are pointing toward X even though
+    X is not in their stated goals
+  Surface: "Your work and environment have been aligning around [topic] for several
+    weeks without it being a stated goal. This might be your actual priority right now."
+  Question: "Is [topic] something you're intentionally moving toward?"
+
+COMPOUND TYPE 2 — THE BLOCKING PATTERN INSIGHT
+  Multiple channels show that one friction point is causing cascading problems
+  elsewhere.
+  Evidence signals: friction & flow model (Collection Layer), avoidance pattern
+    (Channel L), goal drift score (Collection Layer), time allocation (Channel G)
+  Pattern: Friction in Area A is preventing progress in Area B, which is blocking
+    stated goal C
+  Surface: "The difficulty with [Area A] seems to be creating a bottleneck that's
+    affecting your progress on [Goal C] — not a separate problem."
+  Question: "Is [Area A] something we can work through, or is there a way to
+    route around it?"
+
+COMPOUND TYPE 3 — THE RELATIONSHIP OPPORTUNITY COMPOUND
+  Multiple relationship and environmental signals converge on a timely opportunity.
+  Evidence signals: relationship graph trajectory (Collection Layer), feed
+    intelligence (Channel E), temporal timing (Channel G), goal alignment (Collection)
+  Pattern: Person X is in a warming trajectory AND just did something notable AND
+    the user's goal requires this type of relationship AND timing is favorable
+  Surface: "Three things have aligned around [Person X]: [event], [relationship
+    trajectory], and [goal relevance]. This is a good moment to reach out."
+  Question: "Want me to draft something?"
+  (This is the highest-conviction relationship suggestion the system can make.)
+
+COMPOUND TYPE 4 — THE IDENTITY DRIFT INSIGHT
+  The most sensitive compound insight. Multiple channels together show that the
+  user may be becoming a different professional person than they were.
+  Evidence signals: vocabulary evolution (Channel M), task distribution shift
+    (Collection Layer), feed topic evolution (Channel E), goal retirement signals
+    (Collection Layer)
+  Pattern: the user's vocabulary, work patterns, environment, and expressed
+    priorities have all shifted in the same direction over an extended period
+  Surface: "I want to share an observation. Over the last 3-4 months, [specific
+    changes across dimensions]. Taken together, it looks like you might be
+    moving in a different professional direction than when we started."
+  Question: "Does that resonate with where you think you're going?"
+  Delivery note: This is surfaced ONLY in a Review window, ONLY when cognitive
+    load is low, ONLY after the individual signals have been confirmed in isolation.
+    This is not surfaced from a single quarter's data. Never.
+
+COMPOUND TYPE 5 — THE TIME TRAP INSIGHT
+  Multiple signals show that how the user spends time is inconsistent with
+  what they say matters most, and the pattern is stable, not situational.
+  Evidence signals: task type distribution (Channel G), goal alignment model
+    (Collection), urgency patterns (Channel A), avoidance signature (Channel L)
+  Pattern: user's time goes predominantly to Area X, which is not their stated
+    priority, and this has been true for 60+ days across multiple signal types
+  Surface: "If I add up where your time has been going for the last 2 months,
+    roughly [X%] has been on [area] and [Y%] on [stated priority]. The gap
+    has been widening, not narrowing."
+  Question: "Is [stated priority] still where you want to put your focus,
+    or has something shifted?"
+  This compound insight has the goal reconciliation pass as a prerequisite
+  (must be confirmed by the monthly pattern detection pass, not just one signal).
+
+COMPOUND TYPE 6 — THE CAPABILITY CEILING INSIGHT
+  Multiple signals show that the user is repeatedly hitting the same ceiling
+  across different tasks, suggesting a systematic capability gap rather than
+  task-specific friction.
+  Evidence signals: friction zones across multiple task types (Collection),
+    correction patterns (Channel B), trust gradient (Collection), task abandonment
+    (Channel L)
+  Pattern: the agent struggles with the same underlying skill (e.g., strategic
+    framing, industry-specific knowledge, relationship nuance) across multiple
+    different task types
+  Surface: "I've noticed I consistently fall short in a specific way across
+    several different types of tasks — [specific pattern]. This might be a gap
+    in my understanding of your world rather than individual task failures."
+  Question: "Can I ask a few targeted questions to fill in what I'm missing?"
+  This is the agent's self-awareness insight — recognizing its own systematic gap.
+
+──────────────────────────────────────────────────────────────────────────────
+THE COMPOUND INSIGHT DELIVERY DESIGN
+──────────────────────────────────────────────────────────────────────────────
+
+Compound insights are delivered differently from individual insights.
+They're longer, they show evidence, and they end with a binary choice.
+
+Structure:
+  1. OPENING — a signal that something notable is being shared, not a task update.
+     "I want to share something I've noticed — it might be worth a moment."
+  2. OBSERVATIONS — bullet list of 2-3 specific pieces of evidence.
+     Not vague: "your time on [X]", "your feed has shifted to [Y]", "your
+     last 3 tasks in [area] were abandoned."
+  3. PATTERN — one sentence connecting them.
+  4. QUESTION — direct, binary if possible. "Does this resonate?"
+     Not "what do you think?" — too open. Give them a clear yes/no entry point.
+  5. IMPLICATION (conditional) — only offered if user confirms the pattern.
+     "If so, that might suggest [next step]."
+
+Total length: never more than 150 words when surfaced. The evidence list is
+concise. The insight sentence is single. The question is one sentence.
+If it can't be said in 150 words it's not ready to surface.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 6 — THE SUGGESTION LIFECYCLE
+A suggestion's full journey from generation to outcome
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+A suggestion isn't an event — it's a lifecycle. Each stage has specific rules
+governing what happens and what can happen next.
+
+──────────────────────────────────────────────────────────────────────────────
+THE SEVEN STAGES
+──────────────────────────────────────────────────────────────────────────────
+
+STAGE 1 — GENERATED
+  Trigger: pattern detection pass completes, a signal threshold is crossed,
+    or a compound insight is confirmed.
+  What happens: suggestion is created with initial priority score, supporting
+    evidence logged, suggested action prepared (if applicable).
+  Prerequisite: if this suggestion type requires pre-staged material
+    (e.g., a relationship touchpoint suggestion requires a draft to be ready),
+    the material is prepared NOW, not when it surfaces. The suggestion surfaces
+    only when the material is ready. Suggestions that require preparation but
+    have no material are held until the material exists.
+  Status: queued
+
+STAGE 2 — QUEUED
+  The suggestion waits. It's re-scored at each session using the priority formula.
+  Every session it doesn't surface: its position in the queue is re-evaluated.
+  Starvation rule applies (see Part 2).
+  Status: queued → held in queue
+
+STAGE 3 — STAGED
+  When the priority formula predicts this suggestion will surface in the next
+  1-2 sessions: full preparation runs.
+  Any supporting material is finalized. If it's a relationship suggestion,
+  the draft is polished. If it's a content suggestion, the outline is complete.
+  If it's a time-audit insight, the supporting data is organized.
+  The suggestion surfaces only when it's fully prepared.
+  Status: queued → staging
+
+STAGE 4 — SURFACED
+  The suggestion appears, at the appropriate moment (see Part 3).
+  Exactly as specified in the insight delivery design for its type.
+  A timer starts: if the user has not responded in 10 minutes, it's treated
+  as ignored (not dismissed — just not seen right now).
+  Status: staging → surfaced
+
+STAGE 5 — REVIEWED
+  The user reads it. They can:
+    — Act on it immediately
+    — Defer it ("later", "remind me", "not now")
+    — Dismiss it ("no", "not relevant", "not interested")
+    — Engage with it (ask a question about it, modify it, accept part of it)
+
+  Response speed is logged. Fast dismissal = different signal than slow dismissal.
+  Status: surfaced → one of: acted, deferred, dismissed, engaged
+
+STAGE 6A — ACTED ON
+  User takes the suggested action.
+  Outcome tracking begins: what happened as a result?
+  For relationship suggestions: did they get a reply? (if observable)
+  For content suggestions: did the post perform well? (if observable)
+  For skill-creation suggestions: did the skill get used? (from task history)
+  For insight confirmations: did the user's behavior change in the suggested direction?
+  Status: acted → tracking
+
+STAGE 6B — DEFERRED
+  User acknowledges but wants to come back to it.
+  Goes back into the queue with a "deferred boost" — a slight priority increase
+  for one week (the user said they're interested, just not now).
+  After the deferral window, surfaces again. If deferred again: return to queue
+  with deferral count +1. After 3 deferrals: treat as soft dismiss.
+  Soft dismiss: doesn't lock for 60 days, but surfaces less frequently.
+  Status: deferred → re-queued
+
+STAGE 6C — DISMISSED
+  User explicitly rejects the suggestion.
+  60-day lock begins. Action type memory updated: this type of suggestion
+  has lower value for this user. VALUE score reduced by 1 for future similar suggestions.
+  If this is the second dismissal of the same type in 6 months:
+  VALUE reduced by 2 and category is flagged as low-priority for this user.
+  Third dismissal of the same type: category is marked "suppressed" — never surfaces.
+  Status: dismissed → archived
+
+STAGE 7 — OUTCOME RECORDED
+  After acting on a suggestion, the outcome (if observable) is recorded in the
+  action memory system (see Part 7).
+  If positive outcome: VALUE estimate for this suggestion type increases by 0.5.
+  If negative outcome: VALUE estimate decreases by 1.
+  If unknown outcome: no adjustment. Don't penalize suggestions whose outcomes
+  can't be observed — they might still be valuable.
+  Status: tracked → closed
+
+──────────────────────────────────────────────────────────────────────────────
+THE SUGGESTION QUEUE HEALTH METRICS
+──────────────────────────────────────────────────────────────────────────────
+
+The queue itself is worth monitoring. Unhealthy queues signal system problems.
+
+  QUEUE BLOAT: more than 5 items in the queue → too many things being generated.
+    Raise threshold for what gets added to the queue. Suggestions should be rare.
+
+  QUEUE STAGNATION: all items stay in Tier 3 for 2+ weeks → timing model is wrong
+    for this user. Investigate window classification accuracy.
+
+  HIGH DISMISSAL RATE: > 40% of surfaced suggestions dismissed → suggestions are
+    not relevant. Either the signal quality is low or the value estimates are wrong.
+    Run calibration check on the suggestion generation triggers.
+
+  HIGH DEFERRAL RATE: > 60% of surfaced suggestions deferred → suggestions are
+    relevant but timing is wrong. Adjust when suggestions surface within sessions.
+
+  LONG ACT-ON LAG: suggestions acted on but with >7 day delay → friction in
+    the action itself is too high. The prepared material isn't ready enough.
+    Improve the staging preparation.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 7 — THE ACTION MEMORY SYSTEM
+Learning from what worked and what didn't
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Every action the agent takes — surfaced insight, proposed suggestion, executed
+autonomous task — is recorded in the action memory system. The outcome of
+that action feeds back into three things: the priority formula, the suggestion
+generation logic, and the behavioral model.
+
+──────────────────────────────────────────────────────────────────────────────
+THE ACTION MEMORY TABLE (schema)
+──────────────────────────────────────────────────────────────────────────────
+
+  action_id          — unique identifier
+  user_id
+  action_type        — insight / suggestion / autonomous / ambient_calibration
+  action_category    — which specific type within the mode (feed_insight /
+                        relationship_touchpoint / content_suggestion / etc.)
+  generated_at       — when the action was created
+  surfaced_at        — when it was shown to the user (null if not yet)
+  user_response      — acted / deferred / dismissed / ignored / engaged
+  response_time_sec  — seconds from surface to response (speed signal)
+  outcome_type       — success / partial / failed / unknown / not_applicable
+  outcome_observed   — boolean (can we actually measure the outcome?)
+  outcome_detail     — what was the observable result (e.g., "reply received in
+                        24 hours", "post engagement 3x average", "no reply after 14 days")
+  model_adjustment   — what the system adjusted based on this outcome
+  session_window     — what window type was active when surfaced
+  priority_score     — what was the priority score when surfaced
+
+──────────────────────────────────────────────────────────────────────────────
+HOW ACTION MEMORY FEEDS BACK
+──────────────────────────────────────────────────────────────────────────────
+
+INTO THE PRIORITY FORMULA:
+  VALUE estimate for each action category is a running weighted average
+  of outcome scores. Recent outcomes weighted 2x earlier outcomes.
+  Unknown outcomes weighted at 0.5 (neither confirms nor denies value).
+  After 10 outcomes in a category: VALUE estimate is considered reliable.
+  Before 10 outcomes: use a prior estimate from general user archetype.
+
+INTO SUGGESTION GENERATION:
+  Categories with ≥ 3 dismissals in 6 months: suppressed.
+  Categories with ≥ 3 successful outcomes in 6 months: generation threshold
+    lowered by 10% (easier to generate suggestions in this category because
+    they clearly work for this user).
+
+INTO TIMING CALIBRATION:
+  Which session_window types produce the best outcomes?
+  If Review window consistently yields "acted" outcomes and Sprint window
+  yields "dismissed" outcomes for insight types → timing model confirmed.
+  If Discovery window yields faster response times than Review window
+  for this specific user → update their window preference mapping.
+
+INTO RELATIONSHIP CONFIDENCE:
+  Relationship touchpoint suggestions that generate replies (observable) →
+  relationship trajectory signal updated to "warming."
+  Touchpoints that generate no reply after 14 days → trajectory updated
+  to "cooling" for that specific relationship.
+  The action memory is a source of relationship intelligence (Channel F).
+
+──────────────────────────────────────────────────────────────────────────────
+THE ACTION EFFECTIVENESS SCORE
+──────────────────────────────────────────────────────────────────────────────
+
+Over time, each action category gets an effectiveness score from the memory:
+
+  EFFECTIVENESS = (acted_count + 0.5×engaged_count) / total_surfaced_count
+    Weighted: positive outcomes in known-outcome cases count 2x
+
+  Score interpretation:
+    0.8+: highly effective category for this user. Lower generation threshold.
+    0.5-0.8: normal. Current thresholds appropriate.
+    0.3-0.5: underperforming. Raise generation threshold or change delivery.
+    < 0.3: failing. Suppress for 30 days, then reassess with new approach.
+
+  Effectiveness scores are also compared to the user's overall average.
+  A category at 0.5 for a user whose overall average is 0.7 is underperforming
+  for THEM even though 0.5 is average in general. Calibrate to the user's baseline.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 8 — THE NEGATIVE ACTION CAPABILITY
+Knowing when NOT to act
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The agent's ability to stay quiet at the right moment is as valuable as its
+ability to surface the right thing. Negative action is not an absence — it's
+a deliberate choice governed by explicit rules.
+
+──────────────────────────────────────────────────────────────────────────────
+THE SUPPRESSION CONDITIONS
+──────────────────────────────────────────────────────────────────────────────
+
+SUPPRESS EVERYTHING EXCEPT URGENT SUPPORT:
+  — Live state: urgency = critical
+  — Live state: session type = repair
+  — User is visibly stressed (emotional baseline deviation + frustration signals)
+  — User has submitted 3+ tasks without completing any (high avoidance moment)
+
+SUPPRESS STRATEGIC INSIGHTS AND SUGGESTIONS:
+  — Live state: cognitive load = high or overloaded
+  — Session type = sprint (execution-only window)
+  — User has deferred the same type of item twice this week already
+  — A previous item surfaced within the last 30 minutes of this session
+
+SUPPRESS RELATIONSHIP SUGGESTIONS SPECIFICALLY:
+  — The relationship has been explicitly marked sensitive or private by the user
+  — The user explicitly said "I'll handle [person]" or "don't remind me about [person]"
+  — The user's emotional temperature is significantly below their baseline
+    (don't suggest relationship maintenance when the user seems down)
+
+SUPPRESS AUTONOMOUS ACTIONS SPECIFICALLY:
+  — Authorization level hasn't been confirmed for this category
+  — The action would use a template the user hasn't reviewed recently
+    (more than 90 days since last confirmation of the template approach)
+  — External conditions have changed significantly since the action was last
+    authorized (e.g., a key relationship's status has changed dramatically)
+
+SUPPRESS CONTENT-RELATED SUGGESTIONS:
+  — User has already published or submitted content in the last 24 hours
+    (don't pile on — let them breathe between content moments)
+  — The user is in a fundamentally different mode than when the content angle
+    was identified (a content suggestion generated during a discovery window
+    should not surface during a repair window 3 days later)
+
+──────────────────────────────────────────────────────────────────────────────
+THE SILENCE DISCIPLINE
+──────────────────────────────────────────────────────────────────────────────
+
+Most agents are biased toward action. When in doubt, they surface something.
+This is the wrong default. The correct default is silence. Surface only when
+the priority score is high enough to justify it.
+
+The silence discipline means: if nothing in the queue scores above the Tier 1
+threshold at session start, nothing surfaces at session start. The agent waits
+for a natural break, re-scores, and surfaces in Tier 2 position if appropriate.
+
+If nothing scores above Tier 2 threshold all session: nothing surfaces.
+This is not a failure. Some sessions should be purely execution sessions.
+A proactive item forced into a session that doesn't fit it is worse than nothing.
+
+Tracking silence: how often does the agent stay silent? If it's surfacing
+something every session, that's too frequent. Target: 3-4 sessions out of 10
+should have proactive items. The rest are pure execution.
+
+──────────────────────────────────────────────────────────────────────────────
+THE "NEVER SURFACE" LIST
+──────────────────────────────────────────────────────────────────────────────
+
+Some things the agent observes should never be surfaced, regardless of
+signal strength or priority score:
+
+  NEVER SURFACE:
+  — Anything that implies a judgment about the user's character or worth
+    ("You've been avoiding hard conversations")
+  — Anything about health, family, or relationships outside professional context
+  — Anything the user has told the agent is private ("don't mention X")
+  — Observations that could only be based on content the agent was not
+    supposed to be analyzing (privacy boundary violations)
+  — Any comparison to other people ("Other founders I've worked with...")
+    — the agent doesn't know other users, and comparisons are presumptuous
+  — Any prediction about outcomes outside the agent's actual model
+    ("You'll probably get the deal" — this is speculation, not intelligence)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 9 — THE MODE INTERACTION CHAINS
+How the five modes trigger and build on each other
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The five action modes are not independent. They interact through chains that
+compound value over time. When chains are understood and designed for, the
+system produces more than the sum of its parts.
+
+──────────────────────────────────────────────────────────────────────────────
+CHAIN 1 — THE CALIBRATION CHAIN (Mode 2 → Mode 5 → Mode 1)
+──────────────────────────────────────────────────────────────────────────────
+
+Adaptive behavior (Mode 2) improves baseline quality.
+Improved quality reduces correction frequency.
+Reduced corrections improve model confidence.
+Higher model confidence enables Ambient Intelligence (Mode 5) to calibrate
+more accurately.
+More accurate ambient calibration reduces the frequency of wrong insights
+(Mode 1), making the ones that surface more trusted.
+
+The calibration chain is why the system must prioritize Mode 2 early.
+Every edit pattern identified and adapted is a brick in the foundation
+that makes everything else work better.
+
+──────────────────────────────────────────────────────────────────────────────
+CHAIN 2 — THE INSIGHT-TO-AUTOMATION CHAIN (Mode 1 → Mode 3 → Mode 2 → Mode 4)
+──────────────────────────────────────────────────────────────────────────────
+
+An insight surfaces: "You do X manually 5 times per week." (Mode 1)
+→ A suggestion follows: "Want me to automate X?" (Mode 3)
+→ User accepts. The agent learns the pattern and adapts defaults. (Mode 2)
+→ Eventually runs it autonomously on the right cadence. (Mode 4)
+
+This is the full arc from observation to automation. It spans weeks.
+Each step authorizes the next step, but no step skips directly to the final.
+The chain must be walked, not jumped.
+
+──────────────────────────────────────────────────────────────────────────────
+CHAIN 3 — THE RELATIONSHIP INTELLIGENCE CHAIN (Mode 5 → Mode 1 → Mode 3 → Mode 4)
+──────────────────────────────────────────────────────────────────────────────
+
+Ambient intelligence silently builds relationship context from every task
+mention, feed observation, and communication pattern. (Mode 5)
+→ Pattern threshold crossed: "This relationship has been cooling for 3 weeks"
+   is surfaced as an insight. (Mode 1)
+→ A suggestion appears: "Want me to draft a touchpoint?" (Mode 3)
+→ User says yes. Eventually: "Every 3 weeks, prepare a touchpoint to [person]
+   for my review." (Mode 4)
+
+The relationship becomes maintained autonomously after walking the chain.
+
+──────────────────────────────────────────────────────────────────────────────
+CHAIN 4 — THE ENVIRONMENTAL SIGNAL CHAIN (Channel E → Mode 1 → Mode 3 → Mode 2)
+──────────────────────────────────────────────────────────────────────────────
+
+Feed intelligence observes emerging topic in user's environment. (Extraction)
+→ Topic appears in multiple feed visits. Compound with vocabulary arrival signal.
+→ Insight surfaces: "Your world is moving toward [topic]. Is this intentional?" (Mode 1)
+→ User confirms. Suggestion: "Want me to pre-load context on [topic] for future tasks?" (Mode 3)
+→ User accepts. Agent now automatically pre-loads this context. (Mode 2)
+
+The environmental signal becomes ambient intelligence through the chain.
+
+──────────────────────────────────────────────────────────────────────────────
+CHAIN 5 — THE CONTENT PERFORMANCE CHAIN (Mode 4 → Mode 1 → Mode 2)
+──────────────────────────────────────────────────────────────────────────────
+
+Agent autonomously tracks performance of content it has produced. (Mode 4)
+→ Pattern emerges: specific content type consistently outperforms. (Mode 1)
+→ Agent silently updates content default approach for this user and platform. (Mode 2)
+
+The user never has to say "posts with numbers do better." The chain handles it.
+
+──────────────────────────────────────────────────────────────────────────────
+CHAIN FAILURE MODES AND PREVENTION
+──────────────────────────────────────────────────────────────────────────────
+
+Chains can break at any step. When they break:
+
+  BREAK AT MODE 1 (insight doesn't surface or is dismissed):
+    Chain stalls. Re-evaluate the insight trigger: was it really a pattern?
+    If dismissed 2x, abort the chain for this specific instance.
+
+  BREAK AT MODE 3 (suggestion dismissed):
+    The user doesn't want this automated. Mark the category as user-retained.
+    Don't resurface the automation suggestion for 90 days.
+
+  BREAK AT MODE 4 (autonomous execution not authorized):
+    Normal. Not all chains reach Mode 4. Mode 4 requires explicit user intent.
+    Keep running Modes 1-3 for the value they provide without Mode 4.
+
+  CHAIN RUSH (trying to compress the chain into one session):
+    This is the most common failure mode. Showing the insight AND the suggestion
+    AND asking about automation in the same session is too much. One step per session.
+    Let the chain breathe.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 10 — THE CROSS-SESSION CONTINUITY LAYER
+Actions that span multiple sessions
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Some agent actions aren't completed in one session. The agent promises to
+check back, the user defers a decision, an autonomous action runs between
+sessions, or a multi-step task spans days.
+
+──────────────────────────────────────────────────────────────────────────────
+THE COMMITMENTS TABLE
+──────────────────────────────────────────────────────────────────────────────
+
+Every cross-session commitment is stored:
+
+  commitment_id
+  commitment_type     — time_based / event_based / condition_based
+  description         — what was promised or planned
+  trigger_type        — after_N_days / on_event / on_condition
+  trigger_value       — the specific trigger (e.g., "3 days", "investor replies",
+                         "user starts fundraising tasks again")
+  created_at          — session when this was created
+  due_at              — earliest it can surface (null for condition-based)
+  status              — pending / fired / cancelled / expired
+  fired_at            — when it surfaced (if it has)
+
+Types of commitments:
+
+  TIME-BASED: "Let me check back on this in 3 days"
+    Simple. Surface the follow-up at the next session that's 3+ days later.
+    Include the original context: "3 days ago you were working on [X]. How did it go?"
+
+  EVENT-BASED: "When [person] replies, remind me to follow up"
+    Requires monitoring the triggering condition.
+    Surface when: agent observes the reply in next inbox check.
+    Note: this requires observable access (inbox access authorized by user).
+
+  CONDITION-BASED: "Next time you're working on fundraising, surface this"
+    Fires when the live state matches the condition (current focus = fundraising).
+    More sophisticated. Condition evaluated at each session start.
+
+──────────────────────────────────────────────────────────────────────────────
+SESSION START COMMITMENT CHECK
+──────────────────────────────────────────────────────────────────────────────
+
+At every session start, before anything else:
+  1. Check all pending commitments. Has any trigger been met?
+  2. If yes: surface the commitment report. "I was going to follow up on [X]..."
+  3. Commitment report counts as the one proactive item for the session.
+  4. If multiple commitments have fired simultaneously: surface the most
+     time-sensitive one. Others go into Tier 1 for the next session.
+
+Commitment expiry: if a commitment hasn't fired in 30 days, it expires.
+Agent surfaces a brief note: "I was tracking [X] but the trigger never fired.
+Is this still relevant?"
+
+──────────────────────────────────────────────────────────────────────────────
+THE IN-PROGRESS TASK TRACKER
+──────────────────────────────────────────────────────────────────────────────
+
+Beyond commitments, the agent tracks tasks that were started but not completed
+across sessions. This is different from task abandonment — it's intentional
+multi-session work.
+
+The tracker stores:
+  — Task description and what was done in the previous session
+  — What remains to be done
+  — When the user last worked on it
+  — Whether the user mentioned a deadline
+
+At session start: if there's an in-progress multi-session task that the
+user has worked on recently (within 5 days), the agent surfaces:
+"You were working on [X] last session. Ready to continue, or something else first?"
+
+This prevents the most common multi-session friction: the user has to re-explain
+context from a previous session. The agent remembers and re-surfaces it.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 11 — INSIGHT DELIVERY DESIGN
+The insight as a communication artifact
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The quality of an insight depends not just on what it says but how it's
+delivered. A structurally correct insight delivered wrong is worse than no insight.
+
+──────────────────────────────────────────────────────────────────────────────
+THE FOUR INSIGHT DELIVERY FORMATS
+──────────────────────────────────────────────────────────────────────────────
+
+FORMAT 1 — THE OBSERVATION (for simple, factual, low-stakes insights)
+  Lead: the observation itself, stated simply. No buildup.
+  Body: none. The observation is self-contained.
+  Close: optional one question if action is natural.
+  Length: 1-2 sentences max.
+  Tone: neutral, factual.
+  Example: "Your competitor just published their product roadmap publicly.
+    Worth a look?"
+  Use for: environmental updates, timing observations, simple relationship flags.
+
+FORMAT 2 — THE PATTERN (for medium-stakes insights based on recurring signals)
+  Lead: a frame that signals "I've noticed something over time, not just today"
+  Body: 2-3 specific evidence points, briefly stated.
+  Close: a direct question or "I thought you should know."
+  Length: 3-5 sentences.
+  Tone: observational, curious, not prescriptive.
+  Example: "I've noticed your writing tasks tend to have twice as many edits
+    when you do them after 3pm. Your best drafts come from morning sessions.
+    It might be worth keeping complex writing for your morning time."
+  Use for: behavioral pattern insights, timing insights, format insights.
+
+FORMAT 3 — THE COMPOUND (for multi-signal, high-stakes insights)
+  Lead: signal that something meaningful is being shared — invitation, not alert.
+  Body: 2-4 evidence bullets. Each one specific. Each from a different channel.
+  Bridge: one sentence connecting them.
+  Question: binary or near-binary. Makes it easy to respond.
+  Close: implication is offered ONLY if user confirms. Never assume they will.
+  Length: max 150 words.
+  Tone: respectful of the user's judgment. The agent is observing, not concluding.
+  Example: (see compound insight examples in Part 5)
+  Use for: goal drift, identity shift, blocking pattern, hidden priority insights.
+
+FORMAT 4 — THE PROMPT (for in-the-moment, during-task insights)
+  Lead: starts with "one thing — " or "quick note — " to signal brevity.
+  Body: the insight, compressed to one sentence.
+  Close: none. The user decides whether to engage.
+  Length: one sentence. Always.
+  Tone: conversational. Like a thought that occurred to you mid-task.
+  Example: "One thing — [person] usually replies faster to shorter messages.
+    Just in case you want to tighten this one."
+  Use for: relationship-aware micro-insights during email drafts, in-task observations
+    that improve the current output without interrupting flow.
+
+──────────────────────────────────────────────────────────────────────────────
+THE INSIGHT TONE SPECTRUM
+──────────────────────────────────────────────────────────────────────────────
+
+All insights exist on a tone spectrum from purely observational to actionable.
+
+  PURELY OBSERVATIONAL: "I noticed X." No suggestion. No question.
+    For when the insight is complete in itself. The user knows what to do with it.
+    Use this when the implication is obvious and the user is clearly capable.
+    Most environmental insights (competitor activity, feed shifts) work here.
+
+  OBSERVATIONAL WITH OFFER: "I noticed X. Want me to [action]?"
+    For when the next step is clear AND achievable by the agent.
+    The offer lowers the friction of acting on the observation.
+    Most relationship timing insights work here.
+
+  OBSERVATIONAL WITH QUESTION: "I noticed X. Does that match how you see it?"
+    For when the insight might be wrong and user verification is needed before
+    the agent takes any action. Compound insights always work this way.
+    Never offer a next step until the user confirms the observation.
+
+  ADVISORY: "Based on [pattern], it might be worth [consideration]."
+    For when the implication is a judgment call and the user should make it.
+    The agent doesn't recommend — it informs. The user decides.
+    Goal-related insights and priority insights work here.
+
+The tone should always be slightly more uncertain than the agent's actual
+confidence level. A 90% confident insight should be delivered with 80% certainty
+in its language. This is not dishonesty — it's appropriate epistemic humility.
+The agent is working with inference, not ground truth.
+
+──────────────────────────────────────────────────────────────────────────────
+THE THREE-SECOND TEST
+──────────────────────────────────────────────────────────────────────────────
+
+Every insight, before it's staged, should pass this test:
+If the user reads only the first sentence and stops — is that sentence alone
+valuable? If yes: the insight passes. If no: rewrite the opening.
+
+Most insights fail this test because they open with context before the point.
+"I've been analyzing your LinkedIn feed activity and the patterns I've observed
+over the last eight weeks suggest..." → fails.
+"Your LinkedIn feed has been shifting heavily toward product content." → passes.
+
+The first sentence must be the insight, not the buildup to it.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 12 — GRACEFUL DEGRADATION
+Acting with low confidence
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The behavioral model is not always confident. New users have low-confidence
+models. Users going through identity shifts have temporarily low-confidence
+models. After a significant correction, specific sub-models drop confidence.
+
+The agent must continue to operate in all these states. Graceful degradation
+means: continue to act, honestly represent uncertainty, and don't pretend to
+know more than the model does.
+
+──────────────────────────────────────────────────────────────────────────────
+DEGRADATION BY CONFIDENCE LEVEL
+──────────────────────────────────────────────────────────────────────────────
+
+HIGH CONFIDENCE (75-100%): standard operation
+  Agent applies model directly. No hedging in output format.
+  Insights surfaced normally. Adaptive behaviors applied fully.
+  Suggestions generated at normal thresholds.
+
+MEDIUM CONFIDENCE (40-74%): slightly hedged operation
+  Agent applies model but signals uncertainty where relevant.
+  Format: "Based on what I've seen, you tend to prefer [X] — going with that
+    unless you want to change the approach."
+  Insights: surface only at 60%+ confidence. Lower-confidence insights held.
+  Adaptive behaviors: applied but agent checks in more often. "I adapted X —
+    is that working for you?" Asked once per 5 sessions, not every time.
+
+LOW CONFIDENCE (20-39%): explicit uncertainty + general best practices
+  Agent doesn't pretend to have a model. Uses general best practices instead.
+  Format: "I don't have a clear sense of your preference here yet —
+    going with a standard approach. Let me know what to adjust."
+  Insights: not surfaced in this confidence range. Observation-only mode.
+  Adaptive behaviors: limited to behaviors that are nearly universal
+    (e.g., "shorter is usually better if I'm not sure" — safe default).
+  Suggestions: not generated from model. Only task-specific recommendations.
+
+UNKNOWN / COLD START (0-19%): explicit cold-start mode
+  First sessions. Agent communicates that it's in calibration mode.
+  "I'm still learning how you work. I'll start with reasonable defaults —
+    let me know what's off and I'll adjust."
+  No insights. No suggestions. No adaptive behaviors beyond basics.
+  Focus entirely on executing the task and capturing correction signals.
+
+──────────────────────────────────────────────────────────────────────────────
+DEGRADATION BY DOMAIN
+──────────────────────────────────────────────────────────────────────────────
+
+The model is not uniformly confident across all task types. High confidence
+in writing tasks does not imply high confidence in financial tasks.
+
+When a task is in a low-confidence domain:
+  — Agent signals the domain-specific uncertainty: "I'm less calibrated
+    on [domain] tasks — this is my best attempt."
+  — Offers to adjust more explicitly: "Let me know what I got wrong here."
+  — Does NOT apply insights or suggestions from other domains.
+    High confidence in general patterns doesn't compensate for low confidence
+    in the specific task domain.
+
+──────────────────────────────────────────────────────────────────────────────
+THE RESET AND RECALIBRATION SIGNAL
+──────────────────────────────────────────────────────────────────────────────
+
+When a significant correction happens (user provides a major correction that
+invalidates a high-confidence model component), the agent should:
+
+  1. Acknowledge explicitly: "That's a significant correction — I had this wrong.
+     I'll update how I approach [domain/type]."
+  2. Reset that sub-model to medium confidence, not zero. Some prior signal
+     is still valid; this correction updates the direction, not the entire model.
+  3. Surface what changed at the next session: "Based on your correction last
+     session, I've adjusted my default approach to [X]. Does this feel right?"
+  4. Increase correction-watching for 2 weeks after a major reset.
+     The model's neighborhood of confidence needs re-validation.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 13 — THE ACTION TRANSPARENCY LAYER
+What the user can see, audit, and control about agent actions
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The collection plan has a model transparency layer (/model show, /explain, /correct).
+The action layer needs its own parallel transparency system focused on WHAT
+the agent has done, not just what it believes.
+
+──────────────────────────────────────────────────────────────────────────────
+/ACTIONS SHOW — ACTION AUDIT LOG
+──────────────────────────────────────────────────────────────────────────────
+
+A complete log of everything the agent has done proactively (not reactively):
+  — Insights surfaced and whether they were acted on / dismissed
+  — Suggestions made and their outcomes
+  — Autonomous tasks run and their results
+  — Behavioral adaptations made (silently changed defaults)
+  — Commitments made and their status
+
+Organized by time: most recent first.
+User can inspect any item. User can undo any adaptation that was applied
+(revert to pre-adaptation default). User can cancel any pending commitment.
+
+The action audit log is the antidote to the "when did I authorize this?" feeling.
+Everything is visible, inspectable, and reversible through this log.
+
+──────────────────────────────────────────────────────────────────────────────
+/ACTIONS PENDING — WHAT'S IN THE QUEUE
+──────────────────────────────────────────────────────────────────────────────
+
+Shows everything currently waiting to surface:
+  — Insights staged and ready (with their priority scores)
+  — Suggestions queued (with their priority scores and why they haven't surfaced)
+  — Commitments pending (with trigger conditions and status)
+  — Autonomous tasks authorized and scheduled
+
+User can:
+  — Pull anything from the queue to surface it now
+  — Push anything back with a specific delay ("surface this in 2 weeks")
+  — Cancel anything completely
+  — See WHY something hasn't surfaced yet ("waiting for Review window")
+
+──────────────────────────────────────────────────────────────────────────────
+/ACTIONS STOP — SUPPRESS SPECIFIC ACTION TYPES
+──────────────────────────────────────────────────────────────────────────────
+
+User can suppress any action type, category, or specific item:
+  /actions stop relationship-suggestions → no relationship suggestions surface
+  /actions stop feed-insights → no feed intelligence insights
+  /actions stop autonomous-[category] → suspend a specific autonomous execution
+  /actions stop all → silence everything proactive (pure execution mode)
+
+Suppressions can be time-limited: /actions stop all for 2 weeks (conference season)
+Or permanent: /actions stop financial-suggestions → added to behavioral contract.
+
+The stop command is the safety valve. Users who find the proactive layer
+annoying at any point can turn it off without losing the rest of the system.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 14 — THE EXTENDED HARD PROBLEMS
+What will go wrong and how to handle it
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Building on the previous conversation's P8-P12, here are seven more:
+
+P13 — THE OVER-ADAPTED AGENT
+  The agent adapts to the user so thoroughly that it stops pushing back.
+  The user makes a mistake in framing, the agent adapts to the mistake.
+  The user drifts from their goals, the agent stops surfacing the drift
+  because it's learned that goal drift insights are dismissed.
+
+  Solution: distinguish between preference adaptation (legitimate) and
+    quality adaptation (not legitimate). The agent adapts how it delivers
+    things. It does not adapt what's true. Goal drift is still surfaced
+    even if previous insights were dismissed — but the framing changes each
+    time to find an angle the user will engage with. The content of insight
+    doesn't adapt to user preferences. Only the delivery does.
+
+P14 — THE RELATIONSHIP OVER-REACH
+  The agent surfaces a relationship insight at a sensitive moment.
+  "You haven't been in touch with [person] in 3 weeks" — but the user
+  is avoiding that person intentionally for reasons the agent doesn't know.
+  Or the relationship has ended and the agent doesn't know it.
+
+  Solution: relationship insights always end with a check, not an assumption.
+    "You haven't been in touch with [person] recently. Is this intentional?"
+    Not: "You should reach out to [person]."
+    The user's response updates the relationship model: "yes, intentional"
+    → relationship marked as intentionally inactive. Never surfaces again.
+
+P15 — THE SUGGESTION FLOOD AFTER A QUIET PERIOD
+  The user takes 2 weeks off. Queue builds up with 8 things that all score
+  highly because they've been waiting. First session back, the agent surfaces
+  one thing and has 7 more queued for the next 7 sessions.
+
+  Solution: after any 10+ day absence, run a priority flush:
+    Re-score all queued items. Many will have gone stale (RECENCY drops).
+    Items that are stale drop out of the queue. What remains is re-ranked.
+    The user's first session back should feel fresh, not like playing catch-up.
+
+P16 — THE WRONG COMPOUND INSIGHT
+  The compound insight engine identifies a pattern across three channels.
+  But two of the three channels are experiencing correlated noise — a single
+  unusual event affected multiple channels simultaneously, creating the
+  appearance of a pattern that isn't one.
+
+  Solution: compound insights require independence verification.
+    The three channels contributing to a compound insight must have been
+    observed at different times, not in the same session or adjacent sessions.
+    Same-session multi-channel signals don't compound — they're probably
+    driven by the same external event.
+
+P17 — THE AUTONOMOUS ACTION THAT BECOMES INAPPROPRIATE
+  An autonomous action was authorized 3 months ago. Since then, the context
+  has changed: the relationship it was maintaining is now strained, or the
+  competitive brief it was producing is now about a company the user has
+  partnered with.
+
+  Solution: autonomous action expiry. Every Level 2 authorized action has
+    a 90-day expiry by default. Before executing after expiry, the agent
+    surfaces: "I've been [running this autonomous task] for 3 months.
+    Still relevant? I'll continue if yes." One confirmation refreshes it.
+    No response after 3 sessions: pause the action and surface a question.
+
+P18 — THE TRANSPARENCY TRAP
+  The action audit log (/actions show) is so comprehensive that the user
+  starts reading it obsessively and second-guessing every adaptation.
+  The transparency layer creates anxiety instead of trust.
+
+  Solution: the audit log shows WHAT happened, not the underlying model.
+    It shouldn't display confidence scores or signal counts — those create
+    a false impression of precision. Just: "I've been defaulting to bullet
+    points for research output since [date]. You can change this."
+    Not: "Based on 23 edit signals with 0.74 aggregate confidence,
+    I adapted your research output format."
+    Human-readable, not model-readable. Inspectable but not intimidating.
+
+P19 — THE ACTION THAT MAKES A MISTAKE VISIBLE
+  The agent autonomously does something (prepares a relationship touchpoint,
+  generates a competitive brief) that reveals the agent got something wrong
+  about the user's situation. The user trusted the agent and the agent
+  produced something inappropriate.
+
+  Solution: every autonomous action — even at Level 2 — surfaces for review
+    before any external effect. "I prepared [X]. Here it is. Send / ignore."
+    The preparation phase catches mistakes before they have consequences.
+    The agent never skips the review step for anything with external effects,
+    regardless of how confident the model is.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 15 — THE FULL BUILD SEQUENCE
+Action layer implementation in order
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SPRINT 1 — BEHAVIORAL CONTRACT + AMBIENT INTELLIGENCE FOUNDATION (3-4 days)
+  Behavioral contract implemented and queried first (from Collection plan)
+  Basic ambient intelligence: relationship pre-loading, cognitive load detection
+  Format adaptation (Mode 2): edit magnitude → format default update
+  This is invisible to the user but produces immediate quality improvement.
+  Nothing surfaces yet. Pure baseline improvement.
+
+SPRINT 2 — PRIORITIZATION ENGINE + TIMING LAYER (3-4 days)
+  Priority formula implemented
+  Session window classification (Sprint / Discovery / Review / Repair / Low-energy)
+  One-item rule enforced
+  Suppression conditions active
+  Nothing surfaces yet — queue exists but timing rules prevent surfacing
+  until confidence is sufficient.
+
+SPRINT 3 — SIMPLE INSIGHT SURFACING (Mode 1, basic) (2-3 days)
+  First insight types: feed observation, relationship flag, timing observation
+  FORMAT 1 (observation format) only — shortest and lowest risk
+  Insight surfaces once, in the right window, via the priority engine
+  User sees first proactive item from the agent
+  Action memory begins recording outcomes
+
+SPRINT 4 — SUGGESTION LIFECYCLE + QUEUE (3-4 days)
+  Full seven-stage suggestion lifecycle implemented
+  Queue health monitoring active
+  Deferral, dismissal, lock logic working
+  First suggestion types: simple low-friction ones (one-click approve type)
+  Commitment layer: time-based commitments only (no event/condition yet)
+
+SPRINT 5 — ADAPTIVE BEHAVIOR SYSTEM (Mode 2, full) (4-5 days)
+  All adaptive behaviors from catalog implemented
+  Tone calibration, length calibration, vocabulary calibration
+  Relationship-aware tone adaptation
+  Domain register calibration
+  Context pre-loading by task type
+  Frustration-triggered mode switch
+  All Mode 2 behaviors are silent. Transparency via /actions show
+
+SPRINT 6 — COMPOUND INSIGHTS + ACTION MEMORY FEEDBACK (4-5 days)
+  Compound insight generation (all six types)
+  FORMAT 3 (compound) delivery implemented
+  Action memory feeding back into priority formula
+  Effectiveness scores calculated per category
+  VALUE estimates updated from outcomes
+
+SPRINT 7 — AUTONOMOUS EXECUTION (Mode 4, Level 2 categories) (3-4 days)
+  Authorization framework in place
+  First autonomous categories: competitive brief, session prep context
+  Expiry system (90-day re-authorization)
+  Scope boundary enforcement
+  /actions show, /actions pending, /actions stop implemented
+
+SPRINT 8 — CROSS-SESSION CONTINUITY (3-4 days)
+  Commitments table: time-based, event-based, condition-based
+  Session start commitment check
+  In-progress task tracker
+  Multi-session task re-surfacing
+
+SPRINT 9 — MODE INTERACTION CHAINS + TRANSPARENCY AUDIT (3-4 days)
+  Chain architecture: each mode can generate triggers for the next
+  Chain failure detection and recovery
+  Full transparency layer: /actions show, /explain, /correct for actions
+  Graceful degradation by confidence level
+  Hard problem prevention systems active
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE GOVERNING PRINCIPLE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The action layer works when the user feels that the agent is on their side.
+Not smart — on their side.
+
+Smart is easy to perceive and easy to distrust.
+Being on someone's side means: knowing when to help and when to stay out of
+the way. Knowing when the timing is wrong. Knowing when the insight is right
+but the moment isn't. Knowing when to surface one thing and save nine others.
+Knowing when the user is struggling and making things easier, not more complex.
+Knowing when to act and knowing — with equal certainty — when not to.
+
+The agent that does this reliably is the agent users tell other people about.
+Not "it's really smart." But "it just gets me."
+That's what the action layer is trying to produce.
+
+═══════════════════════════════════════════════════════════════════════════════

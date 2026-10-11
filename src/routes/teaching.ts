@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { supabase } from '../lib/supabase.js'
+import { db, uuid, j } from '../lib/db.js'
 import { processSteps } from '../lib/teaching-processor.js'
 
 export const teachingRouter = Router()
@@ -14,21 +14,9 @@ interface ElementData {
   selector: string
   role: string
   label: string
-  coordinates: {
-    x: number
-    y: number
-    width: number
-    height: number
-    centerX: number
-    centerY: number
-    isVisible: boolean
-  }
+  coordinates: { x: number; y: number; width: number; height: number; centerX: number; centerY: number; isVisible: boolean }
   nearbyElements: string[]
-  pageContext: {
-    url: string
-    title: string
-    formName?: string
-  }
+  pageContext: { url: string; title: string; formName?: string }
 }
 
 interface RawEvent {
@@ -40,21 +28,13 @@ interface RawEvent {
   elementText?: string
   fieldValue?: string
   elementData?: ElementData
-  pageContext: {
-    url: string
-    title: string
-  }
+  pageContext: { url: string; title: string }
 }
 
 interface PlaywrightMetadata {
   recordingDuration: number
   totalEvents: number
-  eventTypes: {
-    navigate: number
-    click: number
-    input: number
-    scroll: number
-  }
+  eventTypes: { navigate: number; click: number; input: number; scroll: number }
   elementsUsed: number
   needsPlaywrightVerification: boolean
   playwrightExecutionPriority: 'high' | 'medium' | 'low'
@@ -85,111 +65,73 @@ teachingRouter.post('/teaching/save-skill', async (req, res) => {
     const skillDetails = sanitizeString(rawDetails, 2000) ?? ''
     const sessionId = sanitizeString(rawSession, 100) ?? undefined
 
-    if (!userId || !skillName) {
-      return res.status(400).json({ error: 'Missing required fields: userId, skillName' })
-    }
+    if (!userId || !skillName) return res.status(400).json({ error: 'Missing required fields: userId, skillName' })
 
-    // Auth check
-    const { data: userExists } = await supabase
-      .from('api_keys')
-      .select('user_id')
-      .eq('user_id', userId)
-      .single()
+    const userExists = db.prepare('SELECT user_id FROM api_keys WHERE user_id = ?').get(userId)
+    if (!userExists) return res.status(401).json({ error: 'Unauthorized: invalid userId' })
 
-    if (!userExists) {
-      return res.status(401).json({ error: 'Unauthorized: invalid userId' })
-    }
+    const existingSkill = db.prepare('SELECT id FROM skills WHERE user_id = ? AND skill_name = ?').get(userId, skillName)
+    if (existingSkill) return res.status(409).json({ error: 'Skill with this name already exists' })
 
-    // Duplicate skill name check
-    const { data: existingSkill } = await supabase
-      .from('skills')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('skill_name', skillName)
-      .single()
-
-    if (existingSkill) {
-      return res.status(409).json({ error: 'Skill with this name already exists' })
-    }
-
-    // Validate steps array
-    if (!Array.isArray(steps) || steps.length === 0) {
-      return res.status(400).json({ error: 'steps must be a non-empty array' })
-    }
-
-    if (steps.length > 200) {
-      return res.status(400).json({ error: 'Too many steps (max 200)' })
-    }
+    if (!Array.isArray(steps) || steps.length === 0) return res.status(400).json({ error: 'steps must be a non-empty array' })
+    if (steps.length > 200) return res.status(400).json({ error: 'Too many steps (max 200)' })
 
     for (const step of steps) {
-      if (
-        typeof step.step_number !== 'number' ||
-        typeof step.action_type !== 'string' ||
-        typeof step.description !== 'string'
-      ) {
-        return res.status(400).json({
-          error: 'Each step must have step_number (number), action_type (string), and description (string)'
-        })
+      if (typeof step.step_number !== 'number' || typeof step.action_type !== 'string' || typeof step.description !== 'string') {
+        return res.status(400).json({ error: 'Each step must have step_number (number), action_type (string), and description (string)' })
       }
     }
 
     console.log('[teaching] Saving skill:', skillName, 'for user:', userId)
-
-    // Process: normalize + variable extraction + summary
     const { processedSteps, variables, summary } = await processSteps(steps, skillName, skillDetails)
 
-    // Save skill record
-    const { data: skill, error: skillError } = await supabase
-      .from('skills')
-      .insert({
-        user_id: userId,
-        session_id: sessionId,
-        skill_name: skillName,
-        skill_details: skillDetails,
-        summary,
-        variables,
-        step_count: processedSteps.length,
+    const skillId = uuid()
+    db.prepare(`
+      INSERT INTO skills (id, user_id, session_id, skill_name, skill_details, summary, variables, step_count,
+        raw_session_data, element_registry, playwright_metadata, conversion_metadata,
+        verified_by_playwright, needs_semantic_analysis)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+    `).run(
+      skillId, userId, sessionId ?? null, skillName, skillDetails, summary,
+      j(variables), processedSteps.length,
+      rawSessionData ? JSON.stringify(rawSessionData) : null,
+      rawSessionData ? JSON.stringify(rawSessionData.elementRegistry) : null,
+      rawSessionData ? JSON.stringify(rawSessionData.playwrightMetadata) : null,
+      conversionMetadata ? JSON.stringify(conversionMetadata) : null,
+      rawSessionData ? 1 : 0
+    )
 
-        raw_session_data: rawSessionData ? JSON.stringify(rawSessionData) : null,
-        element_registry: rawSessionData ? JSON.stringify(rawSessionData.elementRegistry) : null,
-        playwright_metadata: rawSessionData ? JSON.stringify(rawSessionData.playwrightMetadata) : null,
-        conversion_metadata: conversionMetadata ? JSON.stringify(conversionMetadata) : null,
+    console.log('[teaching] Skill saved:', skillId)
 
-        verified_by_playwright: false,
-        needs_semantic_analysis: !!rawSessionData
-      })
-      .select('id')
-      .single()
-
-    if (skillError || !skill) {
-      console.error('[teaching] Failed to insert skill:', skillError)
-      return res.status(500).json({ error: 'Failed to save skill' })
-    }
-
-    console.log('[teaching] Skill saved:', skill.id)
-
-    // Save all steps
-    const stepRows = processedSteps.map((step, index) => ({
-      skill_id: skill.id,
+    const stepRows = processedSteps.map((step: any, index: number) => ({
+      id: uuid(),
+      skill_id: skillId,
       step_number: step.step_number,
       action_type: step.action_type,
       description: step.description,
       screenshot: step.screenshot ?? null,
-      identified_variables: step.identified_variables,
-      is_manual: step.is_manual,
-
-      raw_event_data: rawSessionData?.events[index]
-        ? JSON.stringify(rawSessionData.events[index])
-        : null,
+      identified_variables: j(step.identified_variables),
+      is_manual: step.is_manual ? 1 : 0,
+      raw_event_data: rawSessionData?.events[index] ? JSON.stringify(rawSessionData.events[index]) : null,
       element_ref: rawSessionData?.events[index]?.elementRef ?? null,
       element_selector: rawSessionData?.events[index]?.elementData?.selector ?? null
     }))
 
-    const { error: stepsError } = await supabase.from('skill_steps').insert(stepRows)
+    const insertStep = db.prepare(`
+      INSERT INTO skill_steps (id, skill_id, step_number, action_type, description, screenshot, identified_variables, is_manual, raw_event_data, element_ref, element_selector)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
 
-    if (stepsError) {
+    try {
+      db.exec('BEGIN')
+      for (const r of stepRows) {
+        insertStep.run(r.id, r.skill_id, r.step_number, r.action_type, r.description, r.screenshot, r.identified_variables, r.is_manual, r.raw_event_data, r.element_ref, r.element_selector)
+      }
+      db.exec('COMMIT')
+    } catch (stepsError) {
+      try { db.exec('ROLLBACK') } catch {}
       console.error('[teaching] Failed to insert steps:', stepsError)
-      await supabase.from('skills').delete().eq('id', skill.id)
+      db.prepare('DELETE FROM skills WHERE id = ?').run(skillId)
       return res.status(500).json({ error: 'Failed to save steps' })
     }
 
@@ -201,7 +143,7 @@ teachingRouter.post('/teaching/save-skill', async (req, res) => {
     })
 
     return res.status(201).json({
-      skillId: skill.id,
+      skillId,
       skillName,
       steps: processedSteps,
       variables,
@@ -216,36 +158,17 @@ teachingRouter.post('/teaching/save-skill', async (req, res) => {
   }
 })
 
-// GET /api/teaching/skills/:userId — list skills for a user
 teachingRouter.get('/teaching/skills/:userId', async (req, res) => {
   try {
     const userId = sanitizeString(req.params.userId, 100)
+    if (!userId) return res.status(400).json({ error: 'Invalid userId' })
 
-    if (!userId) {
-      return res.status(400).json({ error: 'Invalid userId' })
-    }
+    const userExists = db.prepare('SELECT user_id FROM api_keys WHERE user_id = ?').get(userId)
+    if (!userExists) return res.status(401).json({ error: 'Unauthorized' })
 
-    const { data: userExists } = await supabase
-      .from('api_keys')
-      .select('user_id')
-      .eq('user_id', userId)
-      .single()
-
-    if (!userExists) {
-      return res.status(401).json({ error: 'Unauthorized' })
-    }
-
-    const { data, error } = await supabase
-      .from('skills')
-      .select('id, skill_name, skill_details, summary, variables, step_count, created_at')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(50)
-
-    if (error) {
-      console.error('[teaching] Error fetching skills:', error)
-      return res.status(500).json({ error: error.message })
-    }
+    const data = db.prepare(
+      'SELECT id, skill_name, skill_details, summary, variables, step_count, created_at FROM skills WHERE user_id = ? ORDER BY created_at DESC LIMIT 50'
+    ).all(userId)
 
     return res.json(data || [])
   } catch (err) {
@@ -254,26 +177,12 @@ teachingRouter.get('/teaching/skills/:userId', async (req, res) => {
   }
 })
 
-// GET /api/teaching/skills/:skillId/steps — get full steps for a skill
 teachingRouter.get('/teaching/skills/:skillId/steps', async (req, res) => {
   try {
     const skillId = req.params.skillId
+    if (!skillId || typeof skillId !== 'string') return res.status(400).json({ error: 'Invalid skillId' })
 
-    if (!skillId || typeof skillId !== 'string') {
-      return res.status(400).json({ error: 'Invalid skillId' })
-    }
-
-    const { data, error } = await supabase
-      .from('skill_steps')
-      .select('*')
-      .eq('skill_id', skillId)
-      .order('step_number', { ascending: true })
-
-    if (error) {
-      console.error('[teaching] Error fetching steps:', error)
-      return res.status(500).json({ error: error.message })
-    }
-
+    const data = db.prepare('SELECT * FROM skill_steps WHERE skill_id = ? ORDER BY step_number ASC').all(skillId)
     return res.json(data || [])
   } catch (err) {
     console.error('[teaching] Unexpected error:', err)

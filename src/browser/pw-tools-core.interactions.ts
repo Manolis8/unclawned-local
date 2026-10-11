@@ -13,10 +13,11 @@ import { normalizeTimeoutMs, requireRef, toAIFriendlyError } from "./pw-tools-co
 type TargetOpts = {
   cdpUrl: string;
   targetId?: string;
+  page?: import("playwright-core").Page;
 };
 
 async function getRestoredPageForTarget(opts: TargetOpts) {
-  const page = await getPageForTargetId(opts);
+  const page = opts.page ?? await getPageForTargetId(opts);
   ensurePageState(page);
   restoreRoleRefsForTarget({ cdpUrl: opts.cdpUrl, targetId: opts.targetId, page });
   return page;
@@ -59,6 +60,7 @@ export async function highlightViaPlaywright(opts: {
 export async function clickViaPlaywright(opts: {
   cdpUrl: string;
   targetId?: string;
+  page?: import("playwright-core").Page;
   ref: string;
   doubleClick?: boolean;
   button?: "left" | "right" | "middle";
@@ -91,6 +93,7 @@ export async function clickViaPlaywright(opts: {
 export async function hoverViaPlaywright(opts: {
   cdpUrl: string;
   targetId?: string;
+  page?: import("playwright-core").Page;
   ref: string;
   timeoutMs?: number;
 }): Promise<void> {
@@ -130,6 +133,7 @@ export async function dragViaPlaywright(opts: {
 export async function selectOptionViaPlaywright(opts: {
   cdpUrl: string;
   targetId?: string;
+  page?: import("playwright-core").Page;
   ref: string;
   values: string[];
   timeoutMs?: number;
@@ -168,6 +172,7 @@ export async function pressKeyViaPlaywright(opts: {
 export async function typeViaPlaywright(opts: {
   cdpUrl: string;
   targetId?: string;
+  page?: import("playwright-core").Page;
   ref: string;
   text: string;
   submit?: boolean;
@@ -367,6 +372,7 @@ export async function evaluateViaPlaywright(opts: {
 export async function scrollIntoViewViaPlaywright(opts: {
   cdpUrl: string;
   targetId?: string;
+  page?: import("playwright-core").Page;
   ref: string;
   timeoutMs?: number;
 }): Promise<void> {
@@ -627,6 +633,7 @@ export async function setInputFilesViaPlaywright(opts: {
     scopeLabel: `uploads directory (${DEFAULT_UPLOAD_DIR})`,
   });
   if (!uploadPathsResult.ok) {
+    // @ts-ignore — TS can't narrow this union due to type errors in paths.ts
     throw new Error(uploadPathsResult.error);
   }
   const resolvedPaths = uploadPathsResult.paths;

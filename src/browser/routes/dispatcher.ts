@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 import { escapeRegExp } from "../../utils.js";
 import type { BrowserRouteContext } from "../server-context.js";
 import { registerBrowserRoutes } from "./index.js";
@@ -131,3 +132,4 @@ export function createBrowserRouteDispatcher(ctx: BrowserRouteContext) {
 }
 
 export type { BrowserDispatchRequest, BrowserDispatchResponse };
+

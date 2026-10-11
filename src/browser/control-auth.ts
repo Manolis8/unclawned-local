@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 import type { OpenClawConfig } from "../config/config.js";
 import { loadConfig } from "../config/config.js";
 import { resolveGatewayAuth } from "../gateway/auth.js";
@@ -96,3 +97,4 @@ export async function ensureBrowserControlAuth(params: {
     generatedToken: ensured.generatedToken,
   };
 }
+

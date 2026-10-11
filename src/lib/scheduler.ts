@@ -1,19 +1,15 @@
 import { createHash } from 'crypto'
 import { Cron } from 'croner'
-import OpenAI from 'openai'
-import { createClient } from '@supabase/supabase-js'
+import { resolveRuntime } from './model-router.js'
+import { db, uuid } from './db.js'
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY!
-)
+const _rt = () => resolveRuntime()
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const MIN_REFIRE_GAP_MS = 2000
 const MAX_TIMER_DELAY_MS = 60_000
-const DEFAULT_TOP_OF_HOUR_STAGGER_MS = 5 * 60 * 1000 // 5 minutes
+const DEFAULT_TOP_OF_HOUR_STAGGER_MS = 5 * 60 * 1000
 const BACKOFF_MS = [30_000, 60_000, 300_000, 900_000, 3_600_000]
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -51,48 +47,31 @@ function isTopOfHourCron(expr: string): boolean {
 
 // ─── Next run computation ─────────────────────────────────────────────────────
 
-export function computeNextRun(
-  taskId: string,
-  cronExpr: string,
-  lastRunAt?: number
-): number {
+export function computeNextRun(taskId: string, cronExpr: string, lastRunAt?: number): number {
   const nowMs = Date.now()
-  const staggerWindowMs = isTopOfHourCron(cronExpr)
-    ? DEFAULT_TOP_OF_HOUR_STAGGER_MS
-    : 0
+  const staggerWindowMs = isTopOfHourCron(cronExpr) ? DEFAULT_TOP_OF_HOUR_STAGGER_MS : 0
   const stagger = resolveStaggerOffset(taskId, staggerWindowMs)
 
   try {
     const c = new Cron(cronExpr)
     let next = c.nextRun(new Date(nowMs))
 
-    // Croner timezone bug workaround — retry from next second
-    if (!next || next.getTime() <= nowMs) {
-      next = c.nextRun(new Date(nowMs + 1000))
-    }
-    // Still stuck — retry from start of tomorrow
+    if (!next || next.getTime() <= nowMs) next = c.nextRun(new Date(nowMs + 1000))
     if (!next || next.getTime() <= nowMs) {
       const tomorrow = new Date()
       tomorrow.setDate(tomorrow.getDate() + 1)
       tomorrow.setHours(0, 0, 1, 0)
       next = c.nextRun(tomorrow)
     }
-
     if (!next) throw new Error(`Cannot compute next run for: ${cronExpr}`)
     return next.getTime() + stagger
   } catch (err) {
     console.error(`computeNextRun error for ${cronExpr}:`, err)
-    // Fallback: 1 hour from now
     return nowMs + 3_600_000
   }
 }
 
-function computeNextRunWithBackoff(
-  taskId: string,
-  cronExpr: string,
-  consecutiveErrors: number,
-  endedAtMs: number
-): number {
+function computeNextRunWithBackoff(taskId: string, cronExpr: string, consecutiveErrors: number, endedAtMs: number): number {
   const natural = computeNextRun(taskId, cronExpr, endedAtMs)
   if (consecutiveErrors === 0) return natural
   const backoff = BACKOFF_MS[Math.min(consecutiveErrors - 1, BACKOFF_MS.length - 1)]
@@ -101,13 +80,10 @@ function computeNextRunWithBackoff(
 
 // ─── Natural language parsing ─────────────────────────────────────────────────
 
-export async function parseSchedule(input: string): Promise<{
-  cron: string
-  human: string
-} | null> {
+export async function parseSchedule(input: string): Promise<{ cron: string; human: string } | null> {
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+    const response = await _rt().fastClient.chat.completions.create({
+      model: _rt().modelFor('low'),
       messages: [
         {
           role: 'system',
@@ -147,18 +123,10 @@ Return ONLY the JSON object, no markdown, no explanation.`
 
 // ─── Inbox messages ───────────────────────────────────────────────────────────
 
-export async function createMessage(
-  userId: string,
-  taskId: string,
-  content: string
-): Promise<void> {
+export async function createMessage(userId: string, taskId: string, content: string): Promise<void> {
   try {
-    await supabase.from('messages').insert({
-      user_id: userId,
-      task_id: taskId,
-      content,
-      read: false
-    })
+    db.prepare('INSERT INTO messages (id, user_id, task_id, content, read) VALUES (?, ?, ?, ?, 0)')
+      .run(uuid(), userId, taskId, content)
   } catch (err) {
     console.error('createMessage error:', err)
   }
@@ -166,12 +134,9 @@ export async function createMessage(
 
 // ─── Timer loop ───────────────────────────────────────────────────────────────
 
-// Import this from routes/tasks.ts when wiring up
 let _runTaskFn: ((taskId: string, prompt: string, userId: string) => Promise<void>) | null = null
 
-export function setRunTaskFn(
-  fn: (taskId: string, prompt: string, userId: string) => Promise<void>
-) {
+export function setRunTaskFn(fn: (taskId: string, prompt: string, userId: string) => Promise<void>) {
   _runTaskFn = fn
 }
 
@@ -180,64 +145,36 @@ export function armTimer(): void {
     clearTimeout(timerHandle)
     timerHandle = null
   }
-
   if (scheduledTasks.size === 0) return
 
   const nowMs = Date.now()
   let nearestMs = Infinity
-
   for (const task of scheduledTasks.values()) {
-    if (task.nextRunAt < nearestMs) {
-      nearestMs = task.nextRunAt
-    }
+    if (task.nextRunAt < nearestMs) nearestMs = task.nextRunAt
   }
-
   if (nearestMs === Infinity) return
 
   let delayMs = Math.max(nearestMs - nowMs, 0)
-
-  // Enforce minimum gap to prevent tight loops
   if (delayMs < MIN_REFIRE_GAP_MS) delayMs = MIN_REFIRE_GAP_MS
-
-  // Clamp to max for drift recovery
   if (delayMs > MAX_TIMER_DELAY_MS) delayMs = MAX_TIMER_DELAY_MS
 
   console.log(`⏱ Timer armed — next task in ${Math.round(delayMs / 1000)}s`)
-
   timerHandle = setTimeout(() => onTimer(), delayMs)
 }
 
 async function onTimer(): Promise<void> {
-  if (timerRunning) {
-    armTimer()
-    return
-  }
-
+  if (timerRunning) { armTimer(); return }
   timerRunning = true
-
   try {
     const nowMs = Date.now()
-
-    // Collect all due tasks
     const dueTasks: ScheduledTask[] = []
     for (const task of scheduledTasks.values()) {
-      if (task.nextRunAt <= nowMs) {
-        dueTasks.push(task)
-      }
+      if (task.nextRunAt <= nowMs) dueTasks.push(task)
     }
-
-    if (dueTasks.length === 0) {
-      armTimer()
-      return
-    }
-
+    if (dueTasks.length === 0) { armTimer(); return }
     console.log(`⏰ ${dueTasks.length} task(s) due`)
-
-    // Run all due tasks
     for (const task of dueTasks) {
-      runScheduledTask(task).catch(err => {
-        console.error(`Scheduled task ${task.taskId} threw:`, err)
-      })
+      runScheduledTask(task).catch(err => console.error(`Scheduled task ${task.taskId} threw:`, err))
     }
   } finally {
     timerRunning = false
@@ -246,7 +183,6 @@ async function onTimer(): Promise<void> {
 }
 
 async function runScheduledTask(task: ScheduledTask): Promise<void> {
-  // Skip if already running in memory — prevents duplicate runs
   if (runningTasks.has(task.taskId)) {
     console.log(`Task ${task.taskId} already running in memory, skipping`)
     return
@@ -255,18 +191,14 @@ async function runScheduledTask(task: ScheduledTask): Promise<void> {
 
   try {
     const { taskId, userId, prompt, cronExpr } = task
+    const { isExtensionConnected } = await import('./extension-state.js')
 
-    // Check if extension is connected — import dynamically to avoid circular deps
-    const { isExtensionConnected } = await import('../index.js')
+    // Distributed lock via running_at
+    const lockResult = db.prepare(
+      'UPDATE tasks SET running_at = ? WHERE id = ? AND running_at IS NULL'
+    ).run(new Date().toISOString(), taskId)
 
-    // Write running_at BEFORE executing — distributed lock
-    const { error: lockError } = await supabase
-      .from('tasks')
-      .update({ running_at: new Date().toISOString() })
-      .eq('id', taskId)
-      .is('running_at', null) // only if not already running
-
-    if (lockError) {
+    if (lockResult.changes === 0) {
       console.warn(`Could not lock task ${taskId} — may already be running`)
       return
     }
@@ -274,93 +206,42 @@ async function runScheduledTask(task: ScheduledTask): Promise<void> {
     const extensionConnected = isExtensionConnected(userId)
 
     if (!extensionConnected) {
-      // Queue it — extension not connected
-      await supabase
-        .from('tasks')
-        .update({
-          status: 'queued',
-          running_at: null,
-          last_run: new Date().toISOString()
-        })
-        .eq('id', taskId)
-
-      await createMessage(
-        userId,
-        taskId,
-        `⏳ Task queued — your browser isn't connected. It will run automatically when you open Chrome.`
-      )
-
+      db.prepare("UPDATE tasks SET status = 'queued', running_at = NULL, last_run = ? WHERE id = ?")
+        .run(new Date().toISOString(), taskId)
+      await createMessage(userId, taskId, `⏳ Task queued — your browser isn't connected. It will run automatically when you open Chrome.`)
       console.log(`Task ${taskId} queued — extension offline`)
 
-      // Compute next run and update
       const nextRunAt = computeNextRunWithBackoff(taskId, cronExpr, task.consecutiveErrors, Date.now())
-      const updated = { ...task, nextRunAt }
-      scheduledTasks.set(taskId, updated)
-      await supabase
-        .from('tasks')
-        .update({ next_run: new Date(nextRunAt).toISOString() })
-        .eq('id', taskId)
-
+      scheduledTasks.set(taskId, { ...task, nextRunAt })
+      db.prepare('UPDATE tasks SET next_run = ? WHERE id = ?').run(new Date(nextRunAt).toISOString(), taskId)
       return
     }
 
-    // Extension is connected — run now
-    await supabase
-      .from('tasks')
-      .update({ status: 'running', output: '' })
-      .eq('id', taskId)
-
+    db.prepare("UPDATE tasks SET status = 'running', output = '' WHERE id = ?").run(taskId)
     const startedAt = Date.now()
 
     try {
       if (!_runTaskFn) throw new Error('runTaskFn not set')
       await _runTaskFn(taskId, prompt, userId)
 
-      // Success
       const endedAt = Date.now()
       const nextRunAt = computeNextRunWithBackoff(taskId, cronExpr, 0, endedAt)
 
-      await supabase
-        .from('tasks')
-        .update({
-          last_run: new Date(startedAt).toISOString(),
-          next_run: new Date(nextRunAt).toISOString(),
-          running_at: null,
-          consecutive_errors: 0
-        })
-        .eq('id', taskId)
+      db.prepare('UPDATE tasks SET last_run = ?, next_run = ?, running_at = NULL, consecutive_errors = 0 WHERE id = ?')
+        .run(new Date(startedAt).toISOString(), new Date(nextRunAt).toISOString(), taskId)
 
-      const updated = { ...task, lastRunAt: startedAt, consecutiveErrors: 0, nextRunAt }
-      scheduledTasks.set(taskId, updated)
-
+      scheduledTasks.set(taskId, { ...task, lastRunAt: startedAt, consecutiveErrors: 0, nextRunAt })
       console.log(`✅ Scheduled task ${taskId} done. Next run: ${new Date(nextRunAt).toISOString()}`)
-
     } catch (err) {
-      // Error — apply backoff
       const endedAt = Date.now()
       const newErrors = task.consecutiveErrors + 1
       const nextRunAt = computeNextRunWithBackoff(taskId, cronExpr, newErrors, endedAt)
 
-      await supabase
-        .from('tasks')
-        .update({
-          last_run: new Date(startedAt).toISOString(),
-          next_run: new Date(nextRunAt).toISOString(),
-          running_at: null,
-          consecutive_errors: newErrors,
-          status: 'error'
-        })
-        .eq('id', taskId)
+      db.prepare("UPDATE tasks SET last_run = ?, next_run = ?, running_at = NULL, consecutive_errors = ?, status = 'error' WHERE id = ?")
+        .run(new Date(startedAt).toISOString(), new Date(nextRunAt).toISOString(), newErrors, taskId)
 
-      await createMessage(
-        userId,
-        taskId,
-        `❌ Scheduled task failed (attempt ${newErrors}): ${String(err).slice(0, 200)}`
-      )
-
-      const updated = { ...task, consecutiveErrors: newErrors, nextRunAt }
-      scheduledTasks.set(taskId, updated)
-
+      await createMessage(userId, taskId, `❌ Scheduled task failed (attempt ${newErrors}): ${String(err).slice(0, 200)}`)
+      scheduledTasks.set(taskId, { ...task, consecutiveErrors: newErrors, nextRunAt })
       console.error(`Scheduled task ${taskId} failed (errors: ${newErrors}). Next retry: ${new Date(nextRunAt).toISOString()}`)
     }
   } finally {
@@ -371,25 +252,11 @@ async function runScheduledTask(task: ScheduledTask): Promise<void> {
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export function scheduleTask(
-  taskId: string,
-  userId: string,
-  prompt: string,
-  cronExpr: string,
-  lastRunAt?: number,
-  consecutiveErrors = 0
+  taskId: string, userId: string, prompt: string, cronExpr: string,
+  lastRunAt?: number, consecutiveErrors = 0
 ): void {
   const nextRunAt = computeNextRun(taskId, cronExpr, lastRunAt)
-
-  scheduledTasks.set(taskId, {
-    taskId,
-    userId,
-    prompt,
-    cronExpr,
-    lastRunAt,
-    consecutiveErrors,
-    nextRunAt
-  })
-
+  scheduledTasks.set(taskId, { taskId, userId, prompt, cronExpr, lastRunAt, consecutiveErrors, nextRunAt })
   console.log(`📅 Scheduled task ${taskId} — next run: ${new Date(nextRunAt).toISOString()}`)
   armTimer()
 }
@@ -410,7 +277,7 @@ export function getAllScheduledTasks(): ScheduledTask[] {
   return Array.from(scheduledTasks.values())
 }
 
-// ─── Startup — load all recurring tasks from Supabase ─────────────────────────
+// ─── Startup — load all recurring tasks from local DB ────────────────────────
 
 export async function loadScheduledTasks(
   runTaskFn: (taskId: string, prompt: string, userId: string) => Promise<void>
@@ -419,35 +286,22 @@ export async function loadScheduledTasks(
 
   // Clear stale running_at markers from crashed previous process
   const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
-  await supabase
-    .from('tasks')
-    .update({ running_at: null, status: 'idle' })
-    .lt('running_at', twoHoursAgo)
-    .not('running_at', 'is', null)
+  db.prepare("UPDATE tasks SET running_at = NULL, status = 'idle' WHERE running_at IS NOT NULL AND running_at < ?")
+    .run(twoHoursAgo)
 
   // Load all recurring tasks
-  const { data: tasks, error } = await supabase
-    .from('tasks')
-    .select('id, user_id, prompt, schedule, last_run, consecutive_errors, status')
-    .eq('is_recurring', true)
-    .not('schedule', 'is', null)
+  const tasks = db.prepare(
+    "SELECT id, user_id, prompt, schedule, last_run, consecutive_errors, status FROM tasks WHERE is_recurring = 1 AND schedule IS NOT NULL"
+  ).all() as any[]
 
-  if (error) {
-    console.error('loadScheduledTasks error:', error)
-    return
-  }
-
-  if (!tasks?.length) {
+  if (!tasks.length) {
     console.log('📅 No recurring tasks to load')
     return
   }
 
   for (const task of tasks) {
     scheduleTask(
-      task.id,
-      task.user_id,
-      task.prompt,
-      task.schedule,
+      task.id, task.user_id, task.prompt, task.schedule,
       task.last_run ? new Date(task.last_run).getTime() : undefined,
       task.consecutive_errors || 0
     )

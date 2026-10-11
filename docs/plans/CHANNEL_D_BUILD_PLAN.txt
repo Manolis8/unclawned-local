@@ -1,0 +1,680 @@
+═══════════════════════════════════════════════════════════════════════════════
+CHANNEL D — BUILD PLAN
+"Explicit Micro-Extraction" — The agent asks. The answer becomes permanent.
+Implementation from zero to working signal
+═══════════════════════════════════════════════════════════════════════════════
+
+Channels A, B, C are PASSIVE — the user never knows they're being read.
+Channel D is ACTIVE — the agent asks one targeted question at the right moment.
+The answer is stored and used forever.
+
+Why Channel D is the most human channel:
+  — Every other channel infers. Channel D confirms.
+  — One D.1 answer ("she's my investor, not a cold contact") is worth
+    100 A-channel vocabulary samples about relationship register.
+  — D.4 closes the loop: the agent that asks "how did it go?" is the
+    agent that feels like a partner, not a tool.
+
+The design constraint that makes or breaks Channel D:
+  ONE question, at the right moment, asked exactly once.
+  Ask too often → annoying. Ask at the wrong time → irrelevant.
+  Ask never → you stay at the inference level forever.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 0 — ARCHITECTURE DECISIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+──────────────────────────────────────────────────────────────────────────────
+DECISION 1: HOW DOES THE QUESTION GET INTO THE AGENT'S RESPONSE?
+──────────────────────────────────────────────────────────────────────────────
+
+Channel D cannot inject a question by appending text to the user's message —
+that would be weird. It cannot add a new conversational turn — that would
+require a second LLM call on the response path.
+
+The right mechanism: a DIRECTIVE in the system prompt.
+
+When a D question is pending for this user, buildChannelDContextBlock()
+injects a structured directive into the agent's system prompt:
+
+  ## MICRO-EXTRACTION
+  After your response, append exactly this question (no changes, no additions):
+  "Got it — for Sarah, should I write as if you have an existing relationship,
+   or keep it more professional until you decide to warm it up?"
+
+The LLM reads this and appends the question to its natural response.
+No second round-trip. No blocking. No user-visible mechanism.
+
+Why this works:
+  — The LLM is already reading the system prompt. This costs nothing.
+  — The question appears as part of the agent's response, not as a separate
+    robot message. It feels natural.
+  — If the LLM doesn't follow the directive (rare), the question just doesn't
+    appear — non-fatal.
+
+Why NOT inject the question via tool call or separate message:
+  — Tool calls would require handling in the agent loop.
+  — A separate "assistant" message would look like a bug in the chat history.
+  — The system prompt directive is invisible to the user, natural to the LLM.
+
+→ BUILD CHOICE: System prompt directive injected by buildChannelDContextBlock()
+  when a pending question exists for this user/session.
+
+──────────────────────────────────────────────────────────────────────────────
+DECISION 2: HOW IS THE ANSWER EXTRACTED FROM THE NEXT MESSAGE?
+──────────────────────────────────────────────────────────────────────────────
+
+After the D question appears in the agent's response, the user's NEXT message
+likely contains the answer. But it might not — the user might ignore the
+question and start a completely new task.
+
+Two extraction strategies:
+
+  STRATEGY A: "Always treat the next message as the answer"
+    — Simple. Fast. Works most of the time.
+    — False positive if user ignores and starts new task.
+    — But if they ignore it entirely, extracting from an unrelated message
+      just yields a low-confidence or "no answer" result. Not catastrophic.
+
+  STRATEGY B: "Only extract if the message looks like an answer"
+    — Detect answer-like patterns (yes/no, short elaboration, acknowledgment)
+    — If the message is long (>50 words) or starts with a new task intent,
+      skip extraction and mark question as "ignored"
+    — More precise but adds complexity.
+
+→ BUILD CHOICE: Hybrid. If there's a pending question AND the user's message
+  is short (<60 words) or starts with answer-like patterns → extract.
+  If message is long AND starts with action verbs (write, create, help, find)
+  → mark as "likely ignored", don't extract but log it.
+
+Extraction method (no LLM call on answer parsing):
+  D.2 pressure yes/no:  simple keyword matching
+  D.3 active/exploring: simple keyword matching
+  D.1 assumption:       extract first sentence + store raw (no parsing needed)
+  D.4 outcome:          store raw answer + classify sentiment (positive/negative/neutral)
+                        via keyword matching
+
+→ BUILD CHOICE: No LLM call on the extraction path. All parsing is local.
+  Raw answers stored regardless — they're always useful even if imperfectly classified.
+
+──────────────────────────────────────────────────────────────────────────────
+DECISION 3: WHEN DOES EACH TRIGGER FIRE?
+──────────────────────────────────────────────────────────────────────────────
+
+D.1 — ASSUMPTION CORRECTION MOMENT:
+  Trigger: Channel B signals is_correction=true AND correction_level >= 3
+    (structural rewrite or higher — not just a word swap)
+  AND the message contains a factual correction pattern (not just preference):
+    "no, we've met", "actually he's my client", "she's not a cold contact"
+  AND there's an identifiable entity name in the correction or prior context
+  AND no D.1 question asked for this user in last 7 days
+
+  The question is generated from the correction context, not a fixed template.
+  Best effort entity extraction from the correction message.
+
+  Cooldown: 7 days. One D.1 question per week maximum.
+  Goal: capture one clean relationship-context fact from corrections.
+
+D.2 — EMOTIONAL TEMPERATURE SHIFT:
+  Trigger: Channel A live frustration detected (buildLiveFrustrationLine fires)
+    AND this is at least the 2nd frustration signal in this session
+    AND no D.2 question asked in last 7 days
+
+  The question is always the same: the pressure-check question.
+  Answer effect: immediate session-level mode switch.
+
+  Cooldown: 7 days. The same question weekly is acceptable (pressure varies by week).
+  Goal: get explicit confirmation before switching to high-pressure mode.
+
+D.3 — FIRST ENCOUNTER WITH A NEW DOMAIN:
+  Trigger: Channel A detects a vocabulary word that:
+    - belongs to a tribe the user hasn't shown before (new tribe debut)
+    - OR a topic keyword that hasn't appeared in last 60 days
+    - AND has appeared 2+ times in the current session (not a one-off mention)
+  AND no D.3 question ever asked about this specific topic/tribe
+
+  Cooldown: permanent per topic. Asked once about each domain, never again.
+  Goal: explicit confirmation of whether the domain is active work vs exploration.
+
+D.4 — COMPLETION FOLLOW-UP:
+  Trigger: task completes successfully AND the original task had:
+    - urgency markers ("ASAP", "today", "need to", "important", "critical")
+    - OR output that goes somewhere (email sent, post published, form submitted)
+    - AND it's been at least 2 hours since the task completed (delayed ask)
+  The follow-up is DEFERRED — it doesn't ask immediately after the task.
+  It fires on the NEXT incoming message that's at least 2 hours after the task.
+
+  Cooldown: one D.4 per task. Never ask twice about the same task.
+  Goal: close the loop. Understand what worked and what didn't.
+
+──────────────────────────────────────────────────────────────────────────────
+DECISION 4: WHAT IS STORED AND HOW IS IT USED?
+──────────────────────────────────────────────────────────────────────────────
+
+WHAT GETS STORED:
+  Two tables:
+    channel_d_pending — one row per queued question (waiting to be asked)
+    channel_d_extractions — one row per answered question (permanent knowledge)
+
+HOW IT'S USED:
+  getChannelDContext(userId, sessionId): string
+    — Queries channel_d_extractions for this user
+    — Returns lines that are still relevant (D.2 pressure: current session only)
+    — Injects as "## Known Context" block in the agent's system prompt
+
+  buildChannelDContextBlock(userId, sessionId): string
+    — Combines pending question directive (if any) + known context block
+    — Both go into the system prompt alongside Channels A, B, C
+
+D.1 extractions: relationship registers. "For [person]: treat as established colleague"
+  Lasts: permanently (or until contradicted by a later correction)
+
+D.2 extractions: session pressure mode.
+  "User confirmed high-pressure mode for session [sessionId]"
+  Lasts: current session only. Cleared when session ends.
+
+D.3 extractions: domain intent map.
+  "User is actively working on [topic]. Domain confirmed as active, not exploring."
+  Lasts: 90 days (topic focus decays; may become stale)
+
+D.4 extractions: task outcome record.
+  "Task: '[task summary]' — outcome: positive (user said it went well)"
+  Lasts: permanently (outcome data is always useful)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 1 — DATABASE SCHEMA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TABLE 1: channel_d_pending
+──────────────────────────
+One row per pending question. Question has been triggered but user hasn't answered yet.
+Max one pending per user at a time (only one question in flight).
+
+CREATE TABLE IF NOT EXISTS channel_d_pending (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  session_id TEXT,                  -- session in which question was triggered
+  trigger_type TEXT NOT NULL,       -- 'd1_assumption' | 'd2_pressure' | 'd3_domain' | 'd4_followup'
+  question_text TEXT NOT NULL,      -- exact question to inject into system prompt
+  question_context TEXT,            -- why it was triggered (for debugging + answer extraction)
+  entity_name TEXT,                 -- for D.1: person/company name; for D.3: topic name; for D.4: task summary
+  earliest_ask_at TEXT,             -- for D.4: don't inject before this timestamp (2h delay)
+  created_at TEXT DEFAULT (datetime('now')),
+  asked_at TEXT,                    -- when the directive was actually injected
+  answered_at TEXT,
+  status TEXT DEFAULT 'pending'     -- 'pending' | 'asked' | 'answered' | 'expired' | 'ignored'
+);
+CREATE INDEX IF NOT EXISTS idx_cd_pending_user ON channel_d_pending(user_id, status);
+
+TABLE 2: channel_d_extractions
+────────────────────────────────
+One row per answered question. Permanent knowledge extracted from the answer.
+
+CREATE TABLE IF NOT EXISTS channel_d_extractions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  session_id TEXT,
+  trigger_type TEXT NOT NULL,       -- which D sub-channel produced this
+  question_text TEXT NOT NULL,
+  raw_answer TEXT NOT NULL,         -- user's full reply text
+  extracted_fact TEXT,              -- clean, usable fact for context injection
+  entity_name TEXT,                 -- person/topic/task the fact is about
+  fact_type TEXT,                   -- 'relationship_register' | 'session_pressure' | 'domain_intent' | 'task_outcome'
+  sentiment TEXT,                   -- for D.4: 'positive' | 'negative' | 'neutral'
+  is_active INTEGER DEFAULT 1,      -- 0 = expired/superseded
+  expires_at TEXT,                  -- null = permanent; set for D.2 (session) and D.3 (90 days)
+  created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_cd_extract_user ON channel_d_extractions(user_id, is_active);
+CREATE INDEX IF NOT EXISTS idx_cd_extract_type ON channel_d_extractions(user_id, trigger_type);
+CREATE INDEX IF NOT EXISTS idx_cd_extract_entity ON channel_d_extractions(user_id, entity_name);
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 2 — DETECTION TRIGGERS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: src/lib/channel-d/trigger-detector.ts
+
+All triggers run synchronously from the /chat message handler (fire-and-forget).
+They produce a "pending question" row if conditions are met.
+No LLM calls on the trigger path.
+
+──────────────────────────────────────────────────────────────────────────────
+D.1 TRIGGER — checkAssumptionCorrectionTrigger(userId, sessionId, message, correctionResult)
+──────────────────────────────────────────────────────────────────────────────
+
+Inputs:
+  userId: string
+  sessionId: string
+  message: string                           — the correction message from the user
+  correctionResult: { isCorrection, correctionLevel, correctionPhrases }  — from channel-b
+
+Returns: void (inserts into channel_d_pending if trigger fires)
+
+Logic:
+  1. Guard: correctionLevel < 3 → return (minor corrections don't trigger D.1)
+  2. Guard: hasPendingQuestion(userId) → return (only one question in flight)
+  3. Guard: d1CooldownActive(userId) → return (asked in last 7 days)
+  4. Detect factual correction markers:
+     FACTUAL_CORRECTION_PATTERNS = ['actually', "we've met", 'no,', "that's not", "he's my", "she's my", 'they are', 'is my', 'are my']
+     → if none of these appear in message → return (preference correction, not factual)
+  5. Extract entity from message:
+     → first capitalized word sequence that looks like a name (heuristic: 2+ words starting uppercase, OR single proper noun)
+     → if no entity found → use generic question without entity reference
+  6. Generate question from template:
+     WITH entity: "Got it — for [entity], should I treat this as an established relationship going forward, or keep it more formal for now?"
+     WITHOUT entity: "Good to know — can you give me a bit more context so I handle this better next time?"
+  7. insertPending(userId, sessionId, 'd1_assumption', question, context=message, entity)
+
+──────────────────────────────────────────────────────────────────────────────
+D.2 TRIGGER — checkPressureTrigger(userId, sessionId, frustrationCount)
+──────────────────────────────────────────────────────────────────────────────
+
+Inputs:
+  userId: string
+  sessionId: string
+  frustrationCount: number   — number of frustration signals in THIS session so far
+
+Logic:
+  1. Guard: frustrationCount < 2 → return (one frustration event = noise)
+  2. Guard: hasPendingQuestion(userId) → return
+  3. Guard: d2CooldownActive(userId) → return (asked in last 7 days)
+  4. Question: "Are you under more pressure than usual today? I can adjust — shorter outputs, faster decisions, no extra options."
+  5. insertPending(userId, sessionId, 'd2_pressure', question)
+
+──────────────────────────────────────────────────────────────────────────────
+D.3 TRIGGER — checkNewDomainTrigger(userId, sessionId, newTribeWord, tribeDebut)
+──────────────────────────────────────────────────────────────────────────────
+
+Inputs:
+  userId: string
+  sessionId: string
+  newTribeWord: string     — the specific word that's new (e.g. "Series B", "AI agents")
+  tribeDebut: string       — the tribe/category it belongs to (e.g. "vc_fundraising", "ai")
+
+  NOTE: This trigger is called from Channel A's extraction path when a new tribe
+  makes its debut (first time a word from a tribe not previously seen appears 2+ times in a session)
+
+Logic:
+  1. Guard: hasPendingQuestion(userId) → return
+  2. Guard: d3AlreadyAskedForTopic(userId, tribeDebut) → return (permanent per topic)
+  3. Generate a human topic label from the tribe name:
+     TRIBE_LABELS = { 'vc_fundraising': 'fundraising', 'ai': 'AI / agents', 'product': 'product building',
+                      'content': 'content creation', 'sales': 'sales / GTM', 'dev': 'software development', ... }
+  4. Question: "I'm noticing you're working on [topic label] — is this something you're actively building toward, or more exploring for now?"
+  5. insertPending(userId, sessionId, 'd3_domain', question, entity=tribeDebut)
+
+──────────────────────────────────────────────────────────────────────────────
+D.4 TRIGGER — checkCompletionFollowupTrigger(userId, sessionId, taskSummary, taskPrompt)
+──────────────────────────────────────────────────────────────────────────────
+
+Inputs:
+  userId: string
+  sessionId: string
+  taskSummary: string   — one-line summary of what the task did
+  taskPrompt: string    — original user request
+
+Logic:
+  1. Detect high-stakes task:
+     URGENCY_PATTERNS = ['asap', 'today', 'urgent', 'need to', 'important', 'critical', 'by end of', 'deadline']
+     OUTPUT_PATTERNS = ['send', 'post', 'publish', 'submit', 'email', 'message', 'apply', 'launch']
+     isHighStakes = urgency OR output_intent in taskPrompt
+  2. Guard: !isHighStakes → return (routine tasks don't get follow-ups)
+  3. Guard: hasPendingQuestion(userId) → return
+  4. Guard: d4AlreadyAskedForSession(userId, sessionId) → return (one follow-up per session max)
+  5. Question: "By the way — how did [short task description] go?" (first 6 words of taskSummary)
+  6. insertPending(userId, sessionId, 'd4_followup', question,
+       entity=taskSummary, earliest_ask_at=now+2h)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 3 — QUESTION INJECTION AND ANSWER EXTRACTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: src/lib/channel-d/answer-extractor.ts
+
+──────────────────────────────────────────────────────────────────────────────
+QUESTION INJECTION (part of context-builder.ts)
+──────────────────────────────────────────────────────────────────────────────
+
+When building the context block, check for a ready-to-ask pending question.
+"Ready" = status='pending' AND (earliest_ask_at IS NULL OR earliest_ask_at <= now)
+
+If found, inject this directive into the system prompt (separate from the
+Known Context block):
+
+  ## FOLLOW-UP QUESTION
+  After responding to the user's request, end with this exact question:
+  "[question_text]"
+  Do not modify the question. Do not add qualifiers. Add it as a single standalone line.
+
+Then update the pending row: status='asked', asked_at=now
+
+Important: only ONE pending question in flight at a time per user.
+If two triggers fire simultaneously, the first one wins. The second is dropped.
+(Simpler than a queue — D questions are rare enough that this is fine.)
+
+──────────────────────────────────────────────────────────────────────────────
+ANSWER EXTRACTION
+──────────────────────────────────────────────────────────────────────────────
+
+Called from the /chat message handler BEFORE the main processing,
+whenever there's a pending question with status='asked' for this user.
+
+extractChannelDAnswer(userId, sessionId, userMessage): void
+
+Logic:
+  1. Find pending question: SELECT * FROM channel_d_pending WHERE user_id=? AND status='asked' LIMIT 1
+  2. If none → return
+  3. Expiry check: if created_at < 48h ago → mark as 'expired', return (user never answered)
+  4. Decide if message looks like an answer:
+     IS_ANSWER if: len(words) < 60 AND NOT starts with [write, create, help, find, build, research, open, go to, make]
+     IS_IGNORED if: long message OR starts with clear new task intent
+  5. If IS_IGNORED: mark pending as 'ignored', return
+  6. Extract per trigger_type:
+     D.1: store raw_answer, extracted_fact = first 200 chars of message, fact_type='relationship_register'
+     D.2: answer_lower = message.toLowerCase()
+          is_pressure = ['yes','yeah','definitely','kind of','a bit'].some(w => answer_lower.includes(w))
+          extracted_fact = is_pressure ? 'User confirmed high-pressure mode' : 'User denied pressure (no mode switch)'
+          expires_at = session end (detect on next session start)
+     D.3: is_active = ['yes','active','working','building','definitely'].some(w => answer_lower.includes(w))
+          extracted_fact = is_active ? 'User is actively working on [entity]' : 'User is exploring [entity], not active focus'
+          expires_at = now + 90 days
+     D.4: is_positive = ['good','great','well','positive','worked','yes','they replied','got a response'].some(...)
+          is_negative = ['bad','no','rejected','failed','no response','nothing'].some(...)
+          sentiment = is_positive ? 'positive' : is_negative ? 'negative' : 'neutral'
+          extracted_fact = 'Task "[entity]" outcome: [sentiment]'
+  7. Insert into channel_d_extractions
+  8. Mark pending as 'answered', answered_at=now
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 4 — CONTEXT INJECTION + DEBUG
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: src/lib/channel-d/context-builder.ts
+
+buildChannelDContextBlock(userId, sessionId): string
+
+Queries active extractions and pending question, returns combined block.
+
+Section 1 — Known context (from past answers):
+  Query: SELECT * FROM channel_d_extractions
+         WHERE user_id=? AND is_active=1
+           AND (expires_at IS NULL OR expires_at > datetime('now'))
+         ORDER BY created_at DESC LIMIT 10
+
+  Per extraction type:
+  D.1 → "Relationship context: For [entity], [extracted_fact]"
+  D.2 → IF session_id matches AND is_pressure → "User confirmed high-pressure mode this session — keep responses brief, decisive, limit options to one recommendation"
+  D.3 → "User is actively working on [entity] (confirmed [days] ago)" — only if <90 days old
+  D.4 → NOT injected directly into context (it's historical, not action-modifying)
+
+Section 2 — Pending question directive:
+  IF there's a pending question (status='pending', earliest_ask_at ready):
+  → append the FOLLOW-UP QUESTION directive block
+
+  Format of full output:
+    ## Known Context (from prior conversations)
+    [context lines]
+
+    ## FOLLOW-UP QUESTION
+    [directive if pending question ready]
+
+GET /api/debug/channel-d/:userId endpoint in tasks.ts:
+  Shows: all pending questions, all extractions, current context block preview.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WHERE TRIGGERS ARE CALLED FROM (integration hooks)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. D.1 — called from tasks.ts AFTER channel-b extraction fires and returns
+   the correction result. Only if is_correction=true AND level >= 3.
+
+   In tasks.ts (chat message handler), after extractChannelBSignals():
+   → checkAssumptionCorrectionTrigger(userId, sessionId, message, correctionResult)
+
+2. D.2 — called from tasks.ts when channel-a's live frustration fires.
+   Channel A already computes frustration count per session.
+   → checkPressureTrigger(userId, sessionId, sessionFrustrationCount)
+
+3. D.3 — called from channel-a extractor when a new tribe is detected for first time.
+   Channel A already tracks tribe scores. When a tribe that had 0 score
+   crosses the threshold for the first time → fire D.3 trigger.
+   (This is the only trigger that originates from within another channel's extractor)
+
+4. D.4 — called from tasks.ts when a task completes (the task_complete tool call
+   fires in agent-extension.ts, which in turn calls back to tasks.ts on completion).
+   Actually simpler: call from the task logger's finalize() or from runAgentLoop
+   on task_complete tool result.
+   → checkCompletionFollowupTrigger(userId, sessionId, args.summary, opts.taskPrompt)
+
+5. ANSWER EXTRACTION — called from tasks.ts at the TOP of each incoming message handler,
+   BEFORE the main AI processing. This is the reversed order — extraction happens
+   BEFORE the response is generated for this message.
+   → extractChannelDAnswer(userId, sessionId, message)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROBLEMS AHEAD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+──────────────────────────────────────────────────────────────────────────────
+PROBLEM 1: THE QUESTION DOESN'T ALWAYS APPEAR AT THE END
+──────────────────────────────────────────────────────────────────────────────
+
+What happens: The LLM is instructed to append the question at the end.
+Sometimes it incorporates it mid-response or rephrases it instead.
+
+Impact: Answer extraction still works (the user responds to what they read,
+regardless of question placement). The bigger risk is the LLM rephrasing
+the question in a way that loses the answer mapping.
+
+Solution: Use exact wording in the directive AND specify "as a final standalone line."
+If the LLM nonetheless rephrases: the raw answer is still stored and the extracted
+fact is still useful, even if slightly off-key.
+
+Acceptable error rate: ~5-10% question mismatch won't break the system.
+The data we care about (relationship register, pressure mode) doesn't require
+perfect question formulation.
+
+──────────────────────────────────────────────────────────────────────────────
+PROBLEM 2: USER ANSWERS A NEW TASK INSTEAD OF THE QUESTION
+──────────────────────────────────────────────────────────────────────────────
+
+What happens: Agent asks "Got it — for Sarah, established or formal?"
+User ignores it and sends "Write me a cold email to John."
+Answer extractor picks up "Write me a cold email to John" as the answer.
+
+Impact: Wrong extraction ("John" classified as the entity in the relationship
+context when it should be "Sarah").
+
+Solution (already in the architecture):
+  — If message starts with clear new-task intent (write, create, help, find...)
+    AND len > 60 words → mark as 'ignored', don't extract
+  — If message starts with clear new-task AND len < 60 → still mark as ignored
+    (short new tasks are still new tasks)
+
+Extra guard: the extracted fact goes through a sanity check:
+  D.1: entity in extracted fact must match entity_name in the pending row
+       (or at least appear in the message). If it doesn't: flag extraction as low-confidence.
+
+──────────────────────────────────────────────────────────────────────────────
+PROBLEM 3: D.3 TRIGGER FIRES TOO EARLY (single-word false debut)
+──────────────────────────────────────────────────────────────────────────────
+
+What happens: User mentions "Series B" once in passing while asking about something
+else. D.3 fires immediately ("Is fundraising something you're actively working on?").
+The question feels out of left field. User is confused.
+
+Solution:
+  — D.3 requires 2+ appearances of tribe words in current session (not just 1)
+  — D.3 requires the tribe to have 0 history (never seen before OR not seen in 60+ days)
+  — D.3 has an additional semantic filter: the mention must be substantive, not just
+    referenced in passing ("unlike Series B companies..." should not trigger)
+  — Heuristic for "substantive": the tribe word appears in the SUBJECT of the request,
+    not in a subordinate clause ("help me with my Series B prep" = substantive;
+    "similar to how Series B companies do it" = passing reference)
+
+──────────────────────────────────────────────────────────────────────────────
+PROBLEM 4: D.4 ASKS ABOUT A TASK THE USER DOESN'T REMEMBER
+──────────────────────────────────────────────────────────────────────────────
+
+What happens: Task was completed 4 hours ago. User comes back and D.4 asks
+"By the way — how did sending the email to John go?"
+User doesn't remember which email, or the context feels cold.
+
+Solution:
+  — Be more specific in the question: "how did [5-word task summary] turn out?"
+    Use the task's actual summary, not a generic phrase.
+  — 4-hour minimum delay is right — not 24h. "The email you sent a few hours ago"
+    is still live in memory. "The email you sent last Tuesday" is not.
+  — MAX delay: if 48+ hours have passed since the task completed, expire the
+    pending D.4 question. Too late to be useful.
+
+──────────────────────────────────────────────────────────────────────────────
+PROBLEM 5: STACKING — MULTIPLE TRIGGERS FIRE AT ONCE
+──────────────────────────────────────────────────────────────────────────────
+
+What happens: D.1 (correction) AND D.2 (frustration) both trigger on the same
+message. Two questions get queued. Which one gets asked? When does the second one fire?
+
+Solution:
+  — Hard limit: ONE pending question per user at ALL times.
+  — Priority order when multiple trigger simultaneously:
+    D.1 (assumption correction) > D.2 (pressure) > D.3 (domain) > D.4 (followup)
+  — Reasoning: D.1 is the most contextually specific and time-sensitive.
+    D.4 is the least urgent (the task happened, it can wait).
+  — When a higher-priority trigger fires and a lower-priority pending exists:
+    Mark the lower-priority pending as 'superseded' and insert the new one.
+  — The superseded question is lost, but this is acceptable — D questions are
+    low-frequency enough that collision is rare.
+
+──────────────────────────────────────────────────────────────────────────────
+PROBLEM 6: D.2 MODE SWITCH LEAKS INTO THE NEXT SESSION
+──────────────────────────────────────────────────────────────────────────────
+
+What happens: User confirmed high-pressure mode at 3pm. They close the app and
+come back the next morning refreshed. The D.2 extraction has is_active=1 and
+no expiry set by session. The morning session injects "User confirmed high-pressure mode."
+Now the agent is operating in crunch mode when the user is actually fine.
+
+Solution:
+  — D.2 extractions have expires_at = NULL in the DB, BUT the context-builder
+    checks the session_id. If the session_id in the extraction doesn't match
+    the current session → skip the D.2 injection.
+  — On each NEW session start (new chat_id / session_id), D.2 from prior sessions
+    is automatically excluded from context.
+  — No cleanup needed: old D.2 rows stay in DB (historical data) but never inject.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+HOW TO TEST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Level 1 — Unit tests: src/tests/channel-d.test.ts
+  Run: npx tsx src/tests/channel-d.test.ts
+
+  Test trigger logic (no DB):
+    checkAssumptionCorrectionTrigger: fires for level>=3 + factual correction pattern
+    checkAssumptionCorrectionTrigger: does NOT fire for level<3 (minor corrections)
+    checkPressureTrigger: fires on 2nd frustration signal, not the 1st
+    checkNewDomainTrigger: fires first time tribe seen; does NOT fire on repeat
+    checkCompletionFollowupTrigger: fires for urgency language; not for routine tasks
+    extractChannelDAnswer: correctly classifies D.2 yes/no answers
+    extractChannelDAnswer: marks as 'ignored' when message starts with new-task intent
+    extractChannelDAnswer: expires pending row after 48h
+
+  Test cooldowns:
+    d1CooldownActive: true within 7 days, false after 7 days
+    d3AlreadyAskedForTopic: true if same topic exists in extractions (permanent)
+
+Level 2 — Integration tests (real DB):
+    Full round-trip: trigger → insertPending → getContextBlock (question appears)
+    Answer extraction: incoming message → extractedFact stored in extractions
+    Known context injection: D.1 extraction → "For Sarah: established colleague" in block
+    D.2 session-scoped: pressure mode only injects for matching session_id
+    D.4 earliest_ask_at: question NOT ready before 2h delay, ready after
+
+Level 3 — Behavioral tests (live server, manual):
+  A. D.1: Have agent write an email. Correct it: "no, we've met 3 times."
+     → Agent's next response ends with the assumption clarification question.
+     → Reply with your answer. Check /api/debug/channel-d/:userId.
+     → Next email to same person: agent should use the relationship register.
+
+  B. D.2: Send 2 frustrated messages in a row.
+     → Agent asks about pressure level.
+     → Say "yes definitely". Check debug report.
+     → Next response in same session should be more brief and direct.
+     → Start new session: pressure mode should NOT carry over.
+
+  C. D.3: Use a new vocabulary cluster 2+ times in one session
+     (e.g. "our Series A round" twice in 3 messages)
+     → Agent asks if fundraising is active or exploring.
+     → Say "active, we're raising now". Check debug.
+     → Check context block: should show domain confirmation.
+
+  D. D.4: Run a task with urgency language ("send an email ASAP to...").
+     → At least 2 hours later, send any message.
+     → Agent's response ends with "By the way — how did [task] go?"
+     → Reply with "went great, they said yes". Check debug.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BUILD SEQUENCE — 3 PARTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PART 1 — DB + DETECTION TRIGGERS
+  1. Add 2 tables to db.js: channel_d_pending, channel_d_extractions
+  2. src/lib/channel-d/trigger-detector.ts
+     — insertPending(userId, sessionId, triggerType, questionText, context, entity, earliestAskAt?)
+     — hasPendingQuestion(userId): boolean
+     — checkCooldown(userId, triggerType, days): boolean
+     — checkAssumptionCorrectionTrigger(userId, sessionId, message, correctionLevel, correctionPhrases)
+     — checkPressureTrigger(userId, sessionId, sessionFrustrationCount)
+     — checkNewDomainTrigger(userId, sessionId, tribeKey, tribeLabel)
+     — checkCompletionFollowupTrigger(userId, sessionId, taskSummary, taskPrompt)
+  3. Wire D.1 and D.2 into tasks.ts (chat message handler, after channel-b/a extraction)
+  4. Wire D.3 into channel-a extractor (when new tribe first crosses threshold)
+  5. Wire D.4 into agent-extension.ts (on task_complete tool call)
+  Tests: trigger fires under correct conditions, doesn't fire under wrong ones, cooldowns work
+
+PART 2 — ANSWER EXTRACTION + CONTEXT INJECTION
+  1. src/lib/channel-d/answer-extractor.ts
+     — extractChannelDAnswer(userId, sessionId, userMessage): void
+     — Per-type extraction: D.1 raw store, D.2 yes/no, D.3 active/exploring, D.4 sentiment
+  2. Wire answer extraction into tasks.ts at TOP of message handler (before AI call)
+  3. src/lib/channel-d/context-builder.ts
+     — buildChannelDContextBlock(userId, sessionId): string
+     — Gets known context lines (D.1 relationship, D.2 pressure, D.3 domain)
+     — Gets pending question directive if one is ready
+     — buildDebugReport(userId): string
+  4. Wire context block into orchestrator.ts and agent-extension.ts (alongside A, B, C)
+  5. GET /api/debug/channel-d/:userId in tasks.ts
+  Tests: round-trip (trigger → context → answer → extract → context updated), all 4 types
+
+PART 3 — TEST SUITE + CHANNEL_TESTS.txt UPDATE
+  1. Complete test suite: src/tests/channel-d.test.ts
+     — Unit: all trigger conditions, all cooldowns, answer classification
+     — Integration: real DB round-trips for all 4 trigger types
+  2. Update CHANNEL_TESTS.txt with Channel D behavioral tests A-D
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE ONE THING THAT MAKES CHANNEL D WORK OR NOT WORK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Asking at the RIGHT MOMENT.
+
+A D.1 question asked 3 turns after the correction feels random.
+A D.2 question after the first mildly stressed message feels paranoid.
+A D.4 question 2 weeks later feels like the agent forgot and is running a script.
+
+The window for each type:
+  D.1: Same response as the correction. If you miss it, the moment is gone.
+  D.2: Second consecutive frustration signal. First = noise, second = signal.
+  D.3: First session where the new domain appears 2+ times. After that, it becomes expected context.
+  D.4: 2-6 hours after task completion. Still fresh. Before they've moved on.
+
+The database design, the injection mechanism, the extraction logic — all of
+that is engineering. Getting the timing right is product judgment.
+
+If you're unsure whether to ask: don't. The cost of a badly timed question
+(breaks rapport, feels robotic) is higher than the cost of not asking.
+One good extraction per week is better than 5 clumsy ones.
+
+═══════════════════════════════════════════════════════════════════════════════

@@ -1,19 +1,19 @@
-import OpenAI from 'openai'
 import type { ConfidenceScore } from './confidence-scorer.js'
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+import { resolveRuntime } from '../model-router.js'
 
 export async function generateClarifyingQuestions(
   userMessage: string,
-  confidence: ConfidenceScore
+  confidence: ConfidenceScore,
+  userMd?: string
 ): Promise<string[]> {
   try {
     let questionCount = 1
     if (confidence.overall < 70) questionCount = 2
     if (confidence.overall < 60) questionCount = Math.min(3, confidence.gaps.length)
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+    const rt = resolveRuntime()
+    const response = await rt.fastClient.chat.completions.create({
+      model: rt.modelFor('medium'),
       max_tokens: 350,
       temperature: 0.5,
       messages: [
@@ -29,9 +29,10 @@ Requirements:
 - Questions are specific, not vague
 - Questions address the gaps
 - Make them easy to answer (yes/no, or short phrase)
-- Don't repeat information already provided
-- Ask about: intent, scope, target, action, or context
+- CRITICAL: Do NOT ask about anything already answered in the user profile below
+- Don't repeat information already provided in the user's message
 
+${userMd ? `USER PROFILE (already known — do NOT ask about these):\n${userMd}\n` : ''}
 Gaps to address:
 ${confidence.gaps.map((g, i) => `${i + 1}. ${g}`).join('\n')}
 

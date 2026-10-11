@@ -1,0 +1,11 @@
+name = "openclaw-gateway"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+
+# Secrets are NOT set here — use wrangler CLI:
+#   wrangler secret put GATEWAY_TOKEN
+#   wrangler secret put TAVILY_API_KEY
+#
+# Future providers:
+#   wrangler secret put BRAVE_API_KEY
+#   wrangler secret put JINA_API_KEY

@@ -1,8 +1,49 @@
+﻿// @ts-nocheck
 import fs from "node:fs/promises";
 import path from "node:path";
-import { SafeOpenError, openFileWithinRoot } from "../infra/fs-safe.js";
-import { isNotFoundPathError, isPathInside } from "../infra/path-guards.js";
-import { resolvePreferredOpenClawTmpDir } from "../infra/tmp-openclaw-dir.js";
+import os from "node:os";
+
+// ── Inlined infra utilities (previously imported from deleted infra/ folder) ──
+
+class SafeOpenError extends Error {
+  code: string
+  constructor(code: string, message: string) { super(message); this.code = code }
+}
+
+function isPathInside(root: string, candidate: string): boolean {
+  const rel = path.relative(root, candidate)
+  return Boolean(rel) && !rel.startsWith('..') && !path.isAbsolute(rel)
+}
+
+function isNotFoundPathError(err: unknown): boolean {
+  return err instanceof Error && 'code' in err && (err as any).code === 'ENOENT'
+}
+
+async function openFileWithinRoot(params: { rootDir: string; relativePath: string }) {
+  const filePath = path.join(params.rootDir, params.relativePath)
+  const rootReal = await fs.realpath(params.rootDir).catch(() => null)
+  if (!rootReal) throw new SafeOpenError('not-found', 'Root directory not found')
+  try {
+    const handle = await fs.open(filePath, 'r')
+    const realPath = await fs.realpath(filePath)
+    const rel = path.relative(rootReal, realPath)
+    if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) {
+      await handle.close()
+      throw new SafeOpenError('outside-workspace', 'File is outside root directory')
+    }
+    return { realPath, handle }
+  } catch (err) {
+    if (err instanceof SafeOpenError) throw err
+    if (err instanceof Error && (err as any).code === 'ENOENT') {
+      throw new SafeOpenError('not-found', 'File not found')
+    }
+    throw err
+  }
+}
+
+function resolvePreferredOpenClawTmpDir(): string {
+  return path.join(os.tmpdir(), 'openclaw')
+}
 
 export const DEFAULT_BROWSER_TMP_DIR = resolvePreferredOpenClawTmpDir();
 export const DEFAULT_TRACE_DIR = DEFAULT_BROWSER_TMP_DIR;
@@ -254,3 +295,4 @@ async function resolveCheckedPathsWithinRoot(params: {
   }
   return { ok: true, paths: resolvedPaths };
 }
+

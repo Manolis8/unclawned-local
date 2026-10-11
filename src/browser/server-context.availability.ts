@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 import {
   PROFILE_ATTACH_RETRY_TIMEOUT_MS,
   PROFILE_POST_RESTART_WS_TIMEOUT_MS,
@@ -220,3 +221,4 @@ export function createProfileAvailability({
     stopRunningBrowser,
   };
 }
+

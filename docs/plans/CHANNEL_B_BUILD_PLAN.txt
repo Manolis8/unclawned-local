@@ -1,0 +1,1301 @@
+═══════════════════════════════════════════════════════════════════════════════
+CHANNEL B — BUILD PLAN
+"How They React" — The edit is the truth. Everything else is approximation.
+Implementation from zero to working signal
+═══════════════════════════════════════════════════════════════════════════════
+
+Channel B is the behavioral mirror to Channel A.
+Channel A reads the INPUT — what they type before the agent responds.
+Channel B reads the REACTION — what they do with the output.
+
+The gap between these two is where the real intelligence lives.
+
+Why Channel B is harder than Channel A:
+  — It requires looking BACKWARDS: when message N arrives, you analyze
+    the relationship between message N and the agent's prior response N-1.
+  — The signals are TEMPORAL: latency, correction speed, correction depth.
+  — You can't observe what users do outside the system (actual document edits,
+    copy-paste into other tools) — you can only infer from what they send back.
+  — The correction detection is inherently ambiguous: is this a new task or
+    a correction? The same message can be both.
+
+What Channel B tells the agent:
+  1. Which output types it consistently gets wrong (high correction rate)
+  2. What KIND of wrong it is (level 1-5 taxonomy)
+  3. How users engage with content before reacting (latency by task type)
+  4. What domain they're currently working in (paste archaeology)
+  5. Which task types they fully trust vs secretly fix elsewhere (rubber stamp)
+
+The core signal: a high correction rate on write tasks + structural corrections (L3)
+means the agent's document structure doesn't match this user's mental model.
+That single insight changes every writing task that comes after.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 0 — ARCHITECTURE DECISIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+──────────────────────────────────────────────────────────────────────────────
+DECISION 1: WHEN DOES CHANNEL B EXTRACTION RUN?
+──────────────────────────────────────────────────────────────────────────────
+
+Channel B can only run when there is a prior agent response to react to.
+
+The extraction hook is: every incoming user message in a conversation where
+the previous message was from the assistant.
+
+This is different from Channel A:
+  Channel A hook: every user message (regardless of conversation state)
+  Channel B hook: every user message WHEN preceded by an assistant message
+
+Implementation: in the /chat route, after loading historyRows:
+  — if historyRows exists AND last message is from assistant:
+      fire-and-forget: extractChannelBSignals(userId, newMessage, lastAssistantMessage)
+
+→ BUILD CHOICE: Backward-looking extraction on every incoming message.
+  Same hook point as Channel A (the /chat route), but looks backwards at the
+  prior assistant response to compute the reaction signals.
+
+  Why not at response delivery time:
+  — We don't know the reaction when we send the response
+  — We can't set a timer that reliably fires when the next message arrives
+  — The gap must be measured from both ends (response sent + reply received)
+  — All the information we need is available when the NEXT message arrives
+
+──────────────────────────────────────────────────────────────────────────────
+DECISION 2: WHAT IS A "CORRECTION" IN A CHAT SYSTEM?
+──────────────────────────────────────────────────────────────────────────────
+
+In a document editor, you can diff before/after. We don't have that.
+In a chat system, a correction is an incoming message that:
+  A) Is semantically related to the prior agent response (not a new topic)
+  B) Asks for a change, re-does something, or provides a better version
+
+This is the core signal. Everything else (latency, paste type) is supplementary.
+
+→ BUILD CHOICE: Correction = topic continuity + change intent, classified L1-L5.
+  Two-stage detection:
+    Stage 1: Is this a correction at all? (topic continuity check)
+    Stage 2: If yes, what level is the correction? (L1-L5 classification)
+
+  If topic continuity fails → not a correction, extract paste/latency only.
+  If topic continuity holds → classify correction level.
+
+  Topic continuity check: does the current message reference the prior output
+  or continue the same task, vs starting a completely new unrelated task?
+
+──────────────────────────────────────────────────────────────────────────────
+DECISION 3: WHAT IS THE DATA MODEL FOR A CHANNEL B SIGNAL?
+──────────────────────────────────────────────────────────────────────────────
+
+One row per REACTION event. A reaction event is:
+  — The user's new message
+  — The prior agent response (the thing being reacted to)
+  — The time gap between them
+  — Whether the new message is a correction, and at what level
+  — What type of paste content was in the new message (if any)
+
+The prior assistant message's task type must be inherited to segment signals.
+How: look up the task type from the raw signal for the PRIOR user message.
+This means Channel B needs to query Channel A signals by session/timestamp.
+
+If Channel A signal doesn't exist for the prior turn: classify task type
+from the PRIOR user message (the one the agent was responding to) using
+the same task-classifier.ts used in Channel A.
+
+──────────────────────────────────────────────────────────────────────────────
+DECISION 4: LATENCY — HOW TO MEASURE IT, WHAT TO DO WITH OUTLIERS
+──────────────────────────────────────────────────────────────────────────────
+
+Latency = time between assistant message created_at and user's next message.
+
+We need `created_at` from the chat_messages table. Currently the /chat route
+only selects `role, content`. Must add `created_at` to the SELECT.
+
+Outlier handling:
+  — Latency > 4 hours → session break. User went away and came back.
+    Don't record as a latency signal for this task. It's noise, not review time.
+    Record as a "came back later" event only (for future context: they weren't
+    waiting, they were doing other things).
+  — Latency < 2 seconds → impossible real read time for output > 100 chars.
+    Flag as potential test/automation traffic. Don't include in latency avg.
+  — Normal range: 2 seconds - 4 hours.
+
+Latency is always bucketed:
+  immediate: 2-30 seconds
+  quick:     31 seconds - 5 minutes
+  medium:    5-30 minutes
+  slow:      30 minutes - 4 hours
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 1 — DATABASE SCHEMA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+──────────────────────────────────────────────────────────────────────────────
+TABLE 1: channel_b_raw_signals
+──────────────────────────────────────────────────────────────────────────────
+
+One row per reaction event. Permanent record.
+
+CREATE TABLE IF NOT EXISTS channel_b_raw_signals (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  session_id TEXT,                    -- chat session ID (chat_id)
+  created_at TEXT DEFAULT (datetime('now')),
+
+  -- The current message (the reaction)
+  user_message_text TEXT NOT NULL,    -- truncated at 2000 chars
+  user_message_length INTEGER NOT NULL,
+
+  -- Prior context
+  prior_task_type TEXT,               -- task type of the message being reacted to
+  prior_response_length INTEGER,      -- char length of agent's prior response
+
+  -- B.1 Correction signals
+  is_continuation INTEGER DEFAULT 0,  -- 1 if this message is about the same topic
+  is_correction INTEGER DEFAULT 0,    -- 1 if continuation AND asking for a change
+  correction_level INTEGER,           -- 1-5 (NULL if not a correction)
+  correction_phrases TEXT,            -- JSON array of matched correction phrases
+
+  -- B.2 Paste signals
+  contains_paste INTEGER DEFAULT 0,   -- 1 if contains pasted content
+  paste_type TEXT,                    -- email_thread | article | data | code | document | external_writing | unknown
+  paste_char_count INTEGER,           -- estimated chars of pasted content
+  paste_tribe_hits TEXT,              -- JSON: tribe words found in the pasted content
+
+  -- B.3 Latency signals
+  latency_seconds INTEGER,            -- NULL if > 4 hours (session break)
+  latency_bucket TEXT,                -- immediate | quick | medium | slow | session_break
+  is_rubber_stamp INTEGER DEFAULT 0,  -- 1 if latency < 5s AND prior response > 100 chars
+
+  -- Error handling
+  extraction_error TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_cb_raw_user ON channel_b_raw_signals(user_id);
+CREATE INDEX IF NOT EXISTS idx_cb_raw_created ON channel_b_raw_signals(created_at);
+CREATE INDEX IF NOT EXISTS idx_cb_raw_session ON channel_b_raw_signals(session_id);
+
+──────────────────────────────────────────────────────────────────────────────
+TABLE 2: channel_b_profiles
+──────────────────────────────────────────────────────────────────────────────
+
+One row per user. Compiled profile.
+
+CREATE TABLE IF NOT EXISTS channel_b_profiles (
+  user_id TEXT PRIMARY KEY,
+  last_updated TEXT DEFAULT (datetime('now')),
+  profile_version INTEGER DEFAULT 1,
+  total_reactions INTEGER DEFAULT 0,    -- total channel B events observed
+
+  correction_profile TEXT,              -- JSON: correction rates by task type
+  paste_profile TEXT,                   -- JSON: paste history and topic focus
+  latency_profile TEXT,                 -- JSON: latency by task type
+  approval_profile TEXT                 -- JSON: rubber stamp patterns
+);
+
+──────────────────────────────────────────────────────────────────────────────
+TABLE 3: channel_b_paste_log
+──────────────────────────────────────────────────────────────────────────────
+
+One row per paste event. Enables paste topic tracking over time.
+Indexed by recency so we can ask "what has this user been pasting in the last 30 days".
+
+CREATE TABLE IF NOT EXISTS channel_b_paste_log (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now')),
+  paste_type TEXT NOT NULL,
+  paste_char_count INTEGER,
+  paste_tribe_hits TEXT,              -- JSON: what vocabulary was in the pasted content
+  primary_tribe TEXT                  -- dominant tribe detected in the paste
+);
+CREATE INDEX IF NOT EXISTS idx_cb_paste_user ON channel_b_paste_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_cb_paste_created ON channel_b_paste_log(created_at);
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 2 — CORRECTION LEVEL DETECTION (B.1 in detail)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: src/data/correction-patterns.json
+
+──────────────────────────────────────────────────────────────────────────────
+STEP 1: TOPIC CONTINUITY CHECK (is this a correction at all?)
+──────────────────────────────────────────────────────────────────────────────
+
+A message is a continuation (not a new topic) if it matches at least ONE of:
+  A) Contains explicit correction vocabulary (see below)
+  B) Is short (< 40 words) and does not introduce a new distinct subject
+  C) References something from the prior response
+     ("the email", "the draft", "the first paragraph", "your version", "what you wrote")
+
+A message is NOT a continuation if:
+  — It introduces a completely new entity not mentioned in the prior exchange
+  — It starts with a new task request pattern ("can you", "help me", "write me", "search for")
+  — It has no linguistic tie to the prior content AND is > 50 words
+
+Rule: when in doubt about continuity, mark as_continuation = false.
+False negatives (missing a correction) are less harmful than false positives
+(counting a new task as a correction, which pollutes the correction rate).
+
+──────────────────────────────────────────────────────────────────────────────
+STEP 2: IS IT A CORRECTION? (vs acceptance or question)
+──────────────────────────────────────────────────────────────────────────────
+
+After determining topic continuity, check for correction intent:
+
+STRONG CORRECTION INDICATORS (any one is enough):
+  "change", "replace", "instead of", "not [word]", "use [word] not", "remove",
+  "add", "fix", "that's not right", "wrong", "that's wrong", "incorrect",
+  "not what i meant", "not what i asked", "different", "adjust", "update",
+  "no, the", "actually", "wait", "hmm", "nope"
+
+STRUCTURAL CORRECTION INDICATORS (signals Level 3):
+  "restructure", "reorganize", "reorder", "move", "swap", "put [X] first",
+  "put [X] after", "the order should be", "start with", "end with",
+  "the format should", "use a different structure", "section", "layout",
+  "header", "bullet", "numbered", "table", "paragraph order"
+
+REWRITE INDICATORS (signals Level 4):
+  Message length > 200 characters AND > 80% is prose (not instruction patterns)
+  User pastes their own version of the content
+
+DISCARD INDICATORS (signals Level 5):
+  "forget it", "never mind", "start over", "scratch that", "ignore that",
+  "let's start fresh", "that's not it at all", "this isn't working"
+
+──────────────────────────────────────────────────────────────────────────────
+STEP 3: CORRECTION LEVEL (1-5 taxonomy)
+──────────────────────────────────────────────────────────────────────────────
+
+LEVEL 1 — WORD SWAP
+What it means: Minor preference mismatch. Almost right.
+Single correction is noise. 5+ L1 corrections of the same type is signal.
+
+Detect when ALL of:
+  — is_correction = true
+  — Message word count < 20
+  — No structural correction indicators
+  — No discard indicators
+  — Message does not contain > 100 chars of user-written prose
+
+Signal: store but don't act until 5+ L1 corrections on same task type.
+
+LEVEL 2 — SENTENCE REWRITE
+What it means: Tone or density mismatch in a specific area.
+
+Detect when ALL of:
+  — is_correction = true
+  — Message word count 20-60
+  — References a specific part ("the intro", "the first sentence", "that paragraph",
+    "the closing", "the subject line", "the first bullet")
+  — No structural correction indicators
+
+Signal: the referenced PART of the output has consistent problems.
+Store the part reference ("intro", "closing", "subject line") — this is structural learning.
+
+LEVEL 3 — SECTION RESTRUCTURE
+What it means: Agent's organization doesn't match user's mental model.
+This is the highest-value correction signal — it reveals a preference that
+applies to ALL similar outputs, not just this one.
+
+Detect when ANY of:
+  — Structural correction indicators present
+  — References "order", "structure", "format", "layout"
+  — "put X before Y" / "swap" / "move" patterns
+  — Referencing multiple sections/parts in a restructuring way
+
+Signal: immediately applicable to all future tasks of this type.
+Store the restructuring pattern ("user prefers conclusion first on write tasks").
+
+LEVEL 4 — FULL REWRITE
+What it means: Agent used as starting point only. Fundamental approach mismatch.
+Two full rewrites on same task type = stop using the default approach.
+
+Detect when ANY of:
+  — Message > 200 chars AND majority is prose (not instruction patterns)
+  — Message contains user's own written version (higher prose density than instructions)
+  — Prior output was "write" task type AND user pastes back a rewritten version
+
+Distinction from new task: L4 has clear reference to the prior output
+("here's how it should actually be" / "what I actually want is") AND/OR
+is in the same task domain.
+
+LEVEL 5 — DISCARD
+What it means: Agent misunderstood the task TYPE, not just execution.
+
+Detect when ANY of:
+  — Explicit discard indicators present
+  — User abandons topic AND starts over on same task type with very different framing
+    (detected: prior task_type = current task_type, but content is totally new)
+
+Signal: Investigate what the correct interpretation was.
+This is the hardest signal to use — requires manual review in V1.
+Store the discard event with the prior task type and the new task message.
+
+──────────────────────────────────────────────────────────────────────────────
+DATA FILE: src/data/correction-patterns.json
+──────────────────────────────────────────────────────────────────────────────
+
+{
+  "continuation_references": [
+    "the email", "the draft", "the message", "the output", "the proposal",
+    "the first paragraph", "the intro", "the opening", "the closing",
+    "the subject line", "the tone", "the structure", "what you wrote",
+    "your version", "the response", "the content you", "the last part",
+    "the first part", "the middle", "the section on", "the part about"
+  ],
+  "correction_strong": [
+    "change", "replace", "instead of", "not that", "remove the", "add the",
+    "fix the", "adjust", "update the", "actually,", "wait,", "no,",
+    "hmm,", "nope", "that's not", "not what i", "not quite",
+    "different tone", "different style", "more formal", "less formal",
+    "shorter", "longer", "more concise", "more detailed", "simpler"
+  ],
+  "correction_structural": [
+    "restructure", "reorganize", "reorder", "reformat", "move the",
+    "put the", "swap the", "the order should", "start with", "end with",
+    "open with", "close with", "the format should", "different structure",
+    "different format", "different layout", "section", "sections",
+    "bullet points", "numbered list", "headers", "no bullets", "no headers"
+  ],
+  "correction_discard": [
+    "forget it", "never mind", "never mind that", "start over", "scratch that",
+    "ignore that", "let's start fresh", "that's not it at all",
+    "this isn't working", "completely different", "not even close",
+    "that misses the point", "that's not what i was asking"
+  ],
+  "non_correction_starters": [
+    "can you", "could you", "help me", "write me", "draft me", "search for",
+    "find me", "look up", "what is", "how do", "research"
+  ]
+}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 3 — PASTE ARCHAEOLOGY (B.2 in detail)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: src/lib/channel-b/paste-classifier.ts
+
+Channel A already detects THAT content is pasted (containsPastedContent flag).
+Channel B classifies WHAT TYPE of content was pasted and what domain it's from.
+
+The paste classifier runs on the FULL message when containsPastedContent = true.
+It analyzes the pasted portion (NOT userOwnedText — the opposite of Channel A).
+
+──────────────────────────────────────────────────────────────────────────────
+PASTE TYPE DETECTION (in priority order, first match wins)
+──────────────────────────────────────────────────────────────────────────────
+
+TYPE: code
+Detect when: message contains ```code fences``` OR code-pattern density is high
+Code patterns: if/else, function/def, const/let/var, import/require, class,
+  return, arrow functions (=>), brackets {} [], semicolons at line ends
+
+TYPE: email_thread
+Detect when:
+  — Contains "From: [email]" AND "Subject:" patterns (email headers)
+  — Contains "> [text]" quoting (email reply quoting)
+  — Contains patterns like "On [date], [name] wrote:"
+  — Has alternating quoted/unquoted blocks (back-and-forth thread)
+
+TYPE: data_numbers
+Detect when:
+  — Contains tabular formatting (multiple values per line with alignment/tabs)
+  — Contains CSV-like patterns (comma-separated values, 3+ commas per line)
+  — High density of numbers: > 30% of words are numeric or contain % $ , .
+  — Contains explicit table markers: | separators, --- separators
+  — Multiple currency amounts or percentages in short span
+
+TYPE: formal_document
+Detect when:
+  — Contains section markers: "1.", "2.", "Section 1", "Chapter", "Article"
+    followed by capitalized title words
+  — Contains footnote patterns: [1], (1), or "¹" markers
+  — Contains "Executive Summary", "Table of Contents", "Introduction", "Conclusion"
+  — Has consistent heading hierarchy
+
+TYPE: article_content
+Detect when:
+  — Long paragraphs (150+ word paragraphs, 2+ of them)
+  — Formal sentence structure (avg sentence > 20 words)
+  — Contains attribution patterns: "According to [source]", "A study by",
+    "Research from", "reported by", "cited in"
+  — Does NOT match code/email/data patterns
+
+TYPE: external_writing
+Detect when: containsPastedContent = true AND none of the above match
+  AND the writing register differs significantly from userOwnedText.
+  Register difference detection (simple):
+    — Count avg words per sentence in pasted block
+    — Count avg sentence length in pasted block
+    — If avg sentence length > 25 words AND user's typical messages avg < 15 words:
+        this is FORMAL writing (academic, professional, formal document)
+    — If avg sentence length < 8 words AND it's prose: this is INFORMAL writing
+  "external_writing" when register doesn't match known user voice.
+
+TYPE: unknown
+Fallback when containsPastedContent = true but no type matched.
+
+──────────────────────────────────────────────────────────────────────────────
+PASTE TOPIC EXTRACTION
+──────────────────────────────────────────────────────────────────────────────
+
+After classifying the paste type, run tribe detection on the pasted CONTENT
+(not the userOwnedText — the opposite of Channel A's contamination guard).
+
+Why: Channel A protects tribe scores from paste contamination.
+Channel B EXPLOITS the paste content to understand what domain the user is
+currently working in. "You pasted a McKinsey slide about enterprise SaaS"
+tells us the user's current focus area, even if they never said it.
+
+Extract: dominant tribe from the pasted content using detectVocabularyTribeHits
+but applied to the PASTED portion only (not the full text, not userOwnedText).
+
+Store: in channel_b_paste_log.primary_tribe
+
+Aggregate: if 2+ paste events in 14 days share the same primary tribe →
+paste_topic_focus is set to that tribe name. This feeds into context injection.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 4 — LATENCY + APPROVAL PATTERNS (B.3 + B.4 in detail)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+──────────────────────────────────────────────────────────────────────────────
+LATENCY COMPUTATION
+──────────────────────────────────────────────────────────────────────────────
+
+Input: prior_message.created_at (the assistant message) + current message timestamp
+Output: latency_seconds, latency_bucket, is_rubber_stamp
+
+Latency = now() - prior_message_timestamp (in seconds)
+
+Bucket rules:
+  if latency <= 0 or latency < 2:  "invalid" (system error or automation)
+  if latency <= 30:                 "immediate"
+  if latency <= 300 (5 min):       "quick"
+  if latency <= 1800 (30 min):     "medium"
+  if latency <= 14400 (4 hours):   "slow"
+  if latency > 14400:              "session_break" (user came back later)
+
+Rubber stamp detection:
+  is_rubber_stamp = true
+  IF latency_seconds < 5
+  AND prior_response_length > 100 characters
+  AND is_correction = false (they accepted it, didn't push back immediately)
+
+  A person cannot read 100+ chars in 5 seconds and make a thoughtful decision.
+  If they're approving in < 5 seconds, they're either:
+  A) Genuinely not reading (rubber stamp)
+  B) Expecting exactly this output (very high trust)
+  We treat both as "rubber stamp" in V1. Distinguish later with downstream edit data.
+
+──────────────────────────────────────────────────────────────────────────────
+WHAT WE STORE AND COMPUTE FROM LATENCY
+──────────────────────────────────────────────────────────────────────────────
+
+Per task type, compute running averages:
+  — avg_latency_seconds (running avg, excludes session_break events)
+  — median_latency_bucket (most common bucket for this task type)
+  — immediate_rate (fraction of responses in "immediate" bucket)
+  — rubber_stamp_rate (fraction of responses that are rubber stamps)
+
+Interpretations:
+  avg_latency "immediate" on research tasks →
+    User acts on research output right away. Research is live-use content.
+    Don't add extra context they won't read — give them what they asked for fast.
+
+  avg_latency "slow" on write tasks →
+    User spends time reviewing writing before using it. Writing quality matters.
+    Take more care with drafts. User is doing real editing review.
+
+  rubber_stamp_rate > 50% on a task type →
+    User is trusting or not reading. Two possibilities:
+    A) Full trust — agent has nailed this task type. Don't change what's working.
+    B) Disengagement — user stopped reading because quality is consistently off.
+    Distinguish: rubber_stamp + high_correction_rate (later) = B (disengagement)
+    rubber_stamp + low_correction_rate = A (trust)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 5 — THE EXTRACTION PIPELINE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: src/lib/channel-b/extractor.ts
+
+The pipeline runs when: a user message arrives AND the prior message was from
+the assistant in the same session.
+
+Required inputs:
+  — userId: string
+  — currentMessage: string (the new user message)
+  — priorAssistantMessage: string (the agent's response they're reacting to)
+  — priorAssistantCreatedAt: string (ISO timestamp of when response was sent)
+  — priorTaskType: string (from Channel A signal OR re-classified)
+  — sessionId: string
+  — currentMessageCreatedAt: Date (now)
+
+──────────────────────────────────────────────────────────────────────────────
+STEP 1: COMPUTE LATENCY
+──────────────────────────────────────────────────────────────────────────────
+
+  const latencySeconds = (currentTime - priorTime) / 1000
+  const latencyBucket = bucketLatency(latencySeconds)
+  const isRubberStamp = latencySeconds < 5
+                         && priorAssistantMessage.length > 100
+                         && !isCorrectionMessage
+
+Note: we need to run correction detection BEFORE rubber stamp finalization
+because is_correction affects the rubber stamp calculation.
+
+──────────────────────────────────────────────────────────────────────────────
+STEP 2: DETECT PASTE
+──────────────────────────────────────────────────────────────────────────────
+
+  Use normalizeMessage() (from Channel A) to get containsPastedContent.
+  If containsPastedContent:
+    — Run classifyPaste(currentMessage) → paste_type
+    — Extract pasted portion (approximate: everything after userOwnedText)
+    — Run tribe detection on pasted portion → paste_tribe_hits, primary_tribe
+
+──────────────────────────────────────────────────────────────────────────────
+STEP 3: DETECT CORRECTION (topic continuity + level)
+──────────────────────────────────────────────────────────────────────────────
+
+  Stage 1 — Is this a continuation?
+    detectContinuation(currentMessage, priorAssistantMessage) → isContinuation
+
+    Returns true if:
+      — Continuation references present (references prior output)
+      — Correction strong indicators present
+      — OR: message is < 40 words AND doesn't start with a new-task pattern
+
+  Stage 2 — Is it a correction?
+    If isContinuation:
+      detectCorrection(currentMessage) → isCorrection, correctionPhrases
+      If isCorrection:
+        classifyCorrectionLevel(currentMessage) → level (1-5)
+        This is the most important signal.
+
+──────────────────────────────────────────────────────────────────────────────
+STEP 4: INSERT RAW SIGNAL
+──────────────────────────────────────────────────────────────────────────────
+
+  insertChannelBRawSignal({
+    userId, sessionId,
+    userMessageText, userMessageLength,
+    priorTaskType, priorResponseLength,
+    isContinuation, isCorrection, correctionLevel, correctionPhrases,
+    containsPaste, pasteType, pasteCharCount, pasteTribeHits,
+    latencySeconds, latencyBucket, isRubberStamp
+  })
+
+──────────────────────────────────────────────────────────────────────────────
+STEP 5: UPDATE PASTE LOG
+──────────────────────────────────────────────────────────────────────────────
+
+  If containsPaste:
+    insertChannelBPasteLog({ userId, pasteType, pasteCharCount, pasteTribeHits, primaryTribe })
+
+──────────────────────────────────────────────────────────────────────────────
+STEP 6: UPDATE PROFILE
+──────────────────────────────────────────────────────────────────────────────
+
+  updateChannelBProfile(userId, {
+    priorTaskType, isCorrection, correctionLevel,
+    pasteType, primaryTribePasted,
+    latencyBucket, isRubberStamp
+  })
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 6 — PROFILE BUILDER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: src/lib/channel-b/profile-builder.ts
+
+──────────────────────────────────────────────────────────────────────────────
+CORRECTION PROFILE (per task type)
+──────────────────────────────────────────────────────────────────────────────
+
+For each task type, maintain:
+  total_responses: number         (total times agent responded on this task type)
+  corrections: number             (subset that got a correction)
+  correction_rate: number         (corrections / total_responses)
+  level_counts: { L1, L2, L3, L4, L5 }  (count by level)
+  most_common_level: string | null
+
+Running correction rate: (old_rate * old_count + new_correction) / (old_count + 1)
+
+Thresholds for flagging:
+  high_correction_types: task types where correction_rate > 0.30 AND total_responses >= 5
+  low_correction_types: task types where correction_rate < 0.10 AND total_responses >= 5
+
+The crucial derived insight:
+  high_correction + most_common_level = L3 → "structural mismatch on [task_type]"
+  high_correction + most_common_level = L2 → "tone mismatch on [task_type]"
+  high_correction + most_common_level = L1 → "minor word choices on [task_type]"
+  high_correction + most_common_level = L4 → "approach mismatch on [task_type]"
+  high_correction + most_common_level = L5 → "task interpretation failure on [task_type]"
+
+These five combinations produce five completely different behavioral modifications
+for the agent. This is the most actionable signal in Channel B.
+
+──────────────────────────────────────────────────────────────────────────────
+PASTE PROFILE
+──────────────────────────────────────────────────────────────────────────────
+
+  total_pastes: cumulative count
+  by_type: { email_thread, article, data_numbers, code, formal_document, external_writing, unknown }
+
+  Recent paste topic focus (rolling 30 days):
+    Query channel_b_paste_log for this user, last 30 days
+    Count primary_tribe occurrences
+    If one tribe has 2+ paste events → paste_topic_focus = that tribe
+    If no tribe dominates → paste_topic_focus = null
+
+  This is rebuilt on every profile update by querying paste_log.
+  (Don't try to maintain rolling counts incrementally — recompute from log, it's fast.)
+
+──────────────────────────────────────────────────────────────────────────────
+LATENCY PROFILE (per task type)
+──────────────────────────────────────────────────────────────────────────────
+
+  For each task type:
+    avg_latency_seconds: running average (excludes session_break events)
+    count: number of non-session-break events
+    immediate_rate: running fraction of "immediate" bucket events
+    rubber_stamp_rate: running fraction of is_rubber_stamp events
+    dominant_bucket: the most common bucket for this task type
+
+  Task type flags:
+    fast_task_types: task types where dominant_bucket = "immediate"
+    slow_task_types: task types where dominant_bucket = "slow"
+    rubber_stamp_types: task types where rubber_stamp_rate > 0.4 AND count >= 5
+
+──────────────────────────────────────────────────────────────────────────────
+TRUST CLASSIFICATION (combines correction + rubber stamp)
+──────────────────────────────────────────────────────────────────────────────
+
+  For each task type, compute trust level:
+
+  HIGH_TRUST: rubber_stamp_rate > 0.4 AND correction_rate < 0.10 AND count >= 5
+    → User trusts agent on this task type. Agent should execute directly.
+
+  OVERCORRECTED: correction_rate > 0.30 AND rubber_stamp_rate < 0.2 AND count >= 5
+    → Agent consistently gets this wrong. Behavior change needed.
+
+  RUBBER_STAMP_DISENGAGEMENT: rubber_stamp_rate > 0.4 AND correction_rate > 0.25 AND count >= 5
+    → User rubber-stamps AND still corrects at high rate. They've stopped reading
+    carefully but are still unhappy with outputs. Most dangerous pattern.
+
+  NORMAL: everything else.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 7 — CONTEXT INJECTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Injected into the system prompt alongside Channel A context.
+Same cold-start gate: < 10 reaction events = inject nothing.
+
+Function: buildChannelBContextBlock(userId, currentTaskType?)
+
+GATE: total_reactions < 10 → return ''
+
+Build lines:
+
+  // Correction pattern for current task type (most actionable)
+  if currentTaskType is in high_correction_types:
+    const level = correction_profile[currentTaskType].most_common_level
+    if level = 'L1':
+      "User frequently changes specific words on [taskType] outputs — ask for word-choice guidance upfront"
+    if level = 'L2':
+      "User rewrites sentences on [taskType] outputs — they have strong tone preferences. Ask: formal or casual?"
+    if level = 'L3':
+      "User restructures [taskType] outputs — present the structure first and confirm before filling in content"
+    if level = 'L4':
+      "User fully rewrites [taskType] outputs — current approach doesn't match their style. Ask for a sample or example first"
+    if level = 'L5':
+      "User has discarded [taskType] outputs — task classification may be wrong. Confirm task intent before starting"
+
+  // Trust pattern (also actionable)
+  if currentTaskType is in low_correction_types (trust):
+    "User accepts [taskType] outputs without changes — just execute, no need to offer alternatives"
+
+  // Active paste topic focus
+  if paste_profile.paste_topic_focus is not null:
+    "User has been pasting [paste_topic_focus] content recently — they are likely working in this domain"
+
+  // Calibration warning: rubber stamp disengagement
+  if currentTaskType is in rubber_stamp_types AND overcorrected:
+    "[CALIBRATION] User approves [taskType] quickly but still corrects — they may be disengaged from agent quality"
+
+  // Latency insight for current task type
+  if currentTaskType in slow_task_types:
+    "User takes time reviewing [taskType] outputs — they do careful manual review. Prioritize quality over speed."
+  if currentTaskType in fast_task_types:
+    "User acts immediately on [taskType] outputs — they're using this live. Prioritize speed."
+
+Keep the block short: 2-4 lines max. Never dump the whole profile.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 8 — PROBLEMS AHEAD (what will go wrong and how to handle it)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+──────────────────────────────────────────────────────────────────────────────
+PROBLEM 1: NEW TASKS MISCLASSIFIED AS CORRECTIONS
+──────────────────────────────────────────────────────────────────────────────
+
+What happens: User accepts write output, then immediately asks a research
+question about the same general topic ("what's the typical email open rate
+for this industry?"). Message is short, topic-adjacent. Gets classified
+as a continuation + correction.
+
+Solution: Non-correction-starter check.
+  If message starts with any of: "can you", "could you", "what is", "how do",
+  "find me", "search", "look up", "help me" → is_continuation = false.
+  These are new-task patterns even if topic-adjacent.
+
+  Also: if correction_phrases count = 0 AND message does not reference the
+  prior output → is_correction = false even if is_continuation = true.
+  (User accepted and moved on — that's also valuable signal: acceptance.)
+
+──────────────────────────────────────────────────────────────────────────────
+PROBLEM 2: LATENCY POLLUTION FROM LIFE HAPPENING
+──────────────────────────────────────────────────────────────────────────────
+
+What happens: User submits task, gets output, then has a 2-hour meeting,
+comes back, sends a quick approval. Recorded as "slow" latency, interpreted as
+"careful review" — but they didn't review, they just got busy.
+
+Solution: Session break gate.
+  Latency > 4 hours → latency_bucket = "session_break", excluded from latency averages.
+  4 hours is long enough to exclude almost all work interruptions (except all-day offsite).
+  Latency between 2 and 4 hours is genuinely ambiguous — record but weight lightly
+  in the profile (multiply by 0.5 in running avg contribution).
+
+──────────────────────────────────────────────────────────────────────────────
+PROBLEM 3: MULTI-TURN CORRECTIONS COUNTED AS MULTIPLE EVENTS
+──────────────────────────────────────────────────────────────────────────────
+
+What happens: User sends "change the tone" → agent adjusts → user sends
+"also remove the bullets" → agent adjusts → user sends "add our company name".
+Each message is a correction but they're all part of ONE editorial session.
+The system counts 3 L1 corrections for one output — inflating correction rate.
+
+Solution: Correction session grouping.
+  If two corrections occur within the same session (same session_id) on the
+  same task output, count them as one correction event of the HIGHEST level seen.
+
+  Implementation: before inserting, check if a correction was already recorded
+  for this session_id in the last 10 minutes. If yes, update the existing row
+  to the highest level between old and new, don't insert a new row.
+
+  This requires querying the last channel_b_raw_signal for this session_id
+  before inserting — acceptable since it's a cheap indexed query.
+
+──────────────────────────────────────────────────────────────────────────────
+PROBLEM 4: L4 DETECTION CONFUSED BY CONTEXT PASTES
+──────────────────────────────────────────────────────────────────────────────
+
+What happens: user pastes a long piece of context ("here's the background,
+please use this to write the email"). This is NOT a full rewrite (L4) — it's
+context provision for a NEW task. But the paste makes the message long + prose-heavy,
+triggering L4 detection.
+
+Solution: L4 requires PRIOR TASK TYPE to be "write" or "review".
+  L4 only classifies when:
+  A) prior_task_type ∈ ['write', 'review', 'brief'] (it was an output task)
+  B) AND the paste doesn't look like background context (lacks new-task framing)
+  C) AND the current message doesn't contain a new explicit task instruction
+     ("please use this to write X" = context provision, not rewrite)
+
+  If message has "here's the background", "use this", "context:", "for reference",
+  "based on this" → treat as context provision, not L4.
+
+──────────────────────────────────────────────────────────────────────────────
+PROBLEM 5: PASTE TOPIC FOCUS LAGS REALITY
+──────────────────────────────────────────────────────────────────────────────
+
+What happens: User worked on enterprise sales for 3 months (many enterprise
+paste events). They just pivoted to AI product work. Their paste_topic_focus
+still says "enterprise" for weeks.
+
+Solution: 14-day rolling window (already designed above).
+  paste_topic_focus only counts paste events from the last 14 days.
+  Old pastes expire automatically.
+  Recompute from channel_b_paste_log on every profile update (indexed query).
+
+  Also: require 2+ paste events in 14 days (not 1) to set paste_topic_focus.
+  One paste event is a single data point. Two is a pattern.
+
+──────────────────────────────────────────────────────────────────────────────
+PROBLEM 6: TRUST/CORRECTION COLD START TAKES LONG
+──────────────────────────────────────────────────────────────────────────────
+
+What happens: User needs 5+ reaction events per task type before any signal
+is meaningful. A user who only does "write" tasks might send 10 write messages
+before getting 5 corrections recorded — especially if they accept outputs often.
+
+Solution: Accept cold start. Don't lower the threshold.
+  A correction rate based on 3 events is noise (sample of 3 with 1 correction
+  = 33% rate, but that tells you nothing). 5+ is the minimum.
+  Channel B signals simply aren't available until enough interaction has occurred.
+  This is fine — Channel A runs from message 5 onward. Channel B runs from
+  reaction event 10 onward. The combined profile is richest after 25+ sessions.
+
+──────────────────────────────────────────────────────────────────────────────
+PROBLEM 7: GETTING created_at FROM CHAT MESSAGES
+──────────────────────────────────────────────────────────────────────────────
+
+What happens: The /chat route currently queries:
+  SELECT role, content FROM chat_messages WHERE ...
+
+This doesn't include `created_at`. Without timestamps, latency calculation
+is impossible.
+
+Solution: Requires a small schema + query change.
+  chat_messages table must have a created_at column (it should already, but verify).
+  Change the SELECT to: SELECT role, content, created_at FROM chat_messages WHERE ...
+  Pass the prior message's created_at into extractChannelBSignals().
+
+  This is a required prerequisite. Without it, latency = null on all signals.
+  In V1, if created_at is unavailable, extract correction and paste signals only.
+  Log a warning: "Channel B: no timestamp available, latency not computed."
+
+──────────────────────────────────────────────────────────────────────────────
+PROBLEM 8: CHANNEL B CONTEXT CONFLICTS WITH CHANNEL A CONTEXT
+──────────────────────────────────────────────────────────────────────────────
+
+What happens: Channel A says "user is confident on write tasks" (low hedging).
+Channel B says "user heavily corrects write outputs" (high correction rate).
+These seem contradictory. The agent sees both and doesn't know which to follow.
+
+The apparent contradiction is actually complementary information:
+  User is confident when REQUESTING writing (doesn't hedge requests).
+  But frequently corrects OUTPUTS (agent's execution doesn't match their taste).
+  Solution: the agent should not ASK more questions (they're confident),
+  but should put MORE care into the execution (they will edit heavily).
+
+Solution: Channel B context is ALWAYS written to guide execution, not to
+trigger confirmation questions. Channel A governs the interaction style (ask/don't ask).
+Channel B governs the output quality focus (nail first draft / expect iterations).
+
+When writing context blocks: never say "ask before drafting" if Channel A says
+the user is low-hedging on this task type. Instead say "execute directly but
+prioritize [structural element] since user frequently restructures this output type."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 9 — DEBUG COMMAND
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Endpoint: GET /api/debug/channel-b/:userId
+
+Output format:
+
+  ═══════════════════════════════════════
+  CHANNEL B DEBUG REPORT
+  User: [user_id]
+  Generated: [timestamp]
+  ═══════════════════════════════════════
+
+  COLLECTION STATUS
+  ─────────────────
+  Total reaction events: 47
+  Collection period: [first event] to [last event]
+  Sessions observed: [count distinct session_ids]
+  Corrections observed: 18/47 (38%)
+  Pastes observed: 12/47 (26%)
+  Latency events (valid): 41/47 (6 session breaks excluded)
+
+  B.1 — CORRECTION PROFILE
+  ──────────────────────────
+  High correction types (>30%): write (45%), review (33%)
+  Low correction types (<10%, trusted): research (6%), brief (4%)
+
+  By task type:
+    write     █████████░░░░░░░░░░░ 45%  (18 events, most common: L3 structural)
+    research  █░░░░░░░░░░░░░░░░░░░  6%  (16 events, most common: L1 word swap)
+    analyze   ████░░░░░░░░░░░░░░░░ 20%  (5 events, most common: L2 sentence)
+    brief     ░░░░░░░░░░░░░░░░░░░░  4%  (8 events, most common: none)
+
+  Level distribution (all corrections):
+    L1 (word swap):         5 corrections
+    L2 (sentence rewrite):  4 corrections
+    L3 (structural):        7 corrections  ← dominant
+    L4 (full rewrite):      2 corrections
+    L5 (discard):           0 corrections
+
+  B.2 — PASTE PROFILE
+  ─────────────────────
+  Total pastes: 12
+  By type: email_thread (5) | article (4) | data (2) | code (1)
+  Active paste topic focus (last 14 days): startup_operator
+  Paste topic confidence: 4 paste events in 14 days → CONFIRMED
+
+  B.3 — LATENCY PROFILE
+  ─────────────────────
+  By task type:
+    write     avg 18m  dominant: medium  rubber_stamp: 8%
+    research  avg 42s  dominant: quick   rubber_stamp: 12%
+    brief     avg 12s  dominant: immediate  rubber_stamp: 55%
+
+  TRUST CLASSIFICATION
+  ─────────────────────
+  HIGH_TRUST:       research, brief
+  OVERCORRECTED:    write
+  DISENGAGEMENT:    (none)
+  NORMAL:           analyze
+
+  CONTEXT BLOCK (what agent sees for a "write" task)
+  ────────────────────────────────────────────────────
+  [shows the actual injected context lines for the current task type]
+
+  INJECTION STATUS
+  ─────────────────
+  Profile injected in last 10 responses: 9/10
+  Last injection: [timestamp]
+
+  ═══════════════════════════════════════
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 10 — HOW TO TEST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Tests live in: src/tests/channel-b.test.ts
+Run with: npx tsx src/tests/channel-b.test.ts
+
+──────────────────────────────────────────────────────────────────────────────
+LEVEL 1: UNIT TESTS (pure logic, no DB)
+──────────────────────────────────────────────────────────────────────────────
+
+TEST SET: Correction Detection
+
+  Input: message="change the tone to be more casual", prior="[formal email draft]"
+  Expected: is_continuation=true, is_correction=true, level=L1
+
+  Input: message="can you rewrite the opening paragraph? the current one is too stiff"
+  Prior: "[email draft with formal opening]"
+  Expected: is_continuation=true, is_correction=true, level=L2
+
+  Input: message="can you restructure this? put the value prop first, then the social proof, then the CTA"
+  Prior: "[email draft]"
+  Expected: is_continuation=true, is_correction=true, level=L3
+
+  Input: [200+ word message of user's own rewritten version]
+  Prior: "[email draft]", prior_task_type="write"
+  Expected: is_continuation=true, is_correction=true, level=L4
+
+  Input: message="forget it, let's start over with a completely different approach"
+  Prior: "[email draft]"
+  Expected: is_continuation=true, is_correction=true, level=L5
+
+  Input: message="great, now can you find competitor pricing for us?"
+  Prior: "[email draft]" (accepted, new task)
+  Expected: is_continuation=false, is_correction=false
+
+  Input: message="can you add our company name at the end?"
+  Prior: "[email draft]"
+  Expected: is_continuation=true, is_correction=true, level=L1
+
+TEST SET: Paste Classification
+
+  Input: message with "From: boss@company.com\nSubject: Q3 Results" + 900 chars
+  Expected: paste_type="email_thread"
+
+  Input: message with 3+ paragraphs of formal prose, "According to a study..."
+  Expected: paste_type="article_content"
+
+  Input: message with comma-separated values and % signs throughout
+  Expected: paste_type="data_numbers"
+
+  Input: message with ```code fences``` or const/function/if/else patterns
+  Expected: paste_type="code"
+
+  Input: message with "Section 1: Executive Summary\nSection 2: Market Analysis"
+  Expected: paste_type="formal_document"
+
+TEST SET: Latency Bucketing
+
+  latencyBucket(10)     → "immediate"
+  latencyBucket(90)     → "quick"
+  latencyBucket(600)    → "medium"
+  latencyBucket(3600)   → "slow"
+  latencyBucket(20000)  → "session_break"
+  latencyBucket(1)      → "invalid"
+
+  isRubberStamp(3, 200, false)   → true  (2s latency, long output, no correction)
+  isRubberStamp(3, 50, false)    → false (short output — could read in 3s)
+  isRubberStamp(10, 200, true)   → false (is a correction — they did read it)
+
+──────────────────────────────────────────────────────────────────────────────
+LEVEL 2: INTEGRATION TESTS (real DB)
+──────────────────────────────────────────────────────────────────────────────
+
+TEST: Signal insertion round-trip
+  1. Call extractChannelBSignals() with known inputs
+  2. Query channel_b_raw_signals
+  3. Verify: correction_level, latency_bucket, paste_type all correct
+
+TEST: Profile correction rate tracking
+  1. Simulate 6 write responses: 3 corrected (L3), 3 accepted
+  2. Query profile
+  3. Verify: write correction_rate ≈ 0.50, most_common_level = L3
+
+TEST: Paste log accumulation
+  1. Send 3 messages with email thread pastes (same user, within 14 days)
+  2. Query paste_topic_focus from profile
+  3. Verify: paste_topic_focus is set to the tribe matching email thread content
+
+TEST: Correction session grouping (Problem 3)
+  1. Send first correction ("change tone") in session S1
+  2. Send second correction ("also fix bullets") 4 minutes later in same session S1
+  3. Query channel_b_raw_signals WHERE session_id = S1
+  4. Verify: only 1 row (not 2), correction_level = highest of the two
+
+TEST: Session break exclusion from latency
+  1. Send message with latency of 6 hours (16 minutes > 4h threshold)
+  2. Query raw signal
+  3. Verify: latency_bucket = "session_break", excluded from latency averages in profile
+
+──────────────────────────────────────────────────────────────────────────────
+LEVEL 3: BEHAVIORAL TESTS (manual, run against live server)
+──────────────────────────────────────────────────────────────────────────────
+
+TEST A — Structural correction changes agent behavior
+  1. Send 6 write requests, each followed by "restructure it" corrections (L3)
+  2. After 6 reactions (meets threshold), send a new write request
+  3. Observe: agent should offer structure options BEFORE writing, or write
+     a shorter draft and say "let me know if this structure works first"
+  4. Pass if: agent behavior on new write request has changed from defaults
+
+TEST B — Trust signal = direct execution
+  1. Send 8 research tasks, accept each without correction
+  2. After 8 reactions (rubber stamp pattern established), send research task
+  3. Observe: agent should just execute — no options, no clarifying questions
+  4. Pass if: research response is direct and immediate, no meta-commentary
+
+TEST C — Paste topic focus shows up in context
+  1. Paste 3 documents with heavy startup vocabulary over 3 separate messages
+  2. After 3 paste events in 14 days, send an unrelated task
+  3. Observe: agent should optionally reference startup context as relevant
+  4. Check debug endpoint: paste_topic_focus = "startup_operator"
+
+TEST D — Multi-turn correction grouping
+  1. Send write output
+  2. Send correction 1 (L1): "change word X"
+  3. Wait < 10 minutes, send correction 2 (L3): "restructure it"
+  4. Check DB: only 1 correction event for this session, level = L3
+
+TEST E — Debug endpoint completeness
+  Call GET /api/debug/channel-b/:userId after 15+ interactions
+  Verify every field manually against DB
+  Check: injection_count > 0 (if 0 → context injection is broken)
+  Check: correction rates match manual count
+  Check: paste_topic_focus matches what you actually pasted
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 11 — BUILD SEQUENCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Build in 5 parts, same as Channel A. Confirm before moving to next.
+
+──────────────────────────────────────────────────────────────────────────────
+PART 1 — DB + DATA FILES (the foundation, never touch again)
+──────────────────────────────────────────────────────────────────────────────
+
+  1. Add 3 new tables to src/lib/db.js:
+     channel_b_raw_signals, channel_b_profiles, channel_b_paste_log
+
+  2. Add `created_at` to the historyRows SELECT in /chat route
+     (prerequisite for latency — verify chat_messages has this column)
+
+  3. Create src/data/correction-patterns.json
+     (continuation_references, correction_strong, correction_structural,
+      correction_discard, non_correction_starters)
+
+  Verify: tables exist, query chat_messages with created_at works
+
+──────────────────────────────────────────────────────────────────────────────
+PART 2 — CORE DETECTORS (pure logic, no DB)
+──────────────────────────────────────────────────────────────────────────────
+
+  1. src/lib/channel-b/latency-calculator.ts
+     — bucketLatency(seconds): latency_bucket
+     — isRubberStamp(latency, priorLength, isCorrection): boolean
+
+  2. src/lib/channel-b/paste-classifier.ts
+     — classifyPaste(messageText, normalizedMessage): PasteType
+     — extractPastedPortion(message, userOwnedText): string
+     — getPastedTribeHits(pastedPortion): TribeHits
+
+  3. src/lib/channel-b/correction-detector.ts
+     — detectContinuation(currentMsg, priorAssistantMsg): boolean
+     — detectCorrection(currentMsg): { isCorrection: boolean, phrases: string[] }
+     — classifyCorrectionLevel(currentMsg, priorTaskType, priorResponseLength): 1|2|3|4|5
+     — shouldMergeWithPriorCorrection(sessionId, currentTime): boolean
+
+  Unit test all three files before moving on.
+
+──────────────────────────────────────────────────────────────────────────────
+PART 3 — SIGNAL PIPELINE (DB writes + route hook)
+──────────────────────────────────────────────────────────────────────────────
+
+  1. src/lib/channel-b/signal-inserter.ts
+     — insertRawSignal(input): void
+     — insertPasteLog(input): void
+     — updateOrMergeCorrection(sessionId, level, phrases): void
+
+  2. src/lib/channel-b/extractor.ts
+     — extractChannelBSignals(userId, currentMsg, priorAssistantMsg,
+         priorCreatedAt, priorTaskType, sessionId): Promise<void>
+     — fire-and-forget wrapper with error logging
+
+  3. Hook into /chat route:
+     — Load historyRows WITH created_at
+     — If last historyRow is assistant message:
+         const lastAssistant = historyRows.find(m => m.role === 'assistant')
+         if (lastAssistant) {
+           extractChannelBSignals(userId, message, lastAssistant.content,
+             lastAssistant.created_at, priorTaskType, sessionId).catch(...)
+         }
+     — priorTaskType: look up from channel_a_raw_signals OR classify from
+       the user message that preceded the assistant response
+
+  Integration test: verify rows appearing in channel_b_raw_signals
+
+──────────────────────────────────────────────────────────────────────────────
+PART 4 — PROFILE BUILDER
+──────────────────────────────────────────────────────────────────────────────
+
+  1. src/lib/channel-b/profile-builder.ts
+     — ChannelBProfile interface (all sub-profiles typed)
+     — getChannelBProfile(userId): ChannelBProfile | null
+     — updateChannelBProfile(userId, signal): void
+     — updateCorrectionProfile(current, taskType, isCorrection, level)
+     — updatePasteProfile(userId, current)  ← re-queries paste_log (rolling 30d)
+     — updateLatencyProfile(current, taskType, latencyBucket, isRubberStamp)
+     — computeTrustClassification(correctionProfile, latencyProfile)
+
+  Integration test: verify profile updates correctly after synthetic signals
+
+──────────────────────────────────────────────────────────────────────────────
+PART 5 — CONTEXT INJECTION + DEBUG
+──────────────────────────────────────────────────────────────────────────────
+
+  1. src/lib/channel-b/context-builder.ts
+     — buildChannelBContextBlock(userId, currentTaskType?): string
+       (cold-start gated at 10 total reactions)
+
+  2. Wire into agent-extension.ts (alongside Channel A block)
+     — After Channel A block push, push Channel B block
+
+  3. Wire into orchestrator.ts (alongside Channel A context)
+     — Build Channel B block, combine with Channel A: [a_block, b_block].join('\n')
+
+  4. GET /api/debug/channel-b/:userId in tasks.ts
+
+  5. Verify behavioral change: behavioral tests A-E above
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE ONE THING THAT MAKES CHANNEL B WORK OR NOT WORK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Correction level classification.
+
+If you can reliably tell the difference between L1 (word preference),
+L3 (structural preference), and L4 (approach mismatch), the entire
+downstream behavior change logic becomes specific and actionable.
+
+If the classifier is noisy and everything gets bucketed as L1, the profile
+will say "user makes word corrections a lot" — which produces generic advice.
+
+The correction level classifier must be tuned over real usage. In the first
+week, look at what's being classified and manually verify the levels.
+Correction-patterns.json is a living asset. Add patterns as you see real
+correction language. The structural indicators in particular are critical —
+get those right.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+AUDIT LOG — POST-BUILD AUDIT (Channel B complete, pre-Channel C)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Audit performed after all 5 parts built and passing (86/86 tests).
+Result: 1 bug found and fixed, 13 new tests added (99/99 passing).
+
+──────────────────────────────────────────────────────────────────────────────
+BUG FIXED
+──────────────────────────────────────────────────────────────────────────────
+
+FILE: src/data/correction-patterns.json
+
+ISSUE: "can you add our company name at the end?" (plan's test case at line 993)
+was NOT being detected as a correction. The message starts with "can you" which
+is in non_correction_starters — but unlike "can you fix", "can you change" etc.,
+"can you add" was missing from correction_strong. Since correction_strong is
+checked BEFORE non_correction_starters, the absence caused "can you" to win →
+message classified as new task (is_continuation=false). Wrong.
+
+FIX: Added "can you add" and "could you add" to correction_strong.
+Now "can you add our company name at the end?" → is_continuation=true, L1. ✓
+
+──────────────────────────────────────────────────────────────────────────────
+WIRING CONFIRMED CORRECT
+──────────────────────────────────────────────────────────────────────────────
+
+  src/routes/tasks.ts — Channel B hook fires on /chat only (not create-task) ✓
+  src/lib/agent-extension.ts — Channel B block injected after Channel A ✓
+  src/lib/agents/orchestrator.ts — Channel B block combined with Channel A ✓
+  correction-patterns.json — all 6 required keys present including
+    context_provision_markers ✓
+  correction_strong checked BEFORE non_correction_starters (critical order) ✓
+  multi-turn merge: same session + 10 minutes → updates existing row to max level ✓
+  cold-start gate: COLD_START_MIN=10 reactions before injecting context ✓
+
+──────────────────────────────────────────────────────────────────────────────
+NEW TESTS ADDED TO src/tests/channel-b.test.ts
+──────────────────────────────────────────────────────────────────────────────
+
+Total test count: 86 → 99 (+13 tests)
+
+Paste Classifier — extractPastedPortion:
+  [new] fuzzy last-5-words match: extra prefix in owned text → pasted content found
+
+Paste Classifier — getPastedTribeHits (was UNTESTED, now 3 tests):
+  [new] startup vocab (5+ terms) → primaryTribe = startup_operator
+  [new] generic text → primaryTribe = null (< 3 tribe hits)
+  [new] short text (< 20 chars) → primaryTribe = null immediately
+
+Correction Detector — detectContinuation (bug fix tests):
+  [new] continuation: "can you add" — correction overrides can-you starter
+  [new] L1: "can you add" targeted addition → L1
+
+Profile Builder — additional scenarios:
+  [new] slow_task_types: after 5+ slow signals → task type in slow_task_types
+  [new] trust_class RUBBER_STAMP_DISENGAGEMENT: rsRate > 0.4 AND corrRate > 0.25
+  [new] paste_topic_focus: single paste event → focus NOT set (needs 2+)
+        (same test also verifies: 2 events → focus = 'startup_operator')
+
+Context Builder (was UNTESTED, now 4 tests):
+  [new] context-builder: no profile → returns empty string
+  [new] context-builder cold-start gate: 9 reactions (< 10) → returns empty string
+  [new] context-builder: 10th reaction crosses cold-start, L3 write → injects
+        structure instruction
+  [new] context-builder: paste_topic_focus line injected when focus is set
+
+──────────────────────────────────────────────────────────────────────────────
+KNOWN LIMITATIONS (documented, not fixing)
+──────────────────────────────────────────────────────────────────────────────
+
+"write me a shorter email" — "shorter" is in correction_strong and is checked
+before non_correction_starters. This message is classified as is_continuation=true
+(correction). This is an inherent ambiguity with single generic correction words.
+The consequence is minor: the signal counts as a correction (L1) when the user
+was making a new request. This is PROBLEM 1 from the plan, partially mitigated
+by non_correction_starters but not fully solvable without refactoring the
+order logic for ambiguous single-word signals. Acceptable for now.
+
+L3 structural corrections are the highest-value signal in this entire channel.
+Every time a user restructures output, they're revealing a preference that
+applies to EVERY future output of that type. One L3 correction = permanent profile update.
+
+That's the power of Channel B: the edit is the truth. One honest restructure
+tells you more than 50 hedging messages ever will.
+
+═══════════════════════════════════════════════════════════════════════════════

@@ -1,7 +1,4 @@
-// task-logger.ts
-// Handles all task execution logging
-
-import { supabase } from './supabase.js'
+import { db, uuid, j } from './db.js'
 
 export interface TaskStep {
   stepNumber: number
@@ -31,25 +28,20 @@ export interface TaskLog {
 class TaskLogger {
   private log: TaskLog
   private startTime: number
+  private silent: boolean
 
-  constructor(taskId: string, userId: string, userPrompt: string) {
-    this.log = {
-      taskId,
-      userId,
-      userPrompt,
-      status: 'started',
-      steps: []
-    }
+  constructor(taskId: string, userId: string, userPrompt: string, silent = false) {
+    this.log = { taskId, userId, userPrompt, status: 'started', steps: [] }
     this.startTime = Date.now()
-
-    console.log(`[LOGGER] Task started: ${taskId}`)
-    console.log(`[LOGGER] User prompt: "${userPrompt}"`)
+    this.silent = silent
+    if (!silent) {
+      console.log(`[LOGGER] Task started: ${taskId}`)
+      console.log(`[LOGGER] User prompt: "${userPrompt}"`)
+    }
   }
 
-  // Log the plan generated
   setPlan(plan: string) {
     this.log.plan = plan
-    console.log(`[LOGGER] Plan set`)
   }
 
   updateLastStepConfidence(confidence: number) {
@@ -58,16 +50,16 @@ class TaskLogger {
     }
   }
 
-  // Log each step during execution
   addStep(step: TaskStep) {
     this.log.steps.push(step)
-    console.log(
-      `[LOGGER] Step ${step.stepNumber}: ${step.toolName} | ` +
+    if (!this.silent) {
+      console.log(
+        `[LOGGER] Step ${step.stepNumber}: ${step.toolName} | ` +
         `Confidence: ${step.confidence}% | Status: ${step.status}`
-    )
+      )
+    }
   }
 
-  // Shorthand for adding browser steps
   addBrowserStep(
     stepNumber: number,
     toolName: string,
@@ -77,29 +69,19 @@ class TaskLogger {
     url?: string,
     text?: string
   ) {
-    const step: TaskStep = {
-      stepNumber,
-      toolName,
-      ref,
-      text,
-      url,
-      result,
-      confidence,
+    this.addStep({
+      stepNumber, toolName, ref, text, url, result, confidence,
       status: confidence >= 80 ? 'success' : confidence >= 50 ? 'warning' : 'failed'
-    }
-    this.addStep(step)
+    })
   }
 
-  // Finalize and save log
   async finalize(
     finalStatus: 'completed' | 'failed',
     iterationsUsed: number,
     finalConfidence: number,
     improvements?: string
   ) {
-    const endTime = Date.now()
-    const totalTimeSeconds = Math.round((endTime - this.startTime) / 1000)
-
+    const totalTimeSeconds = Math.round((Date.now() - this.startTime) / 1000)
     this.log.status = finalStatus
     this.log.iterationsUsed = iterationsUsed
     this.log.totalSteps = this.log.steps.length
@@ -107,37 +89,27 @@ class TaskLogger {
     this.log.totalTime = totalTimeSeconds
     this.log.improvements = improvements
 
-    console.log(`[LOGGER] Task finalized: ${finalStatus}`)
-    console.log(
-      `[LOGGER] Time: ${totalTimeSeconds}s | Steps: ${this.log.steps.length} | Confidence: ${finalConfidence}%`
-    )
+    if (!this.silent) {
+      console.log(`[LOGGER] Task finalized: ${finalStatus}`)
+      console.log(`[LOGGER] Time: ${totalTimeSeconds}s | Steps: ${this.log.steps.length} | Confidence: ${finalConfidence}%`)
+    }
 
-    // Save to Supabase
     try {
-      const { error } = await supabase.from('task_logs').insert({
-        task_id: this.log.taskId,
-        user_id: this.log.userId,
-        user_prompt: this.log.userPrompt,
-        status: this.log.status,
-        plan: this.log.plan,
-        steps: this.log.steps,
-        total_time: this.log.totalTime,
-        iterations_used: this.log.iterationsUsed,
-        total_steps: this.log.totalSteps,
-        final_confidence: this.log.finalConfidence
-      })
-
-      if (error) {
-        console.error('[LOGGER] Failed to save log:', error)
-      } else {
-        console.log('[LOGGER] Log saved to Supabase')
-      }
+      db.prepare(`
+        INSERT INTO task_logs (id, task_id, user_id, user_prompt, status, plan, steps, total_time, iterations_used, total_steps, final_confidence)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        uuid(), this.log.taskId, this.log.userId, this.log.userPrompt,
+        this.log.status, this.log.plan ?? null, j(this.log.steps),
+        this.log.totalTime ?? null, this.log.iterationsUsed ?? null,
+        this.log.totalSteps ?? null, this.log.finalConfidence ?? null
+      )
+      if (!this.silent) console.log('[LOGGER] Log saved to local DB')
     } catch (err) {
       console.error('[LOGGER] Error saving log:', err)
     }
   }
 
-  // Get formatted log for display
   getFormattedLog(): string {
     const stepsList = this.log.steps
       .map(step => {
@@ -182,6 +154,6 @@ ${this.log.improvements || 'None recorded'}
   }
 }
 
-export function createTaskLogger(taskId: string, userId: string, userPrompt: string) {
-  return new TaskLogger(taskId, userId, userPrompt)
+export function createTaskLogger(taskId: string, userId: string, userPrompt: string, silent = false) {
+  return new TaskLogger(taskId, userId, userPrompt, silent)
 }

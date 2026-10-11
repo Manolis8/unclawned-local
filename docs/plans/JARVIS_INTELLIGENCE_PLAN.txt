@@ -1,0 +1,741 @@
+═══════════════════════════════════════════════════════════════════════════════
+JARVIS INTELLIGENCE LAYER
+The Data Extraction → Collection → Action Framework
+═══════════════════════════════════════════════════════════════════════════════
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE CORE IDEA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Every interaction the user has with Jarvis contains data.
+Right now almost all of it is thrown away.
+
+The task prompt contains what the user thinks matters.
+The task execution reveals how they work.
+The outcome tells us what succeeded and what failed.
+The edits they make tell us where we got them wrong.
+The timing tells us what is urgent and what is not.
+The repetition tells us what is grinding them down.
+The ABSENCE of certain task types tells us what they are avoiding.
+
+None of this is being collected, modeled, or used.
+
+This plan is about building three things in sequence:
+
+  EXTRACTION — pull signal from every interaction (explicit + implicit + observed)
+  COLLECTION — organize that signal into a structured behavioral model
+  ACTION     — use the model to make suggestions and do things proactively
+
+When these three layers work together, Jarvis stops being a command executor
+and becomes something that genuinely understands the person using it — and uses
+that understanding to act on their behalf.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LAYER 1 — EXTRACTION
+How we pull signal from every interaction
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+There are four extraction channels. Each produces different signal.
+Combined, they build a picture of the user that no explicit profile form
+could ever replicate — because most of what makes someone who they are is
+revealed by behavior, not by what they say about themselves.
+
+──────────────────────────────────────────────────────────────────────────────
+CHANNEL A — WHAT THEY TYPE
+Signal from the task prompts themselves
+──────────────────────────────────────────────────────────────────────────────
+
+Every task prompt is a data point. Not just for running the task — for
+understanding the person. We currently throw this away after routing.
+
+What to extract:
+
+  DOMAIN TAGS
+    Keywords that reveal what world they operate in.
+    "write a cold email to a VC" → fundraising, sales, writing
+    "find the LinkedIn of the CEO of Acme Corp" → research, business development
+    "summarize this PDF contract" → legal, document work, due diligence
+    After 50 tasks: a frequency map of which domains dominate their work.
+    This is their actual focus — not what they said in the profile, what
+    they actually DO.
+
+  URGENCY SIGNALS
+    "urgent", "asap", "by end of day", "before the meeting", "finally"
+    These mark high-stakes moments. High-urgency tasks reveal priorities.
+    They also reveal stress points when they cluster: 3 urgent tasks in
+    one day means something is on fire.
+
+  FRUSTRATION SIGNALS
+    "again", "this keeps", "still not", "every time", "why does", "annoying"
+    Frustration in the prompt = recurring pain. The thing they are frustrated
+    about is a candidate for automation or simplification.
+    "can you AGAIN check if the invoice was paid" → this is a recurring manual
+    check that should be a scheduled skill.
+
+  QUESTION PATTERNS
+    What the user asks about reveals what they don't know yet or are actively
+    learning. "how do I", "what is", "explain", "summarize", "what does X mean"
+    → domain knowledge gaps. Agent can adapt explanation depth.
+    Clusters of questions in one domain = they are ramping up in that area.
+
+  GOAL LANGUAGE
+    "working on", "trying to", "need to close", "want to get to", "building"
+    → reveals active goals that were never explicitly stated in the profile.
+    Extract and compare to stated goals. When there is a gap, surface it.
+
+  EMOTIONAL TEMPERATURE
+    Positive: "excited about", "great call with", "finally got", "just closed"
+    Negative: "still waiting", "disappointed", "didn't work", "waste of time"
+    Neutral: most tasks
+    Emotional temperature over time is a wellbeing signal. When negative
+    language clusters, something is going wrong. Agent can acknowledge it.
+
+──────────────────────────────────────────────────────────────────────────────
+CHANNEL B — HOW THEY REACT
+Signal from user behavior during and after tasks
+──────────────────────────────────────────────────────────────────────────────
+
+The user constantly signals preferences through behavior. We currently capture
+none of this beyond the obvious (task succeeded/failed).
+
+What to extract:
+
+  EDIT PATTERNS
+    Every time the user edits agent output, they reveal a preference.
+    What was changed → what we got wrong.
+    Categorize edits: tone correction, length correction, fact correction,
+    format correction, style correction, scope correction.
+    After 5 edits of the same category for the same task type → profile update.
+    These are revealed preferences, not stated ones. More reliable.
+
+  APPROVAL SPEED
+    How fast does the user approve a suggestion?
+    Instant approval = agent nailed it, user already knew what they wanted.
+    Long hesitation before approval = uncertainty, agent should have offered options.
+    Rejection = misalignment. What was the mismatch?
+    Over time: approval speed by task category. Fast for research, slow for
+    writing → agent should offer more options on writing tasks.
+
+  WHAT THEY SKIP
+    Proactive suggestions dismissed without reading. Items in the pending queue
+    left untouched for days. Briefing sections scrolled past.
+    These are things that don't matter to this user RIGHT NOW.
+    Enough skips of the same type → stop surfacing that type.
+
+  TASK ABANDONMENT
+    Tasks started and not completed. Task type, how far it got, why it stopped.
+    Abandonment reveals difficulty, irrelevance, or changed mind.
+    Repeated abandonment of the same task type = avoidance signal.
+    3 abandoned tasks of the same type = surface: "You've started X three times
+    without finishing. Is this not working? Want to approach it differently?"
+
+  TIMING CHOICES
+    When they run different task types.
+    Research tasks at 9am? They think freshly in the morning.
+    Writing tasks at night? They process and create late.
+    Admin tasks midday? They batch interruptions.
+    Task timing is the best proxy for work rhythm that exists. No survey needed.
+
+  CORRECTION DIRECTIONALITY
+    When the user edits tone: is it always more formal or always more casual?
+    When they edit length: always shorter or always longer?
+    Direction matters. One-directional corrections = systematic bias in the agent.
+    Systematic bias in the agent = solvable profile problem.
+
+──────────────────────────────────────────────────────────────────────────────
+CHANNEL C — WHAT THE AGENT OBSERVES
+Signal from the world the agent sees while executing tasks
+──────────────────────────────────────────────────────────────────────────────
+
+This is the richest and most underused channel. When Jarvis executes a task,
+it sees the user's actual world — their files, their inboxes, their feeds,
+their documents. Almost none of this intelligence makes it back into anything.
+
+What to extract (with consent, non-verbatim):
+
+  STRUCTURAL OBSERVATIONS
+    Not the content — the structure. How many unread emails (rough magnitude)?
+    How organized are the files? Is there a naming system? Are there many
+    abandoned project folders? Is the desktop cluttered?
+    Structure reveals working style: systematic vs exploratory, finisher vs
+    starter, organized vs organic. This shapes how the agent should work with them.
+
+  VOLUME SIGNALS
+    How full is their inbox? How many browser tabs are open? How many documents
+    in their working folder? How many pending items in whatever tool they use?
+    Volume is a stress indicator. High volume + urgent task = agent should be
+    more decisive and less exploratory in its approach.
+
+  RECENCY PATTERNS
+    What was recently opened, recently modified, recently created?
+    This reveals current focus even when the user hasn't articulated it.
+    "You have 5 files modified in the last 3 days all related to the XYZ pitch.
+     This seems like your current focus — want me to create a context file for it?"
+
+  WHAT EXISTS VS WHAT DOESN'T
+    The user asks for a template. Agent looks in files — there is no template folder.
+    This is a gap. Agent creates the template AND notes that a template library
+    would be useful here.
+    The user asks for a specific document. It doesn't exist yet. Agent creates it
+    AND notes this is a category of document the user makes frequently.
+
+  QUALITY SIGNALS
+    When the agent reads something the user wrote (a document, an email draft),
+    it extracts voice and style signals. These go into the voice profile. Not
+    just from the samples they provided — from everything written that the agent
+    encounters with permission.
+
+──────────────────────────────────────────────────────────────────────────────
+CHANNEL D — EXPLICIT MICRO-EXTRACTION
+Targeted questions that extract specific high-value data
+──────────────────────────────────────────────────────────────────────────────
+
+Not a survey. Not a setup wizard. Single questions, asked at the right moment,
+when the agent has context that makes the question feel natural not intrusive.
+
+The rule: only ask what the agent cannot infer from behavior. Only ask once.
+Never repeat. Never batch more than one question at a time.
+
+When to ask:
+
+  AFTER A COMPLETED TASK (most receptive moment)
+    "I noticed you do this kind of research frequently — is there a particular
+     reason or is it just part of how you work?"
+    Answer: context that makes the next 20 research tasks better.
+
+  WHEN AN ANOMALY IS DETECTED
+    "You usually do X on Tuesdays but haven't for 3 weeks. Did something change?"
+    Answer: updated context that prevents 20 wrong assumptions.
+
+  WHEN AGENT REALIZES IT'S GUESSING
+    "Before I draft this, I'm not sure whether to address this as a peer or
+     as a client. How do you see the relationship with [person]?"
+    Answer: relational context stored for that person forever.
+
+  WHEN A NEW DOMAIN APPEARS
+    First time the user asks about a topic the agent has never seen from them:
+    "This is the first time you've asked about [domain]. Are you exploring this
+     as a new area or is there specific context I should know?"
+    Answer: signals intent and scope. Prevents over-indexing on a one-off task.
+
+  AT THE END OF A HIGH-STAKES TASK
+    "How did that go — did it land how you wanted?"
+    Answer: outcome data that closes the loop on a task whose success couldn't
+    be measured from the browser alone.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LAYER 2 — COLLECTION
+How to organize extracted signal into a model
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Raw signals are useless. A thousand data points about timing, edits, and task
+types only matter when organized into something queryable, comparable, and
+actionable. The collection layer transforms signals into models.
+
+──────────────────────────────────────────────────────────────────────────────
+THE SIGNAL TABLE (new DB table: task_signals)
+──────────────────────────────────────────────────────────────────────────────
+
+Every task produces a signal packet stored in task_signals:
+
+  task_id          — links to agent_sessions
+  user_id
+  recorded_at      — timestamp
+  signal_type      — one of: domain_tag, urgency, frustration, edit,
+                     approval_speed, skip, abandonment, timing, observation
+  signal_key       — specific key (e.g. "domain:research", "edit:tone")
+  signal_value     — normalized value or text
+  confidence       — 0-100, how certain the extraction is
+  context          — short note on what produced this signal
+
+This table grows with every task. It is never deleted. It is the raw material
+for everything else. FTS5 indexed. Queryable by type, key, date range.
+
+──────────────────────────────────────────────────────────────────────────────
+THE BEHAVIORAL MODEL (new DB table: user_behavior_model)
+──────────────────────────────────────────────────────────────────────────────
+
+A compact JSON document, updated weekly, that summarizes what the signals say.
+Stored as a versioned JSON blob. Previous versions are kept.
+
+Structure:
+
+  {
+    "updated_at": "2026-07-05",
+    "confidence": "medium",   // low/medium/high based on data volume
+    "task_distribution": {
+      "research": 0.35,
+      "writing": 0.25,
+      "automation": 0.20,
+      "admin": 0.15,
+      "other": 0.05
+    },
+    "work_rhythm": {
+      "peak_hours": ["09:00-11:00", "20:00-22:00"],
+      "peak_days": ["Tuesday", "Wednesday", "Thursday"],
+      "avg_session_minutes": 47
+    },
+    "friction_points": [
+      { "area": "email_drafting", "signal_count": 8, "pattern": "always_edits_tone_formal" },
+      { "area": "research_tasks", "signal_count": 5, "pattern": "frequent_follow_up_searches" }
+    ],
+    "edit_patterns": {
+      "tone": "always_more_direct",
+      "length": "usually_shorter",
+      "format": "prefers_bullets"
+    },
+    "domain_focus": ["fundraising", "content", "research", "product"],
+    "stated_vs_actual_goals": {
+      "stated": ["close Series A", "build LinkedIn presence"],
+      "actual_task_distribution": { "fundraising": 0.15, "linkedin": 0.35, "admin": 0.50 },
+      "drift_score": 0.72   // 0 = perfectly aligned, 1 = completely misaligned
+    },
+    "urgency_profile": {
+      "avg_tasks_marked_urgent_per_week": 3.2,
+      "spike_days": ["Monday", "Friday"]
+    },
+    "frustration_clusters": [
+      "manual_repetitive_tasks",
+      "waiting_for_replies"
+    ],
+    "avoidance_signals": [
+      { "pattern": "tasks_about_bookkeeping", "abandon_rate": 0.80 }
+    ],
+    "approval_style": {
+      "average_review_time_seconds": 12,
+      "by_category": {
+        "email_drafts": 45,
+        "research_tasks": 8,
+        "writing_tasks": 38
+      }
+    }
+  }
+
+This model is what the suggestion engine queries. Not the raw signals —
+the model. The model is the intelligence layer.
+
+──────────────────────────────────────────────────────────────────────────────
+THE PATTERN DETECTION PASS
+──────────────────────────────────────────────────────────────────────────────
+
+Once per week (or on demand via /analyze), a pattern detection pass runs.
+It is NOT a real-time process. It runs on accumulated data, not single events.
+This is important: single signals are noise. Patterns across 10+ signals are
+information.
+
+What it does in 5 steps:
+
+  STEP 1 — AGGREGATE
+    Pull all task_signals from the last 30 days.
+    Group by type and key.
+    Compute frequencies, trends, and averages.
+    "domain_tag:research appeared 34 times. That's 40% of all tasks."
+
+  STEP 2 — DETECT PATTERNS
+    Find recurring patterns in the signal clusters.
+    Temporal: same signal at same time repeatedly → rhythm.
+    Semantic: same domain cluster → focus area.
+    Behavioral: same edit type repeatedly → systematic preference.
+    Absence: expected signal missing → avoidance or gap.
+
+  STEP 3 — SCORE PATTERNS
+    Each pattern gets a score:
+    — Frequency (how often it appears)
+    — Confidence (how consistent the signal is)
+    — Recency (is it still true or was it 3 weeks ago)
+    — Novelty (is this new or have we already surfaced it)
+    — Value (would acting on this actually help the user)
+
+  STEP 4 — UPDATE THE MODEL
+    High-confidence patterns update the behavioral model.
+    Low-confidence ones are stored but don't yet affect the model.
+    Model version is incremented. Previous version kept for comparison.
+
+  STEP 5 — GENERATE INSIGHTS
+    Top 3-5 patterns become candidate insights for SUGGESTIONS.md.
+    Insights are filtered: already acted on? skip. Already dismissed? skip.
+    Remaining → evaluated against suggestion criteria (see Layer 3).
+
+──────────────────────────────────────────────────────────────────────────────
+WHAT THE COLLECTION LAYER PRODUCES (the usable artifacts)
+──────────────────────────────────────────────────────────────────────────────
+
+After running:
+
+  BEHAVIORAL MODEL — compact JSON in DB. Used by suggestion engine.
+
+  TASK DISTRIBUTION REPORT — "35% research, 25% writing, 20% admin..."
+    Used by: time audit feature, goal alignment check.
+
+  FRICTION MAP — ranked list of where the user gets stuck or frustrated.
+    Used by: proactive skill suggestions, agent self-improvement.
+
+  GOAL DRIFT SCORE — how far actual task behavior is from stated goals.
+    Used by: goal alignment check, proactive nudge.
+
+  RHYTHM PROFILE — when they work, what type of work when.
+    Used by: timing suggestions, briefing scheduling.
+
+  EDIT PROFILE — what the agent consistently gets wrong for this user.
+    Used by: improving generation defaults, reducing friction.
+
+  AVOIDANCE MAP — what the user repeatedly does NOT do.
+    Used by: sensitive suggestions, productivity insights.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LAYER 3 — ACTION
+Using the model to make suggestions and do things
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The model is only valuable if it produces action. There are four action modes.
+
+──────────────────────────────────────────────────────────────────────────────
+ACTION MODE 1 — INSIGHT SURFACING
+Showing the user something they don't know about themselves
+──────────────────────────────────────────────────────────────────────────────
+
+Not automation. Not a task. Just: "here is something I noticed."
+The insight surfaces in SUGGESTIONS.md or on the /analyze command.
+
+Examples of insights the model generates:
+
+  GOAL DRIFT INSIGHT
+    "Your stated goal is to grow your LinkedIn presence but only 8% of your
+     Jarvis tasks in the last 30 days touched LinkedIn. The majority (52%)
+     were research tasks. Is that intentional, or has your focus shifted?"
+    User can: update their goals, change their workflow, or dismiss.
+
+  TIME AUDIT INSIGHT
+    "Of the time you spend in Jarvis, roughly 60% goes to tasks you've done
+     before in a similar form. That's time that could be automated or templated."
+    Specific: "The top 3 recurring task patterns are: [X, Y, Z]. Want to turn
+    any of these into skills that run with one command?"
+
+  FRICTION INSIGHT
+    "You've made tone corrections to 7 out of 8 email drafts I wrote in the
+     last 2 weeks — always in the same direction (more direct). I can apply
+     this as your default. Should I?"
+    This is an insight that turns into an immediate profile improvement.
+
+  ANOMALY INSIGHT
+    "You usually complete 8-12 tasks per week. This week you've done 2 in
+     5 days. That's unusual for you. Everything okay?"
+    Not a notification. Not a push. A check-in.
+
+  ENERGY CURVE INSIGHT
+    "Based on 3 weeks of task timing, you do your best deep work between
+     9am and noon. After 3pm, tasks tend to take longer and have more
+     corrections. Would you like me to save complex drafting tasks for
+     morning sessions when you ask me to schedule them?"
+
+  STUCK PATTERN INSIGHT
+    "I've noticed you start tasks about [topic] but rarely finish them.
+     This has happened 4 times. Is there something blocking you there
+     or is this lower priority than it used to be?"
+
+──────────────────────────────────────────────────────────────────────────────
+ACTION MODE 2 — ADAPTIVE BEHAVIOR
+Agent silently changes how it works based on the model
+──────────────────────────────────────────────────────────────────────────────
+
+No notification. No suggestion. Agent just gets better.
+
+  EDIT PATTERN ADAPTATION
+    After 5 tone corrections in the same direction → new default for that
+    task type. Agent no longer writes the old way. Silent improvement.
+
+  QUESTION TIMING ADAPTATION
+    If the user consistently ignores clarifying questions on research tasks
+    and just runs them → agent stops asking on research tasks. Proceeds with
+    stated assumption.
+
+  CONTEXT PRE-LOADING
+    If 80% of the user's writing tasks need a particular context file →
+    agent pre-loads it without being asked.
+
+  LENGTH CALIBRATION
+    If user always shortens output by ~30% → agent starts at 70% of its
+    natural length for that task type.
+
+  VOCABULARY CALIBRATION
+    If user consistently replaces certain words or phrases → agent stops
+    using them. Not flagged — just changes.
+
+  URGENCY DETECTION
+    If urgency signals cluster → agent adopts a more decisive, less
+    exploratory approach: fewer options, faster execution, less narration.
+
+──────────────────────────────────────────────────────────────────────────────
+ACTION MODE 3 — PROACTIVE SUGGESTIONS
+Agent proposes something before being asked
+──────────────────────────────────────────────────────────────────────────────
+
+These go to SUGGESTIONS.md. User reviews at their pace.
+
+WHAT TRIGGERS THEM (beyond the existing 3x-same-task):
+
+  PATTERN-BASED TRIGGERS (new in V2)
+
+    HIGH FRICTION PATTERN
+      Signal: same task type has >40% edit rate, >30s avg review time.
+      Trigger: "You spend a lot of time reviewing and editing my [type] output.
+               I may be consistently missing something about your preferences there.
+               Want to do a quick calibration?"
+      Action: agent asks 3 targeted questions about that task type, updates profile.
+
+    TIME WASTE PATTERN
+      Signal: user does similar manual tasks 5+ times without using Jarvis for them.
+      Trigger: detected if user mentions "I already did X" or "already handled" on
+               something the agent could have done.
+      Action: "You've mentioned handling [type of task] yourself several times.
+               I can do that. Want to tell me how you do it so I can take it over?"
+
+    CAPABILITY GAP PATTERN
+      Signal: agent fails or degrades on a task type 3+ times.
+      Trigger: "I've struggled with [task type] for you a few times. There's a
+               skill I could learn that would fix this. Want to teach me how
+               you'd want it handled?"
+      Action: runs skill creation flow specifically for that gap.
+
+    GOAL MISALIGNMENT TRIGGER
+      Signal: drift_score in behavioral model exceeds 0.7 for 2+ weeks.
+      Trigger: "Your actual task distribution has drifted significantly from
+               your stated goals. Worth 2 minutes to realign?"
+      Action: /profile update goals flow.
+
+    MISSING SKILL PATTERN
+      Signal: user asks for the same information type repeatedly (prices,
+               status updates, reports) — things that could be templated.
+      Trigger: "You've asked for [X type of information] 6 times this month.
+               I can build a one-command skill that gets this in 10 seconds.
+               Want me to?"
+      Action: agent pre-generates the skill draft and presents it.
+
+    AVOIDANCE-PLUS-IMPORTANCE PATTERN
+      Signal: task is in user's stated goal areas but has high avoidance rate.
+      Trigger: "You've mentioned [goal] as important but haven't done any tasks
+               toward it in 3 weeks. Sometimes avoidance means the task is
+               too big or unclear. Want me to break it down?"
+      Action: agent attempts to decompose the avoided goal into small concrete tasks.
+
+──────────────────────────────────────────────────────────────────────────────
+ACTION MODE 4 — AUTONOMOUS EXECUTION
+Agent does something and shows the user what it did
+──────────────────────────────────────────────────────────────────────────────
+
+This is the highest autonomy mode. The agent takes an action (non-destructive,
+reversible) and presents it as a done thing: "I prepared X. Here it is."
+
+The key distinction from mode 3: mode 3 suggests. Mode 4 prepares.
+
+Criteria for autonomous execution:
+  — The action is non-destructive (can be discarded or ignored)
+  — The pattern is established (done 5+ times the same way)
+  — The user has explicitly enabled autonomy for this category
+  — The action is reversible (no sends, no posts, no commits without approval)
+
+What mode 4 looks like:
+
+  PREPARED DRAFT
+    User opens Jarvis. Agent has noticed the user always starts sessions
+    with a specific type of task. Agent has already begun that task.
+    "I started on what you usually do first — here's a draft. Say yes to
+     continue, or ignore it and tell me what you actually need."
+
+  PREPARED ANALYSIS
+    User has a recurring analysis they request (competitive landscape, market
+    data, performance summary). Agent runs it on schedule, has it ready.
+    "Your weekly [analysis] — I ran it while you were away."
+
+  PREPARED CONTEXT
+    Agent noticed a task coming up (inferred from calendar, prior sessions,
+    or a mentioned deadline). Pre-assembled the context file, found relevant
+    prior sessions, ready to inject when the task is requested.
+    "You mentioned [thing] is happening Thursday. I've pulled together what
+     we know about it. Ready when you are."
+
+  PREPARED FOLLOW-THROUGH
+    Something the user asked for in a previous session that had a natural
+    next step the agent can take. Not waiting to be asked.
+    "Last time you said you'd think about [X]. It's been 3 days. I don't
+     know if you've decided — but if you want to move on it, I'm ready."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE SELF-IMPROVEMENT LOOP
+How the system gets smarter over time without user effort
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This is the compounding effect. Every correction makes the next task better.
+Every insight acted on makes the next suggestion more relevant.
+
+The loop:
+
+  TASK → SIGNALS → MODEL → ACTION → OUTCOME → SIGNALS → MODEL → ...
+
+At each iteration:
+  — Model becomes more accurate (more data, better patterns)
+  — Suggestions become more targeted (higher signal-to-noise)
+  — Adaptations become more precise (fewer corrections needed)
+  — Autonomous actions become more useful (better prediction of what helps)
+
+What this looks like after 30 days:
+  — Agent never asks a question it already knows the answer to
+  — First draft of any task is 80% correct instead of 60%
+  — Suggestions are things the user actually wants to act on
+  — Briefing surfaces exactly what matters, nothing more
+
+What this looks like after 90 days:
+  — Agent behavior feels like a natural extension of how the user works
+  — Corrections become rare because the model has calibrated
+  — Proactive actions feel helpful instead of presumptuous
+  — User stops thinking "I need to explain this again" and starts thinking
+    "it already knows"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE HARD PROBLEMS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+P1 — SIGNAL QUALITY: NOISE VS INFORMATION
+  A user edits an email draft. Was that a voice preference signal or did they
+  just realize they forgot a fact? Both produce edits. Only one is a preference.
+  Solution: classify edit types. Fact corrections (adding a number, changing
+  a name) are excluded from voice/style signal extraction. Only structural and
+  tonal edits count. Confidence scoring: single edit = low. Same edit 3+ times
+  = high. The threshold matters more than the classifier.
+
+P2 — CONTEXT COLLAPSE: PATTERN THAT ISN'T A PATTERN
+  User had an unusual week (conference, deadline, sick day). Agent records
+  unusual behavior as normal. Model gets corrupted.
+  Solution: minimum 10 data points before any pattern is declared. Z-score
+  filtering: outlier sessions (2+ standard deviations from mean) flagged
+  before being included in model. Model states confidence level explicitly.
+  "work rhythm: peak hours 9-11am (high confidence, 18 data points)"
+  vs "peak hours 9-11am (low confidence, 3 data points — too early to rely on)"
+
+P3 — FEEDBACK LOOP INVERSION: ADAPTING TO BAD BEHAVIOR
+  User is stressed and types vague, rushed tasks for 2 weeks. Agent adapts to
+  vague inputs. When user calms down, agent is now calibrated for lower-quality
+  inputs and misses what they actually meant.
+  Solution: behavioral model versioning. Keep 4 weeks of weekly snapshots.
+  Compare current model to 4-week-ago model. If significant drift detected,
+  flag: "Your interaction style has changed significantly in the last 2 weeks.
+  This might just be a busy period — I'll hold off on updating my model until
+  I have more consistent data."
+
+P4 — SUGGESTION FATIGUE: THE AGENT BECOMES ANNOYING
+  Pattern detection generates 10 insights. Agent surfaces all of them.
+  User starts ignoring everything. Suggestions become noise.
+  Solution: strict queue. Max 1 new insight per session. Max 3 in SUGGESTIONS.md
+  at any time. Insights are ranked by expected value × confidence × recency.
+  Only the top insight is surfaced. The rest wait. If the surfaced one is
+  dismissed, the next one comes up. The queue drains one item at a time.
+  The goal is never to give the user a list. One thing at a time. Done right.
+
+P5 — PRIVACY: WHAT THE AGENT SHOULD NOT REMEMBER
+  Some things the user says or the agent sees should not be stored.
+  Medical, financial, relationship conflicts — these are not signals.
+  They are private context and treating them as data points is wrong.
+  Solution: exclusion categories. Any task involving: health, personal
+  relationships (non-professional), legal matters, financial specifics →
+  agent treats as session-only context. No signal extraction. No model update.
+  User can define additional exclusion categories in USER.md [AUTONOMY].
+
+P6 — GOAL DRIFT DETECTION VS GOAL EVOLUTION
+  User's goals change legitimately. Drift score going up might not mean
+  they're distracted — it might mean they've pivoted and just haven't
+  updated the profile yet.
+  Solution: when drift score exceeds threshold, agent asks BEFORE making
+  any judgment. "Your tasks have shifted significantly from your stated goals.
+  Have your priorities changed, or is this a temporary detour?"
+  User's answer updates the model AND the stated goals if needed.
+
+P7 — THE COLD START PROBLEM
+  Day 1, week 1: no signals. Model is empty. Suggestions are generic.
+  How do you make the system valuable before it has data?
+  Solution: in the absence of behavioral data, lean on the explicit profile.
+  The setup conversation produces enough signal for useful initial behavior.
+  Within 2 weeks of active use, behavioral signals begin to dominate.
+  The system explicitly tells users: "I'll get smarter as you use me.
+  After 2 weeks, I'll start showing you patterns I've noticed."
+  Expectation setting prevents frustration during the calibration period.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IMPLEMENTATION PHASES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PHASE A — SIGNAL COLLECTION INFRASTRUCTURE (3-4 days)
+  What this delivers: the data pipeline exists. Everything after this
+  has data to work with.
+  1. task_signals DB table with schema above
+  2. Signal extractor runs after every task (extended background review)
+     Extracts: domain tags, urgency signals, frustration signals, timing
+  3. Edit tracker: logs each user edit to agent output with category
+  4. Approval tracker: logs review time, approval vs rejection
+  5. /signals debug command: shows raw signals for last 5 tasks
+  Value: data starts accumulating. No user-visible features yet.
+  Required before: everything else.
+
+PHASE B — BEHAVIORAL MODEL (3-4 days)
+  What this delivers: patterns are findable. Model is queryable.
+  1. user_behavior_model DB table
+  2. Pattern detection pass (runs weekly, can be triggered manually)
+  3. Model builder: aggregates signals → behavioral model JSON
+  4. /analyze command: runs detection pass on demand, shows summary
+  5. Drift score calculation: stated goals vs actual task distribution
+  Value: user can see their own patterns for the first time.
+  /analyze is immediately useful even before suggestions exist.
+
+PHASE C — ADAPTIVE BEHAVIOR (2-3 days)
+  What this delivers: agent silently improves. Fewer corrections needed.
+  1. Edit pattern adapter: after threshold, update profile defaults silently
+  2. Length calibrator: adjust output length based on edit history
+  3. Tone calibrator: adjust formality based on correction direction
+  4. Question timing adapter: learn when to skip clarifying questions
+  5. Context pre-loader: auto-load files that are almost always needed
+  Value: immediately noticeable improvement in day-to-day quality.
+  First 2 weeks of corrections become the training data.
+
+PHASE D — SMART SUGGESTIONS (3-4 days)
+  What this delivers: suggestions that come from real patterns, not rules.
+  1. Suggestion generator queries the behavioral model (not hard-coded rules)
+  2. New trigger types: friction, time-waste, goal-drift, capability-gap
+  3. Insight ranking system (score × confidence × recency × novelty)
+  4. /analyze shows top 3 insights with supporting data
+  5. One insight surfaces per session (in addition to existing 3x rule)
+  Value: suggestions feel relevant instead of generic. Users act on them.
+
+PHASE E — PROACTIVE PREPARATION (4-5 days)
+  What this delivers: agent prepares things before being asked.
+  1. Proactive queue builder: uses behavioral model to predict next actions
+  2. Prepared draft mode: agent starts a task the user usually does first
+  3. Prepared context: pre-assembles context for detected upcoming needs
+  4. Prepared follow-through: surfaces natural next steps from prior sessions
+  5. User controls which categories are enabled (in USER.md [AUTONOMY])
+  Value: opening Jarvis feels like walking in to a prepared workspace.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WHAT TO BUILD FIRST AND WHY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Phase A first. No debate. Without the signal table, there is no data.
+Without data, everything else is theater.
+
+Phase A is also invisible to the user — which is fine. Infrastructure does
+not need to be visible to be valuable. It needs to exist.
+
+Phase B second. The /analyze command is the first user-visible payoff.
+"Here is what I have noticed about how you work" is a compelling moment.
+Users who see their own patterns in data form will use the product more.
+
+Phase C third. Silent improvement in quality. Fewer corrections. Less friction.
+This is felt before it is articulated. Users notice "it's getting better"
+without knowing why. That's the right kind of magic.
+
+Phase D fourth. The point at which the system starts feeling proactive
+instead of reactive — even though it's just surfacing suggestions, not acting.
+
+Phase E last. This is the highest-risk feature (autonomy without asking) and
+requires all previous phases to have calibrated the model properly. A proactive
+action based on a bad model is worse than no proactive action at all.
+
+═══════════════════════════════════════════════════════════════════════════════

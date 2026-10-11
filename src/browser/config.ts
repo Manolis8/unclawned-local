@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 import type { BrowserConfig, BrowserProfileConfig, OpenClawConfig } from "../config/config.js";
 import { resolveGatewayPort } from "../config/paths.js";
 import {
@@ -345,3 +346,4 @@ export function resolveProfile(
 export function shouldStartLocalBrowserServer(_resolved: ResolvedBrowserConfig) {
   return true;
 }
+

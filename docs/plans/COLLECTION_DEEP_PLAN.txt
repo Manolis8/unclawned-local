@@ -1,0 +1,1421 @@
+═══════════════════════════════════════════════════════════════════════════════
+THE COLLECTION LAYER — DEEP PLAN
+Signal Collection, Behavioral Modeling, and the Intelligence Stack
+═══════════════════════════════════════════════════════════════════════════════
+
+This document takes the architecture from the previous conversation — the three
+temporal layers, the six sub-models, the pattern detection passes — and goes
+significantly deeper on every dimension. It adds new sub-models, a prediction
+layer, a calibration engine, a trust gradient system, a behavioral contract
+layer, an anti-pattern detection system, a model health framework, and a full
+query interface specification. No code — pure architectural thinking.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 1 — THE FRAMING PROBLEM
+What the previous architecture got right and what it still misses
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The three temporal layers (live / rolling / identity core) are the single most
+important architectural decision in the previous plan. They solve the flat-model
+problem. Keep them exactly as described. The rest of this document builds on top.
+
+What's still missing:
+
+MISSING 1 — The model describes but does not predict.
+Every sub-model in the previous plan tells you what has been true.
+None of them tell you what will likely be true next.
+The user who has done research tasks every Tuesday for 6 weeks will probably
+do one next Tuesday. The agent that knows this can pre-stage context Sunday
+night. Prediction is not a separate feature — it's the natural next step of
+a good model, and it should be designed in from the start, not added later.
+
+MISSING 2 — Signals are stored in a table but not connected to each other.
+Signal B at timestamp T₂ often follows Signal A at timestamp T₁ within a
+certain window. When this sequence repeats 5 times, it's a behavioral
+precedent — a reliable pattern of "after X, Y follows." A flat table can
+store this, but can't reason about it. Signal sequences matter as much as
+signal aggregates.
+
+MISSING 3 — User directives are mixed with inferred signals.
+When the user explicitly says "always give me bullet points" that is NOT a
+signal to be weighted against other signals. It's a directive that overrides
+any inference. The previous architecture has no clear separation between
+inferred model data and explicit user directives. These must be kept separate
+and directives must always win.
+
+MISSING 4 — The model has no way to tell the user what it thinks.
+The agent builds a rich behavioral model. That model is invisible to the user.
+When the model is wrong, there's no way for the user to know or correct it.
+The previous plan mentions /model show but doesn't specify what that looks like,
+what can be corrected, or how corrections propagate through the sub-models.
+This transparency layer is not a nice-to-have — it's what makes the system
+trustworthy rather than opaque.
+
+MISSING 5 — There is no concept of preference volatility.
+Some user preferences are stable (they always write short emails). Others are
+volatile (sometimes they want analysis, sometimes just the answer). The previous
+architecture treats all preferences as equally stable and just assigns confidence
+scores. But a preference with 90% confidence that's also 90% volatile is
+meaningless — the agent should present options there, not a single recommendation.
+Volatility is a distinct dimension from confidence.
+
+MISSING 6 — The system has no self-awareness about its own calibration speed.
+Is the agent learning this user quickly or slowly? Is a particular sub-model
+stalling while others improve? The previous architecture has confidence decay
+but no calibration velocity metric — no way to know whether the system is getting
+better at this specific user at an acceptable rate.
+
+MISSING 7 — Anti-patterns are treated the same as neutral patterns.
+A user who procrastinates on financial tasks is generating a pattern.
+A user whose goal drift is accelerating is generating a pattern.
+A user who is in a deepening avoidance cascade is generating a pattern.
+These patterns are not the same as "user prefers short output." They require
+different responses — gentle intervention, not silent model update.
+
+MISSING 8 — The emotional baseline is not modeled.
+What is emotionally normal for this user in their prompts? Every user has a
+baseline emotional temperature. Deviations from that baseline are meaningful.
+A normally upbeat user using flat language is a different signal than a
+normally neutral user using flat language. Without the baseline, deviations
+are invisible.
+
+This document addresses all eight gaps.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 2 — THE THREE TEMPORAL LAYERS (deeper)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The previous plan defined the three layers correctly. This section goes deeper
+on how each layer is maintained, what happens when layers conflict, and the
+"layer bleed" problem.
+
+──────────────────────────────────────────────────────────────────────────────
+LAYER 1 — LIVE STATE
+What is true about this user in this session, right now
+──────────────────────────────────────────────────────────────────────────────
+
+Updates: every session (on open and during the session as signals fire)
+Decays: 7 days without reinforcement
+Confidence requirement: low (fast signals, accepted noisily)
+Size: compact — 8-12 fields, never more
+
+The live state answers six questions about right now:
+
+  URGENCY LEVEL — current urgency cluster severity (low / medium / high / critical)
+    Derived from: urgency language frequency, task abandonment rate, prompt length
+
+  COGNITIVE LOAD — current mental load state (clear / moderate / high / overloaded)
+    Derived from: prompt quality trend, typo rate, abandonment rate, task type shift
+
+  EMOTIONAL TEMPERATURE — how the user is doing emotionally today vs their baseline
+    Derived from: prompt vocabulary vs emotional baseline model
+    Values: positive / neutral / muted / negative / unusually_expressive
+
+  CURRENT FOCUS TOPIC — what topic the user is deep in right now (not generally)
+    Derived from: last 3 task prompts + paste content + recent session history
+    Distinct from the rolling model's domain focus — this is today's topic
+
+  RELATIONSHIP CONTEXT — is there an active relationship thread in this session?
+    (Are they in the middle of a multi-step communication with a specific person?)
+    Derived from: recurring names across this session's tasks
+
+  SESSION INTENT — what does this session seem to be for?
+    Values: execution (getting specific tasks done), exploration (figuring something out),
+    review (checking / approving things), repair (fixing something that went wrong)
+    Derived from: task type sequence in this session
+
+The live state is queried before every agent response. It takes priority over
+the rolling model and identity core for format and tone decisions. A user who
+is "normally" analytical but is in cognitive overload right now gets a simple
+direct answer — not an analytical framework.
+
+Live state updates happen mid-session. If the user's urgency level increases
+during a session (more frustration signals, more task abandonment), the live
+state updates and subsequent responses shift. The user doesn't ask for this.
+It just happens.
+
+──────────────────────────────────────────────────────────────────────────────
+LAYER 2 — ROLLING MODEL
+What is reliably true across the last 30-90 days
+──────────────────────────────────────────────────────────────────────────────
+
+Updates: weekly pattern detection pass (Friday or configurable)
+Decays: 90 days without reinforcement (components, not the whole model)
+Confidence requirement: medium (10+ signals, cross-channel where possible)
+Size: the six sub-models (cognitive style, communication archetype, attention
+economy, goal alignment, friction & flow, relationship intelligence) plus
+four new sub-models added in this document
+
+The rolling model is the core working model. Most agent behavior is derived
+from it. It answers the question: "Who is this user, across the typical range
+of situations they've been in over the last 90 days?"
+
+This is explicitly NOT "who are they fundamentally" — that's the identity core.
+This is: "given what I've observed recently, what's the best current model?"
+
+Rolling model components have individual update cadences within the weekly pass:
+  — Attention economy model: updates every 2 weeks (attention shifts medium-fast)
+  — Friction & flow model: updates every 2 weeks
+  — Goal alignment model: updates monthly (goals change slowly but importantly)
+  — Cognitive style model: updates every 4 weeks (stable, changes slowly)
+  — Communication archetype model: updates every 4 weeks
+  — Relationship intelligence model: updates whenever a relevant encounter happens
+
+──────────────────────────────────────────────────────────────────────────────
+LAYER 3 — IDENTITY CORE
+What is durably true about this user across all observed time
+──────────────────────────────────────────────────────────────────────────────
+
+Updates: quarterly (or when the contradiction engine confirms a significant shift)
+Decays: 365 days without reinforcement (very slow — these are durable traits)
+Confidence requirement: high (90+ days of consistent signal, multi-channel)
+Size: compact — only durable, high-confidence facts that have survived quarters
+
+The identity core answers the question: "Who is this person fundamentally,
+across all time, regardless of current mode or recent context?"
+
+Identity core components:
+  — DOMAIN IDENTITY: what field do they fundamentally operate in?
+  — COGNITIVE ARCHETYPE: how do they fundamentally think and decide?
+  — COMMUNICATION ARCHETYPE: what role do they play in communication?
+  — AVOIDANCE SIGNATURE: what do they consistently avoid across all time?
+  — STRENGTH SIGNATURE: what do they consistently flow in across all time?
+  — VOCABULARY TRIBE: what professional world is this person from at their core?
+  — GOAL COMPLETION TYPE: do they finish what they start? What size/type goals?
+
+When the identity core contradicts the rolling model, it's a flag.
+"This user's identity core says 'analytical, data-first' but the rolling model
+is showing intuition-first patterns for 8 weeks." That's either:
+  a) A genuine identity shift (rare, possible — surface to user for confirmation)
+  b) A situational mode (they're in crisis, operating differently than normal)
+  c) A model error (the rolling model got something wrong)
+
+Resolution: ask the user once. "I've noticed you've been working quite
+differently from your usual pattern lately. Is this a shift in how you want
+to work, or is it a mode you're in right now?" Their answer disambiguates.
+
+──────────────────────────────────────────────────────────────────────────────
+THE LAYER BLEED PROBLEM
+What happens when live state and identity core conflict
+──────────────────────────────────────────────────────────────────────────────
+
+The three layers will sometimes conflict. Clear priority hierarchy:
+
+For FORMAT and TONE decisions:
+  Live State > Rolling Model > Identity Core
+  (Right now always beats average)
+
+For CONTENT DEPTH and APPROACH decisions:
+  Rolling Model > Identity Core > Live State
+  (Medium-term patterns are most reliable for how to structure thinking)
+
+For PROACTIVE SUGGESTIONS and STRATEGIC INSIGHTS:
+  Identity Core > Rolling Model > Live State
+  (Insights about who someone is should be based on who they durably are)
+
+For RELATIONSHIP CONTEXT:
+  Rolling Model relationship intelligence > Live State > Identity Core
+  (Relationships live in the medium-term layer)
+
+This hierarchy must be explicit and hard-coded, not emergent. When models
+conflict, there should be no ambiguity about which layer wins for which
+type of decision.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 3 — THE SIGNAL TABLE (extended)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The previous plan's task_signals table extended with four fields. This section
+adds further: a signal graph layer on top of the table, sequence detection,
+and the contradiction flag system.
+
+──────────────────────────────────────────────────────────────────────────────
+THE SIGNAL TABLE SCHEMA (complete)
+──────────────────────────────────────────────────────────────────────────────
+
+Every row in the signal table represents one extracted observation:
+
+  id                    — unique signal identifier
+  task_id               — links to agent_sessions (which task generated this)
+  user_id               — user this signal belongs to
+  recorded_at           — exact timestamp
+  signal_type           — category (domain_tag / urgency / frustration / edit /
+                          approval_speed / skip / abandonment / timing /
+                          observation / paste / vocabulary / relationship /
+                          feed / completion / correction / resistance)
+  signal_key            — specific key (e.g. "edit:tone", "domain:fundraising",
+                          "vocabulary:ship_not_launch", "timing:late_night")
+  signal_value          — the normalized value or extracted text fragment
+  signal_direction      — for directional signals: "toward" or "away"
+                          (e.g. edit:tone direction "toward:formal" vs "toward:casual")
+  source_channel        — which extraction channel: A through O (from extraction plan)
+  temporal_layer        — 1 (live), 2 (rolling), or 3 (identity core)
+  signal_cluster_id     — which pattern cluster this has been assigned to (null until assigned)
+  confidence            — 0-100, extraction confidence
+  contradiction_flag    — boolean: does this contradict an established model component?
+  contradiction_of      — if flagged, which model component does it contradict?
+  decay_window_days     — how many days before this signal stops contributing to its layer
+  sequence_predecessor  — id of the signal that typically precedes this one (if known)
+  emotional_valence     — positive / neutral / negative / ambiguous
+  is_directive          — boolean: did the user explicitly state this preference?
+                          (If true: this is a behavioral contract item, not an inferred signal)
+
+──────────────────────────────────────────────────────────────────────────────
+THE SIGNAL GRAPH
+Signals connect to each other, not just to tasks
+──────────────────────────────────────────────────────────────────────────────
+
+A flat table of signals treats each observation as independent. But signals
+relate to each other in time. Signal A often precedes Signal B. When this
+sequence repeats with regularity, it's a behavioral precedent — a reliable
+"if A then B within window W" pattern.
+
+The signal graph is a lightweight structure on top of the signal table.
+It stores discovered sequences, not raw signals. Structure:
+
+  SEQUENCE RECORD:
+    antecedent_signal_type + key   — what comes first
+    consequent_signal_type + key   — what follows
+    typical_gap_minutes            — how long between them on average
+    observation_count              — how many times this sequence has been observed
+    confidence                     — increases with observation count
+    last_observed                  — recency of the sequence
+
+Example sequences the system discovers over time:
+
+  "urgency:high → task_type:admin → abandonment"
+    When urgency spikes, user tries to do admin but can't focus. Admin tasks
+    submitted under high urgency have an 80% abandonment rate.
+    Agent learns: during urgency spikes, don't accept admin tasks — suggest
+    deferral and focus on the urgent item.
+
+  "feed_topic:fundraising:spike → research_tasks:investor:spike → email_tasks:investor:spike"
+    User's fundraising mode always starts with feed immersion, then research,
+    then outreach. The sequence has a 3-5 day lag between each stage.
+    Agent learns: when feed fundraising signals appear, prepare for research
+    tasks in 2-3 days and outreach tasks in 5-7 days. Pre-stage investor context.
+
+  "new_vocabulary_arrival:X → first_task_about:X → frustration:X → abandonment:X"
+    When the user enters a new domain, they hit frustration early.
+    First 3 tasks in any new domain have elevated abandonment.
+    Agent learns: new domain tasks need more scaffolding, more options,
+    more explicit "here's how to think about this" framing.
+
+  "task_type:writing → edit_level:4 → frustration → edit_level:4 → abandonment"
+    Two full rewrites without abandonment = they'll keep trying.
+    Two full rewrites WITH frustration language between them = abandonment coming.
+    Agent learns: detect the frustration signal between rewrites. Before the
+    second rewrite, offer to approach it completely differently or ask what's missing.
+
+The signal graph is built by the pattern detection pass. It's not directly
+visible to the user, but it informs every sequence-aware decision the agent makes.
+
+──────────────────────────────────────────────────────────────────────────────
+THE BEHAVIORAL CONTRACT (highest priority layer)
+──────────────────────────────────────────────────────────────────────────────
+
+Any signal with is_directive = true is a behavioral contract item.
+Behavioral contract items are:
+  — Never overridden by model inference
+  — Never decayed (they stay active until the user explicitly revokes them)
+  — Surfaced to the user in /model show as explicit directives
+  — Not counted against the signal limit (they're in a separate permanent store)
+
+What triggers a directive flag:
+  — User explicitly states a preference ("always", "never", "every time", "don't")
+  — User corrects the agent AND explicitly states why ("not because of X, because of Y")
+  — User sets a preference in a profile or settings command
+
+Behavioral contract items are stored separately in a behavioral_contract table:
+  directive_type      — format / tone / scope / relationship / domain / avoidance
+  directive_key       — specific instruction
+  directive_value     — the specified value or behavior
+  stated_at           — when the user said this
+  stated_in_context   — what the surrounding task was (for context)
+  active              — boolean (false = revoked but kept for history)
+  revoked_at          — if revoked, when
+
+Example behavioral contract items:
+  "Always give bullet points for research output"
+  "Never recommend that I reach out to X person"
+  "When writing for LinkedIn, always start with a question"
+  "Don't summarize at the end of responses"
+  "For financial tasks, ask me before proceeding"
+
+The behavioral contract is queried before the model. If a contract item applies
+to the current task, it overrides any model inference. Period.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 4 — THE TEN SUB-MODELS
+Six from the previous plan + four new ones
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The previous plan's six sub-models are correct. They're restated here with
+additions, then four new sub-models are added.
+
+──────────────────────────────────────────────────────────────────────────────
+SUB-MODEL 1 — COGNITIVE STYLE MODEL (extended from previous plan)
+──────────────────────────────────────────────────────────────────────────────
+
+Previous plan: convergent vs divergent, information density, decision pattern,
+revision tendency, exploration/execution ratio.
+
+Additions:
+
+PREFERENCE VOLATILITY MATRIX
+  For each preference dimension, track not just the value but the variance.
+  "Prefers short output" with low variance = stable preference. Act on it.
+  "Sometimes wants short, sometimes long" with high variance = volatile preference.
+  For volatile dimensions, the agent offers options rather than assuming.
+
+  The matrix has three stability tiers:
+    STABLE (variance < 15%) — apply as default, never ask about it
+    MODERATE (15-40%) — apply as default but offer to adjust
+    VOLATILE (> 40%) — always present options, never assume
+
+COGNITIVE MODE DETECTION
+  Beyond the general processing style — what mode is the user in for THIS task?
+
+  Discovery mode: user doesn't know what they want, they're exploring.
+    Signs: vague prompts, many short iterations, questions back at the agent,
+    frequent prompt revision. Response: explore alongside them, offer frameworks,
+    ask clarifying questions, don't commit to one answer.
+
+  Execution mode: user knows exactly what they want, they need it done.
+    Signs: specific prompts, low edit rate, fast approvals, imperative verbs.
+    Response: execute cleanly, no extra options or frameworks, no exploration.
+
+  Review mode: user is reading and evaluating, not creating.
+    Signs: "does this look right?", "check this", "is there anything wrong with..."
+    Response: critical-eye mode, surface issues first, don't generate new content.
+
+  Repair mode: something went wrong and they're fixing it.
+    Signs: frustrated language, references to prior task failures, "it should have..."
+    Response: acknowledge the failure, focus on solution, don't explain methodology.
+
+  The cognitive mode overrides the general cognitive style for the duration of
+  the task. An analytically-oriented user in repair mode does not want a framework.
+  They want the fix.
+
+──────────────────────────────────────────────────────────────────────────────
+SUB-MODEL 2 — COMMUNICATION ARCHETYPE MODEL (extended)
+──────────────────────────────────────────────────────────────────────────────
+
+Previous plan: archetype (connector/builder/analyst/closer/broadcaster),
+platform variance, voice markers.
+
+Additions:
+
+REGISTER MAP (by recipient type, not just platform)
+  The same user writes very differently depending on who they're writing to.
+  The register map is keyed to recipient relationship type, not recipient name.
+
+  Investor register: what's their tone, length, vocabulary with investors?
+  Client/customer register: how formal, how relationship-oriented?
+  Peer register: among equals, how do they communicate?
+  Subordinate register: how do they delegate or instruct?
+  Senior/authority register: how do they write up the hierarchy?
+  New contact register: how do they introduce themselves to strangers?
+
+  Each register is learned from observed writing samples and edit patterns.
+  Once learned, the agent applies the correct register automatically when it
+  knows the recipient type — without being asked.
+
+AUDIENCE MODELING PER CONTEXT
+  The user writes differently not just by recipient but by audience size.
+  One-to-one: often more direct, more vulnerable, more exploratory.
+  One-to-small-group: more structured, more contextual.
+  One-to-many (public): more polished, more considered, more "authored."
+
+  Broadcasting tasks (LinkedIn posts, newsletters) should trigger the
+  "authored" register. Direct messages should trigger the one-to-one register.
+  The agent should detect audience size from the task and apply accordingly.
+
+VOICE CONSISTENCY SCORE
+  Across all writing samples produced by or observed from the user: how
+  consistent is their voice? High consistency = the agent has a reliable
+  model to replicate. Low consistency = the user's voice varies intentionally
+  or they're still finding it. Don't pretend to capture a voice that isn't
+  settled yet.
+
+──────────────────────────────────────────────────────────────────────────────
+SUB-MODEL 3 — ATTENTION ECONOMY MODEL (extended)
+──────────────────────────────────────────────────────────────────────────────
+
+Previous plan: deep_read_triggers, skim_triggers, ignore_triggers, optimal
+output structure, reading speed signals, engagement cliff.
+
+Additions:
+
+THE ATTENTION DEBT DETECTOR
+  When the agent has been producing long outputs and the user has been
+  reading them (high review time), attention debt accumulates.
+  When the user has been under high cognitive load, attention debt is high.
+  High attention debt = the next output should be significantly shorter and
+  more focused than the model normally suggests. The user needs a win, not
+  a wall of text.
+
+  Attention debt decays between sessions and after breaks. A user who
+  reviews outputs over a day instead of an hour probably had a break.
+
+FORMAT PREFERENCE BY TASK OUTCOME
+  Not just what format the user likes — what format leads to the best outcomes.
+  If bullet-point research outputs lead to faster decisions than prose research
+  outputs, bullets are better for this user. Outcome-validated format preferences
+  are stronger than preference-stated format preferences.
+
+  The agent should track: for each format type × task type combination, what
+  is the downstream outcome? (Did the user act quickly? Did they edit heavily?
+  Did they ask follow-ups suggesting confusion?)
+
+──────────────────────────────────────────────────────────────────────────────
+SUB-MODEL 4 — GOAL ALIGNMENT MODEL (extended)
+──────────────────────────────────────────────────────────────────────────────
+
+Previous plan: stated goals, observed goal signals, emergent goals, drift
+analysis, goal health score, recommended action.
+
+Additions:
+
+GOAL COMPLETION VELOCITY HISTORY
+  For every goal the user has ever stated: how long from statement to
+  completion (or abandonment)? The completion velocity history tells the agent:
+  — What goal size this user can actually finish vs. what they say they'll do
+  — Whether a given current goal is on track or behind based on prior velocity
+  — Which types of goals consistently get completed vs. consistently abandoned
+
+  Example velocity data:
+    "Sprint-sized goals (2-4 weeks): 85% completion rate"
+    "Quarter-sized goals (90 days): 40% completion rate"
+    "Annual goals (1 year): 15% completion rate, usually split or abandoned"
+
+  Agent uses this to calibrate goal-setting conversations:
+  "You've mentioned wanting to do X. Based on how you've tackled similar goals,
+   breaking this into 3-week chunks tends to work better for you. Want to?"
+
+GOAL INTERDEPENDENCY MAP
+  Sometimes Goal A cannot progress because Goal B is blocked.
+  The agent should identify when multiple stated goals have interdependencies
+  and surface the blocking relationship.
+
+  "Your stated goal of raising a Series A is partially blocked by your stated
+   goal of increasing revenue — investors are watching the revenue number.
+   The revenue goal may be the prerequisite for the fundraising goal."
+
+  This is an insight no flat drift score can produce.
+
+GOAL RETIREMENT DETECTION
+  Goals that have been in the stated list for 180+ days with:
+    — No task activity in the last 60 days
+    — Multiple drift alerts that were dismissed without changing behavior
+    — No explicit reconfirmation in the last 90 days
+  ...are candidates for retirement. The agent surfaces these once per quarter:
+  "This goal has been on your list for 6 months with little recent progress.
+   Do you still want to pursue it, or should we retire it?"
+  User's answer is stored and the goal is either re-confirmed with a new date
+  or archived. Old goals don't linger indefinitely.
+
+──────────────────────────────────────────────────────────────────────────────
+SUB-MODEL 5 — FRICTION & FLOW MODEL (extended)
+──────────────────────────────────────────────────────────────────────────────
+
+Previous plan: friction zones with root cause hypotheses and suggested
+interventions, flow zones, bottleneck cascade.
+
+Additions:
+
+FRICTION TRAJECTORY
+  Not just current friction level — whether it's getting better or worse.
+  A friction zone that's improving over time (edit rate declining, abandonment
+  rate declining) needs different treatment than one that's stable or worsening.
+
+  Improving: don't intervene. It's resolving on its own. Note what changed.
+  Stable: the friction is accepted as the new normal. Consider surfacing it once.
+  Worsening: intervention warranted. Friction is compounding.
+
+THE FLOW PROTECTION PRINCIPLE
+  When the agent identifies flow zones (task types where the user is fast,
+  effective, and satisfied), it should protect those zones from friction.
+  Specifically:
+    — Don't change default behavior in flow zones
+    — Don't surface suggestions about flow zones unless there's a clear problem
+    — When a new feature or approach could affect a flow zone, surface it
+      carefully: "This would change how I handle [flow zone task]. Want to
+      try it, or keep the current approach?"
+
+FRICTION RESOLUTION TRACKING
+  When the agent suggests an intervention for a friction zone, track whether
+  it helps. The friction model should close the loop: did the suggested
+  intervention reduce friction?
+
+  If yes: store the successful intervention type for this friction pattern.
+    It can be applied again if the friction recurs.
+  If no: the intervention model is wrong. Try a different hypothesis.
+    Surface the friction directly to the user: "I've tried X but it doesn't
+    seem to be helping. Can you tell me what you'd actually want instead?"
+
+──────────────────────────────────────────────────────────────────────────────
+SUB-MODEL 6 — RELATIONSHIP INTELLIGENCE MODEL (extended)
+──────────────────────────────────────────────────────────────────────────────
+
+Previous plan: network shape, key relationships with trajectory and sentiment,
+relationship health signals, network gaps.
+
+Additions:
+
+RELATIONSHIP LIFECYCLE STAGES
+  Every relationship the agent tracks is in one of five lifecycle stages:
+  New: first 1-3 encounters. Agent knows little. Ask one clarifying question.
+  Active: regular appearances, known context, some relationship history.
+  Warming: frequency increasing, sentiment improving. Opportunity signal.
+  Cooling: frequency decreasing or sentiment declining. Watch-and-note.
+  Dormant: hasn't appeared in 90+ days. Not lost — just quiet. Agent remembers.
+
+  When a dormant relationship suddenly becomes active again (person re-appears
+  after 90 days of absence), this is a notable event. Context from the
+  pre-dormancy period is surfaced automatically.
+
+THE PENDING ACTION QUEUE (relationship-specific)
+  For each key relationship, track whether there's a pending action:
+    — Message sent, awaiting reply
+    — Follow-up promised but not yet sent
+    — Introduction promised, not yet made
+    — Meeting to schedule
+    — Document to share
+
+  When a pending action is older than a configurable threshold (default: 7 days),
+  the agent surfaces it: "You have 3 pending follow-ups that are over 7 days old.
+  Want me to draft them now?"
+
+  The pending action queue is not the same as a CRM — it's inferred from
+  task history and conversation context, not manually entered.
+
+──────────────────────────────────────────────────────────────────────────────
+SUB-MODEL 7 — THE EMOTIONAL BASELINE MODEL (NEW)
+──────────────────────────────────────────────────────────────────────────────
+
+What is normal for this user emotionally, in their prompts?
+This model exists to make deviations from that baseline meaningful.
+
+The emotional baseline captures:
+
+  BASELINE VALENCE — what is the typical emotional temperature of their prompts?
+    (Positive / Slightly positive / Neutral / Slightly negative / Negative)
+    Some users are consistently upbeat. Others are consistently flat.
+    Neither is a problem. The baseline is just the baseline.
+
+  BASELINE EXPRESSIVENESS — how much emotional language do they use at all?
+    Low expressiveness users use few emotional words. High expressiveness users
+    use many. Deviation from this is more meaningful than absolute level.
+
+  BASELINE URGENCY — what is their "normal" urgency level?
+    Some users always write with urgency markers. For them, urgency language
+    is not a signal — it's their style. Urgency is only meaningful as a signal
+    when it deviates from their personal baseline.
+
+  BASELINE FRUSTRATION THRESHOLD — how quickly does this user get frustrated
+    with the agent compared to their baseline? Declining patience over multiple
+    sessions is a different problem than one frustrated session.
+
+What the emotional baseline enables:
+
+  DEVIATION DETECTION
+    A normally positive user using flat language for 3 days is a meaningful
+    signal. A normally flat user doing the same is not.
+
+  PERSONALIZED URGENCY DETECTION
+    Instead of generic urgency keywords ("urgent", "asap"), detect urgency
+    relative to their baseline. For a normally low-key user, "I need this today"
+    is urgency. For a high-urgency baseline user, that's normal.
+
+  FRUSTRATION EARLY WARNING
+    When a user's frustration markers are increasing session-over-session
+    relative to their own baseline, that's an early warning that something
+    isn't working. Surface it before it becomes explicit.
+
+Update cadence: monthly (emotional baseline is slow-moving)
+Confidence requirement: medium (30+ sessions)
+Lives in: rolling model layer
+
+──────────────────────────────────────────────────────────────────────────────
+SUB-MODEL 8 — THE TASK MORPHOLOGY MODEL (NEW)
+The shapes and sequences of how tasks cluster
+──────────────────────────────────────────────────────────────────────────────
+
+Individual tasks don't tell the full story. How tasks cluster, sequence, and
+follow from each other is the morphology layer. It reveals the hidden structure
+of how this user works.
+
+TASK CLUSTER PATTERNS
+  Some tasks always appear together in the same session:
+    Research + Draft + Review = full content production cycle in one session
+    Investigate + Summarize = learning pattern
+    Prepare + Check + Prepare again = perfectionism or high-stakes pattern
+
+  Identifying common clusters lets the agent offer to complete the cluster:
+  "You usually do [A, B, C] together. You've done A. Want to continue to B?"
+
+TASK SEQUENCE DEPENDENCIES
+  Some tasks always follow others with a day or more gap:
+    Research → (2-3 days) → Draft → (1 day) → Publish
+    Meeting → (same day) → Follow-up email
+    Feedback received → (1-2 days) → Revision
+
+  These dependencies are learnable. When the agent observes the first task
+  in a known sequence, it can anticipate the next:
+  "Last time you did this kind of research, you followed up with a draft
+   2 days later. Do you want me to prepare any context for that now?"
+
+SESSION INTENT PATTERN
+  What combination of task types typically appears in what kind of session?
+    Planning sessions: goal-setting + task-decomposition + prioritization
+    Execution sessions: multiple specific tasks, fast approvals, low exploration
+    Recovery sessions: review + repair + redo (something went wrong)
+    Creative sessions: brainstorming + drafting + iterating
+    Admin sessions: batch of small unrelated tasks
+
+  Classifying session intent (from the first 2 tasks) lets the agent calibrate:
+  "This looks like an execution session — I'll be faster and less exploratory."
+
+TASK SIZE DISTRIBUTION
+  Does this user prefer many small tasks or few large ones?
+  Small-task users: decompose things themselves, want granular results
+  Large-task users: submit complex multi-step requests, want comprehensive output
+
+  This shapes how the agent presents scope. The small-task user who submits
+  a large task may want the agent to break it down and handle one piece at a time.
+  The large-task user who submits a simple task may want the agent to surface
+  related sub-tasks they didn't think to request.
+
+──────────────────────────────────────────────────────────────────────────────
+SUB-MODEL 9 — THE TRUST GRADIENT MODEL (NEW)
+How much does this user trust the agent in different domains?
+──────────────────────────────────────────────────────────────────────────────
+
+Trust is not binary and it's not uniform. The user may completely trust the
+agent on research tasks and deeply distrust it on writing tasks (based on
+prior failures). The trust gradient model maps trust level by task domain.
+
+HOW TRUST IS MEASURED
+  Trust in a domain is inferred from a composite of:
+    — Approval speed for that task type (fast approval = high trust)
+    — Edit level for that task type (low edits = high trust)
+    — Whether the user asks for alternatives (alternatives needed = lower trust)
+    — Whether the user submits follow-up tasks to verify results (verification
+       behavior = low trust in the original output)
+    — Whether the user provides more context than necessary (over-explaining =
+       they're compensating for low trust)
+
+  Each domain gets a trust score from 0-100.
+  0-30: Low trust. Agent should ask one clarifying question before proceeding,
+    offer 2 options, explain its approach briefly.
+  30-70: Medium trust. Agent proceeds confidently, offers one alternative.
+  70-100: High trust. Agent executes cleanly. No alternatives unless asked.
+
+HOW TRUST IS BUILT
+  Trust increases when:
+    — Agent output is approved quickly and used without major edits
+    — Agent correctly anticipates the user's follow-up needs
+    — Agent makes an assumption the user confirms ("yes, exactly that")
+
+  Trust decreases when:
+    — Agent output requires heavy editing or is discarded
+    — Agent makes an assumption the user explicitly corrects
+    — Agent fails at the same type of task twice in a row
+
+HOW TRUST SHAPES BEHAVIOR
+  Low-trust domain + task from that domain:
+    → More explicit setup: "Before I proceed, I want to confirm my understanding..."
+    → Narrower scope: "I'll do the first part and check before continuing"
+    → More options: "Here are two approaches — which direction do you want?"
+
+  High-trust domain + task from that domain:
+    → Execute cleanly. No preamble. One result.
+    → Don't ask unless the task is genuinely ambiguous.
+
+  Trust gradient also affects proactive suggestions:
+    "Based on your research tasks, I'd suggest [X]" is only appropriate
+    if trust in research tasks is above 60. In low-trust domains, the agent
+    doesn't make proactive suggestions — it's not trusted there yet.
+
+──────────────────────────────────────────────────────────────────────────────
+SUB-MODEL 10 — THE ANTI-PATTERN DETECTION MODEL (NEW)
+Patterns that need intervention, not just modeling
+──────────────────────────────────────────────────────────────────────────────
+
+Not all patterns should be silently stored and used to adapt agent behavior.
+Some patterns represent failure modes that the user would want surfaced.
+The anti-pattern model watches for a specific set of known anti-patterns.
+
+ANTI-PATTERN 1 — GOAL DRIFT ACCELERATION
+  Not just drift — the rate of drift increasing. If the user's goal alignment
+  score has been declining for 3 consecutive weekly passes, that's accelerating
+  drift. Surface once. "Your stated priorities and actual work are moving further
+  apart, not closer together. Worth 5 minutes to realign?"
+
+ANTI-PATTERN 2 — AVOIDANCE CASCADE
+  A topic that starts as occasional avoidance becomes systematic avoidance.
+  Stage 1: one abandoned task
+  Stage 2: pattern of abandoned tasks (existing avoidance detection)
+  Stage 3: the avoidance in Topic A starts preventing progress in Topic B
+    that depends on A (bottleneck cascade from the friction model)
+  Stage 3 is the cascade — surface it. "I've noticed avoidance around [X]
+  is now affecting your progress on [Y]. Is there something about [X] we
+  should talk through?"
+
+ANTI-PATTERN 3 — PROCRASTINATION SIGNATURE
+  Specific to time-sensitive items. High-urgency signals + low task execution
+  rate on the same topic + repeated submission of a task without completion.
+  Distinct from avoidance: the user WANTS to do this, they're just blocked.
+  Surface: "You've started [task] 4 times this week without finishing.
+  Is something blocking you specifically? Maybe we can approach it differently."
+
+ANTI-PATTERN 4 — CALIBRATION STALL
+  The calibration velocity metric (see Part 5) has stopped improving for 4+
+  weeks. Edit rate, approval speed, and correction frequency are not declining.
+  The model has hit a local optimum and needs a reset.
+  Don't surface this as a problem. Surface it as an opportunity:
+  "I want to make sure I'm working the way you actually want. Can I ask
+  a few targeted questions about what's been feeling off lately?"
+
+ANTI-PATTERN 5 — RELATIONSHIP NEGLECT
+  Key relationships (high-importance nodes in the relationship graph) with
+  no interaction for more than 60 days where the relationship was previously
+  active and growing. Combined with stated goals that require those relationships.
+  "You haven't interacted with [key contact] in 2 months, and they're
+  relevant to your [stated goal]. Is the relationship still active?"
+
+ANTI-PATTERN 6 — INVISIBLE OVERWORK
+  The work session pattern shows consistent late-night and weekend task submission
+  without any visible sign of reduced workload. Task volume is not declining.
+  This is not addressed by the agent directly — that's not the agent's place.
+  But it's stored in the emotional baseline model as context.
+  If the user asks for advice about a work problem, this context informs the framing.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 5 — THE CALIBRATION ENGINE
+How fast is the system learning this user?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Calibration is not a one-time event. It's an ongoing process. The calibration
+engine tracks how well the model is currently serving the user and whether it's
+improving, stalling, or regressing.
+
+──────────────────────────────────────────────────────────────────────────────
+THE CALIBRATION VELOCITY METRIC
+──────────────────────────────────────────────────────────────────────────────
+
+Calibration velocity = the rate of improvement in three composite signals:
+
+  EDIT RATE VELOCITY — is the edit rate declining over time?
+    Measured as: (avg edit rate in last 4 weeks) vs (avg edit rate in weeks 5-8)
+    Improving: edit rate declining → agent is writing closer to what user wants
+    Stalling: edit rate flat for 4+ weeks → reached a local optimum
+    Regressing: edit rate increasing → something changed (user changed, or
+      agent introduced new behavior that doesn't match the model)
+
+  APPROVAL SPEED VELOCITY — is the time-to-approval declining over time?
+    Measured the same way. Declining approval time = user is reading less
+    carefully because they trust the output. Increasing = they're scrutinizing more.
+
+  CORRECTION FREQUENCY VELOCITY — are the agent's assumptions being corrected less?
+    Measured by count of "actually", "no", "that's not right" type corrections
+    per session over time. Declining = fewer wrong assumptions being made.
+
+Overall calibration velocity = weighted composite of these three.
+  High (all three improving) = the model is calibrating well. No action needed.
+  Medium (some improving, some flat) = investigate which sub-model is stalling.
+  Low (all flat or mixed) = calibration stall. Trigger reset protocol.
+  Negative (any regressing) = something broke. Investigate the regression trigger.
+
+──────────────────────────────────────────────────────────────────────────────
+THE CALIBRATION STALL PROTOCOL
+──────────────────────────────────────────────────────────────────────────────
+
+When calibration velocity drops to low for 4+ consecutive weeks:
+
+  STEP 1 — IDENTIFY WHICH SUB-MODEL IS STALLING
+    Look at which signal types are not improving. Edit rate flat on writing tasks
+    but improving on research tasks → the communication archetype model is stalling,
+    not the cognitive style model.
+
+  STEP 2 — DIAGNOSE THE STALL TYPE
+    Type A: The sub-model has the right structure but wrong values.
+      Solution: targeted micro-extraction (ask the user specific questions about
+      the failing dimension).
+    Type B: The sub-model structure is wrong for this user.
+      Solution: reset that sub-model to neutral and re-learn from scratch.
+    Type C: The user's preferences have changed and the model is outdated.
+      Solution: contradiction engine confirms the change, model updates.
+    Type D: External factor is causing inconsistency (high stress period, unusual context).
+      Solution: wait. The inconsistency will resolve. Don't reset the model over noise.
+
+  STEP 3 — EXECUTE THE RESET
+    For Type A and B stalls: the agent surfaces 3 targeted questions related to
+    the failing dimension. "I want to make sure I'm getting [X] right for you.
+    Can I ask three quick questions?" User's answers directly update the sub-model.
+    For Type C: model update is executed. Old values archived as version history.
+    For Type D: mark the period as anomalous. Don't use it in model updates.
+
+──────────────────────────────────────────────────────────────────────────────
+THE COLD START CALIBRATION PATH
+──────────────────────────────────────────────────────────────────────────────
+
+The first 2 weeks of use have almost no data. Every system needs a cold start path.
+
+WEEK 1 — OBSERVATION ONLY
+  Agent does not surface model-based insights. No suggestions. No profile updates.
+  Just executes tasks and accumulates raw signals.
+  User-visible: nothing about the model. Just normal agent behavior.
+
+WEEK 2 — FIRST PATTERN DETECTION PASS
+  After 15+ tasks, run the first pattern detection pass.
+  Confidence on everything: low. Model components are tentative.
+  Agent starts using the model for format decisions (lowest risk application).
+  First behavioral contract items are extracted from any explicit user statements.
+
+WEEKS 3-4 — ROLLING MODEL TAKES SHAPE
+  Sub-models begin to populate with medium confidence.
+  Agent starts using cognitive style model and attention model.
+  First friction zone may be identifiable.
+  Agent surfaces a first insight: "I've noticed X. Is that accurate?" This is
+  the first model transparency moment — calibration through user confirmation.
+
+WEEK 6 — FIRST RELIABLE MODEL STATE
+  Rolling model has enough data for medium confidence.
+  Agent behavior is visibly different from week 1: better defaults, fewer
+  wrong assumptions, faster task turnaround.
+  Calibration velocity metric can now be calculated (need 4 weeks of data).
+
+WEEK 12 — IDENTITY CORE FORMATION BEGINS
+  3 months of consistent signal allows the first identity core components
+  to form. These are tentative and need user confirmation before being marked
+  as high confidence.
+
+MONTH 6 — FULL SYSTEM
+  Identity core is stable. Rolling model is well-calibrated. Calibration
+  velocity is tracked across all sub-models. The system is operating at
+  full intelligence.
+
+User-facing communication about the cold start:
+  Week 1: "I'm learning how you like to work. Give me a few weeks and I'll
+    get better at anticipating what you need."
+  Week 4: "Based on the last month, here's what I've learned: [short list].
+    Does this match your sense of things?"
+  Week 12: "I have 3 months of patterns now. Here's a brief profile of how
+    we work together — does this feel right to you?"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 6 — THE PATTERN DETECTION PASS (upgraded)
+Five passes, not two
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The previous plan had one weekly pass with five steps. Upgrade to five
+distinct passes with different objectives, run at different cadences.
+
+──────────────────────────────────────────────────────────────────────────────
+PASS 1 — SIGNAL AGGREGATION PASS (weekly)
+Collect and normalize signals from the last 7 days
+──────────────────────────────────────────────────────────────────────────────
+
+  Gather all new signals from task_signals table since last run.
+  Normalize: remove outliers (signals more than 2 standard deviations from
+    established baseline for that signal type). Flag outliers rather than
+    ignoring — they're stored but weighted at 0.2x in model updates.
+  Assign temporal_layer: determine whether each signal contributes to live,
+    rolling, or identity core layer.
+  Run decay: apply decay to all existing signals that haven't been reinforced.
+    Update confidence scores accordingly.
+  Flag contradictions: any new signal that contradicts a model component
+    gets contradiction_flag = true. Accumulate contradiction count per component.
+
+──────────────────────────────────────────────────────────────────────────────
+PASS 2 — SIGNAL INTERSECTION PASS (weekly, runs after Pass 1)
+Find patterns that cross multiple signal types
+──────────────────────────────────────────────────────────────────────────────
+
+  This is the new pass that the previous plan didn't have.
+  Instead of aggregating each signal type independently, look for co-occurrence.
+
+  For each pair of signal types, calculate co-occurrence rate:
+    How often do Signal Type A and Signal Type B appear in the same session
+    or within the same 3-day window?
+
+  High co-occurrence pairs are candidate intersection patterns.
+  When an intersection pattern appears 5+ times with consistent direction,
+  it's added to the signal graph as a confirmed sequence or co-occurrence.
+
+  Example outputs:
+    "urgency:high + emotional_temperature:negative consistently co-occur
+     on tasks in the fundraising domain"
+    → Fundraising is a stress trigger for this user specifically
+    → Not detected by looking at urgency signals alone
+
+    "feed_intelligence:new_topic + vocabulary_arrival:new_domain co-occur
+     within 7 days in 4 out of 5 observed cases"
+    → When the user's feed shifts toward a new topic, their task vocabulary
+       shifts toward that topic within a week. Feed is a leading indicator.
+
+──────────────────────────────────────────────────────────────────────────────
+PASS 3 — BEHAVIORAL MODEL UPDATE PASS (weekly, after Pass 2)
+Update sub-models with aggregated and intersection-detected patterns
+──────────────────────────────────────────────────────────────────────────────
+
+  Each sub-model component is updated based on:
+    — Reinforcing signals (increase confidence by 5%)
+    — New signals (propose new component value if confidence > 30%)
+    — Contradicting signals (decrease confidence if contradiction_count > 2)
+    — Confirmed intersection patterns that affect this sub-model
+
+  Each update is versioned. Previous value and confidence kept for comparison.
+  If the update changes a component's value (not just confidence), it's staged
+  for user review before becoming active, unless confidence > 75.
+
+──────────────────────────────────────────────────────────────────────────────
+PASS 4 — DRIFT AND CONTRADICTION PASS (monthly)
+Compare current model to 90 days ago. Resolve accumulated contradictions.
+──────────────────────────────────────────────────────────────────────────────
+
+  Pull the model state from 90 days prior (version history).
+  Compare component by component to the current model.
+
+  For each component that has drifted significantly (>30% change in value or
+  confidence over 90 days):
+    — Classify: gradual drift (smooth change over time) vs sudden shift
+      (change happened in a short window)
+    — Gradual drift: likely a real change in user behavior. Update identity core
+      candidate if it's been consistent for 90 days.
+    — Sudden shift: possible anomaly, possible real change. Surface to user
+      as a check-in: "I've noticed a significant change in [area] over the
+      last 90 days. Is this a shift in how you'd like me to work, or was it
+      a particular period you were going through?"
+
+  For accumulated contradictions (components with contradiction_count > 3):
+    — Three or more contradictions = genuine change or model error.
+    — Run the contradiction resolution protocol: update the component in the
+      direction of the contradicting signals, drop confidence to medium, flag
+      for user verification.
+
+──────────────────────────────────────────────────────────────────────────────
+PASS 5 — ANTI-PATTERN AND GOAL RECONCILIATION PASS (monthly)
+Check for known failure modes and goal alignment
+──────────────────────────────────────────────────────────────────────────────
+
+  Check all six anti-patterns against current signal data.
+  For each anti-pattern: has the threshold been crossed?
+  If yes: generate a candidate insight and route to appropriate destination
+  (see Insight Routing Layer in the previous plan).
+
+  Run goal reconciliation:
+    Compare stated goals in behavioral contract / USER.md to observed task
+    distribution in rolling model.
+    Calculate drift scores for each stated goal.
+    For goals with drift > 0.65 persisting 3+ weeks: generate insight.
+    For goals older than 180 days with no task activity in 60 days: flag for retirement.
+    For emergent goals with confidence > 0.7: suggest adding them to stated goals.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 7 — THE PREDICTION LAYER
+What will this user probably need next?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The model describes what has been true. The prediction layer uses the model
+to forecast what will probably be true — and prepares accordingly.
+
+──────────────────────────────────────────────────────────────────────────────
+PREDICTION TYPE 1 — TASK SEQUENCE PREDICTION
+──────────────────────────────────────────────────────────────────────────────
+
+When a task is completed that has a known follow-on task (from the signal graph
+or task morphology model), prepare for the follow-on:
+  — Pre-load relevant context into the session state
+  — Have the follow-on task partially staged if it's high-confidence
+  — Surface the next step: "You usually follow this with [X]. Ready to continue?"
+
+Confidence threshold for pre-staging: 75%+ (observed at least 5 times)
+Below threshold: surface as a suggestion ("you might want to..."), not a done thing.
+
+──────────────────────────────────────────────────────────────────────────────
+PREDICTION TYPE 2 — TEMPORAL TASK PREDICTION
+──────────────────────────────────────────────────────────────────────────────
+
+When the day/time pattern from the temporal model (Channel G in extraction plan)
+suggests a specific task type is likely, prepare for it.
+
+High confidence temporal prediction (observed 6+ times, same day+time window):
+  → Have the relevant context staged at the start of the session
+  → "Based on your usual pattern, I've pre-loaded the context for [task type].
+     Just say the word if you want to work on it."
+
+Medium confidence (3-5 times): no pre-staging, but note the likely next task
+in session state for faster context assembly if the task is submitted.
+
+──────────────────────────────────────────────────────────────────────────────
+PREDICTION TYPE 3 — FOCUS SHIFT PREDICTION
+──────────────────────────────────────────────────────────────────────────────
+
+Using the feed intelligence model (Channel E) + vocabulary arrival signal
+(Channel M) + signal intersection pass results:
+
+When feed topic + vocabulary shift signals co-occur and have historically
+preceded task type shifts in a consistent sequence → predict the task shift
+before the user submits the first task in that domain.
+
+Agent pre-action: start building context on the emerging domain.
+  Pull relevant background. Create a context file.
+  Don't surface until the first related task is submitted — then the context
+  is already there.
+
+──────────────────────────────────────────────────────────────────────────────
+PREDICTION TYPE 4 — SEASONAL / CYCLICAL PREDICTION
+──────────────────────────────────────────────────────────────────────────────
+
+After two observed cycles of a seasonal pattern (month-end, quarter-end,
+conference season, etc.):
+
+  Predict the pattern 2 weeks before it occurs.
+  Pre-stage relevant skills, templates, context files.
+  Surface a heads-up: "Based on the last two months, you typically do [X]
+  at this time of the month. Do you want me to get ready for that?"
+
+The user's answer refines the prediction: "yes" confirms, "no" updates the model,
+"not yet" sets a reminder for the right timing.
+
+──────────────────────────────────────────────────────────────────────────────
+PREDICTION TYPE 5 — RELATIONSHIP TIMING PREDICTION
+──────────────────────────────────────────────────────────────────────────────
+
+Based on the relationship intelligence model's interaction frequency data:
+
+If Key Contact X typically interacts with the user every 2-3 weeks and it's
+been 3 weeks with no interaction → predict a potential contact moment.
+Surface: "Your usual touchpoint with [X] would be around now based on your
+past pattern. Worth a quick check-in?"
+
+This is NOT the same as surfacing a pending follow-up (which is reactive).
+This is proactive relationship timing — the agent notices the pattern and
+surfaces it before the relationship goes cold.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 8 — THE MODEL TRANSPARENCY LAYER
+What the user can see, correct, and control
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+A behavioral model that is invisible is not trustworthy. The transparency layer
+gives users visibility into what the model thinks, the ability to correct it,
+and the ability to see WHY it believes what it does.
+
+──────────────────────────────────────────────────────────────────────────────
+THE MODEL HEALTH DASHBOARD (/model show)
+──────────────────────────────────────────────────────────────────────────────
+
+Outputs a structured view of the current model state:
+
+  CONFIDENCE SUMMARY
+    Each sub-model's current confidence level (high / medium / low / stale)
+    and the trend (improving / stable / declining / stalling).
+    Example: "Cognitive Style: high confidence (improving). Emotional Baseline:
+    medium confidence (stable). Goal Alignment: low confidence (stale — last
+    goal confirmation was 90 days ago)."
+
+  WHAT I THINK I KNOW ABOUT YOU
+    A plain-language summary of each sub-model's current highest-confidence beliefs.
+    "I believe you prefer bullet-point output for research tasks and prose for
+    strategy tasks. I believe your current primary focus is fundraising.
+    I believe your strongest flow zone is research and your main friction
+    zone is investor email drafting. I believe your key active relationships
+    right now are [list]."
+
+    The user reads this and corrects anything wrong. Corrections become
+    high-priority signals and update the relevant sub-model immediately.
+
+  BEHAVIORAL CONTRACT
+    List of all active directives the user has explicitly stated.
+    "Always: bullet points on research output. Never: suggest outreach to X.
+    When writing LinkedIn posts: start with a question."
+    User can add, edit, or revoke any of these.
+
+  WHAT I'M UNCERTAIN ABOUT
+    Components with low confidence or high contradiction count.
+    "I'm not confident about your preferred output length for analysis tasks —
+    I've seen you prefer both short and long in different situations. If you
+    want, I can ask you directly."
+
+  ACTIVE PREDICTIONS
+    What the system is currently predicting and preparing for.
+    "Based on your usual pattern, I'm expecting a batch of content creation
+    tasks in the next few days. I've pre-loaded your voice profile for that."
+    User can confirm, deny, or modify.
+
+──────────────────────────────────────────────────────────────────────────────
+THE INSIGHT EXPLAINABILITY COMMAND (/explain last)
+──────────────────────────────────────────────────────────────────────────────
+
+When the agent does something that feels notable — surfaces an insight,
+changes behavior, makes an unusual suggestion — the user can ask /explain.
+
+Response format:
+  "Here's why I did that:
+   Signal observed: [specific observation]
+   Pattern established: [what I've seen before that made this a pattern]
+   Model component consulted: [which sub-model]
+   Confidence: [high/medium/low]
+   Alternative approaches I considered: [if any]"
+
+This prevents the system from feeling like a black box. It also helps users
+identify when the agent is pattern-matching incorrectly — they can see the
+reasoning and correct it directly.
+
+──────────────────────────────────────────────────────────────────────────────
+THE MODEL CORRECTION INTERFACE (/correct)
+──────────────────────────────────────────────────────────────────────────────
+
+User-facing command for correcting any model belief:
+  /correct [I don't actually prefer bullet points for research — I want prose]
+  /correct [my main focus right now is product, not fundraising]
+  /correct [the relationship with Sarah has ended — don't include her as key]
+
+Corrections are processed as high-confidence contradicting signals.
+They immediately update the relevant model component.
+They're stored as behavioral contract items if the user uses language like
+"always", "never", "from now on."
+They're stored as corrections (high-weight signal) if stated as one-time updates.
+
+The /correct command is the most important transparency feature because it
+closes the loop: the system can be wrong and the user can fix it without
+waiting for the model to figure it out on its own.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 9 — THE MODEL QUERY INTERFACE (complete spec)
+How agent logic asks the model questions
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The model is queried at the start of every agent task (before the agent
+generates any output). The query interface is a set of standardized questions
+the agent asks the model, which returns structured answers with confidence scores.
+
+QUERY 1 — FORMAT CALIBRATION
+  Question: "How should I format output for this task type in this context?"
+  Consults: Attention economy model + Live state (cognitive load)
+  Returns: format spec (bullets / prose / hybrid), max length, lead-with value,
+    detail level, confidence
+  Applies: behavioral contract format directives override any model output
+
+QUERY 2 — TONE CALIBRATION
+  Question: "What tone and register should I use for this specific output?"
+  Consults: Communication archetype model (if recipient known, register map)
+    + Cognitive style model (hedge level, directness) + Live state (emotional temp)
+  Returns: register recommendation, formality level, directness, warmth,
+    confidence score per dimension
+  Note: if recipient is known and has an established register in the model,
+    that register overrides general tone recommendations
+
+QUERY 3 — SCOPE CALIBRATION
+  Question: "How much should I cover? Should I stick to what was asked or
+    surface adjacent useful things?"
+  Consults: Trust gradient (in this domain), cognitive style (exploration ratio),
+    task morphology (session intent), live state (cognitive load)
+  Returns: scope recommendation (tight / moderate / expansive), whether to
+    proactively surface adjacents, confidence
+
+QUERY 4 — APPROACH CALIBRATION
+  Question: "How should I approach this task? Execute directly or explore options?"
+  Consults: Cognitive style (cognitive mode for current task), decision pattern,
+    trust gradient (in this domain), live state (urgency level)
+  Returns: approach recommendation (execute / explore / validate / repair),
+    whether to offer options, whether to ask a clarifying question first
+
+QUERY 5 — RELATIONSHIP CONTEXT LOADING
+  Question: "Is there a person in this task I should know about?"
+  Consults: Relationship intelligence model
+  Returns: if known → relationship profile (type, trajectory, register,
+    pending actions, last interaction, familiarity level)
+    if unknown → "new contact — ask one clarifying question if name appears"
+
+QUERY 6 — GOAL ALIGNMENT CHECK
+  Question: "Does this task align with stated goals, and does that matter?"
+  Consults: Goal alignment model
+  Returns: alignment score (0-1), which goal it maps to, whether to
+    surface the alignment or not (only surface when misalignment is significant)
+
+QUERY 7 — PREDICTION CONTEXT
+  Question: "Has the system predicted anything relevant to this task that I
+    should load?"
+  Consults: Active predictions in prediction layer
+  Returns: any pre-staged context that's relevant to the current task type
+
+QUERY 8 — ANTI-PATTERN ALERT
+  Question: "Is this task part of a detected anti-pattern?"
+  Consults: Anti-pattern detection model
+  Returns: any active anti-patterns this task touches, recommended adjustment
+    (if any). Anti-pattern alerts don't change the task output — they may
+    adjust the agent's follow-up behavior after the task.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 10 — THE EXTENDED FAILURE MODES TABLE
+Every known failure mode with diagnosis and solution
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  FAILURE: Model becomes a snapshot of who the user WAS, not who they ARE
+  CAUSE: Confidence decay is too slow, or not running
+  DIAGNOSIS: High confidence on old signals that are no longer reinforced
+  SOLUTION: Mandatory confidence decay on all components. Components below
+    40% confidence are flagged. Below 20% are retired to archive.
+
+  FAILURE: A single unusual week corrupts the rolling model
+  CAUSE: Outlier detection not running, or outlier threshold too loose
+  DIAGNOSIS: Model update happened with outlier signals included
+  SOLUTION: Outlier detection at 2 standard deviations. Outliers weighted
+    at 0.2x, never at full weight. Anomalous periods can be manually
+    flagged by the user ("this week was unusual, don't factor it in").
+
+  FAILURE: System adapts to the user's worst behavior (stress patterns, avoidance)
+  CAUSE: Pattern detection doesn't distinguish anti-patterns from preferences
+  DIAGNOSIS: Edit patterns are declining but the content quality is declining too
+    (the system learned to write in a worse style because the user was stressed)
+  SOLUTION: Anti-pattern detection prevents stress-period behavior from updating
+    stable sub-models. Stress periods are flagged and excluded from identity core
+    and rolling model updates (but stored in live state layer only).
+
+  FAILURE: Preference volatility treated as stable preference
+  CAUSE: No volatility tracking — system uses average value
+  DIAGNOSIS: High confidence preference that the user keeps contradicting
+  SOLUTION: Volatility index on every preference dimension. Volatile dimensions
+    always result in options-offered behavior, not single-answer behavior.
+
+  FAILURE: Behavioral contract directive is forgotten or overridden by model
+  CAUSE: Model inference overwrites explicit directives
+  DIAGNOSIS: User has to repeat explicit instructions
+  SOLUTION: Behavioral contract is queried first, before any sub-model.
+    Contract items can never be overridden by inference. Only revoked by user.
+
+  FAILURE: Calibration stalls because the agent is too conservative about updating
+  CAUSE: Contradiction engine requires too many contradictions before updating
+  DIAGNOSIS: User corrections aren't changing agent behavior
+  SOLUTION: User corrections (via /correct) are always high-priority updates.
+    In-session corrections (user says "actually no, ...") trigger immediate
+    live state update, followed by rolling model update proposal.
+
+  FAILURE: Goal reconciliation surfaces at wrong time and creates friction
+  CAUSE: Anti-pattern pass fires goal drift insight during high-pressure period
+  DIAGNOSIS: User is annoyed by strategic insights when they're in execution mode
+  SOLUTION: Insight routing checks live state before surfacing. Strategic insights
+    never surface when live state shows high urgency or cognitive overload.
+    They are queued for the next low-urgency session.
+
+  FAILURE: Prediction layer fires false positives and annoys user
+  CAUSE: Prediction confidence threshold too low
+  DIAGNOSIS: Pre-staged tasks are wrong more than 30% of the time
+  SOLUTION: Prediction pre-staging only activates at 75%+ confidence.
+    Below that threshold: surface as suggestion, not done thing.
+    After 3 false positive predictions: raise the threshold for that prediction
+    type by 10% for this user.
+
+  FAILURE: Model transparency shows the user something surprising that erodes trust
+  CAUSE: Model built something the user disagrees with
+  DIAGNOSIS: User reads /model show and sees an incorrect belief
+  SOLUTION: This is not a failure — this is the transparency layer working.
+    The user corrects it via /correct. The model updates. Trust increases because
+    the system is transparent and correctable, not because it was never wrong.
+
+  FAILURE: Relationship model includes outdated relationships as active
+  CAUSE: Dormant detection threshold too long (90 days default)
+  DIAGNOSIS: Agent references a relationship that's ended or changed significantly
+  SOLUTION: User can mark any relationship as inactive via /correct.
+    Dormant detection threshold is configurable per user.
+    Relationship sentiment signals feed decay — a cooling trajectory accelerates
+    dormancy classification.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 11 — THE FULL BUILD SEQUENCE
+What to build first and why
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SPRINT 1 — SIGNAL INFRASTRUCTURE (foundation, nothing works without this)
+  Signal table with full schema (including direction, source channel, decay
+  window, contradiction flag, directive flag)
+  Behavioral contract table
+  Signal aggregation pass (Pass 1)
+  Basic decay system
+  No user-visible features yet. Pure infrastructure.
+  Duration: 3-4 days
+
+SPRINT 2 — LIVE STATE MODEL (immediate user value, low complexity)
+  Six live state fields updated per session
+  Live state queried before every agent response
+  Format and tone decisions use live state
+  User-visible: agent behavior feels more context-aware
+  Duration: 2-3 days
+
+SPRINT 3 — ROLLING MODEL FOUNDATION (first real intelligence)
+  Cognitive style sub-model
+  Attention economy sub-model
+  Friction & flow sub-model (basic version)
+  Signal intersection pass (Pass 2)
+  Behavioral model update pass (Pass 3)
+  Trust gradient model (basic version)
+  User-visible: agent gets better at format and approach over time
+  /model show shows first summary
+  Duration: 4-5 days
+
+SPRINT 4 — CALIBRATION ENGINE (quality assurance for the model)
+  Calibration velocity metric
+  Calibration stall detection and protocol
+  Cold start calibration path (explicit user messaging)
+  Contradiction engine
+  Duration: 3-4 days
+
+SPRINT 5 — DEEPER SUB-MODELS (more intelligence surfaces)
+  Communication archetype model with register map
+  Emotional baseline model
+  Goal alignment model (full version with goal retirement)
+  Relationship intelligence model (basic version)
+  Task morphology model (basic version)
+  Duration: 4-5 days
+
+SPRINT 6 — PATTERN DETECTION PASSES 4 AND 5 (monthly passes)
+  Drift and contradiction pass
+  Anti-pattern detection and goal reconciliation pass
+  Insight routing layer
+  Duration: 3-4 days
+
+SPRINT 7 — TRANSPARENCY LAYER (trust and correctability)
+  /model show full dashboard
+  /explain last command
+  /correct command that updates sub-models
+  Duration: 2-3 days
+
+SPRINT 8 — PREDICTION LAYER (proactive intelligence)
+  Task sequence prediction
+  Temporal task prediction
+  Focus shift prediction
+  Seasonal prediction
+  Relationship timing prediction
+  Duration: 4-5 days
+
+SPRINT 9 — ADVANCED SUB-MODELS (complete intelligence)
+  Anti-pattern model (full version with all six patterns)
+  Signal graph (sequence detection)
+  Task morphology model (full version with session classification)
+  Preference volatility matrix
+  Duration: 3-4 days
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE GOVERNING PRINCIPLE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Every component of the collection layer serves one function: making the agent's
+next response better than its last without the user having to ask for it.
+
+The model is not the product. The better responses are the product.
+The model is invisible infrastructure. It works when the user thinks
+"it just gets me" without knowing why.
+
+The transparency layer exists not to make the model visible — but to make it
+correctable. A correctable model earns trust. An opaque model erodes it.
+
+The calibration engine exists not to measure the model — but to keep it honest.
+A model that measures its own accuracy is a model that can't hide its failures.
+That's the property we want: not perfection, but continuous honest improvement.
+
+═══════════════════════════════════════════════════════════════════════════════

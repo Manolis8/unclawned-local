@@ -1,0 +1,718 @@
+================================================================================
+  LOCAL PC ACCESS LAYER — DETAILED BUILD PLAN
+  How the agent interacts with the user's computer
+================================================================================
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  THE CORE IDEA — ONE AGENT, THREE SURFACES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Right now the agent has two surfaces it can work on:
+  [Chat]    → reasoning, writing, answering
+  [Browser] → Chrome via Playwright, clicks, types, reads pages
+
+We are adding a third:
+  [Local PC] → file system, commands, local apps, clipboard
+
+The critical design decision: we do NOT create a separate "local agent."
+We give the SAME agent access to all three surfaces. It picks the right
+one(s) for each task. One agent, three surfaces.
+
+  "Research competitors and save a report to my desktop"
+  → Browser (research) + Local PC (save file) — ONE task, both surfaces
+
+  "Read my leads CSV and post the top 3 on LinkedIn"
+  → Local PC (read CSV) + Browser (post) — ONE task, both surfaces
+
+  "Run my test suite and tell me what's broken"
+  → Local PC only — ONE task
+
+  "Go to GitHub and check my latest PR comments"
+  → Browser only — ONE task
+
+The agent figures out which tools to use from the task. The system prompt
+guides it. No separate routing needed.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  HOW THE AGENT DECIDES: CHAT vs BROWSER vs LOCAL PC
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The orchestrator (already exists) makes the first decision:
+  → Chat: no action needed, just reasoning ("explain this concept")
+  → Agent: anything that requires doing something
+
+Once in the agent, the system prompt teaches it the decision tree:
+
+  BROWSER TOOLS when:
+  - Task involves a website, URL, or web-based service
+  - "Go to LinkedIn", "check Gmail", "search Google", "buy on Amazon"
+
+  LOCAL PC TOOLS when:
+  - Task involves files on the computer (read, write, create, delete)
+  - Task involves running a script or command
+  - Task involves opening a local application
+  - "Read my CSV", "open VS Code", "run this script", "save to desktop"
+
+  BOTH in sequence when:
+  - Task starts online and ends locally (research → save to file)
+  - Task starts locally and ends online (read file → post to LinkedIn)
+  - Any task that crosses the browser/local boundary
+
+  CHAT REASONING (no tools) when:
+  - Agent needs to think, draft, or decide before acting
+  - Already has all the info it needs and just needs to write something
+
+The system prompt will have concrete examples for each case.
+The agent will pattern-match on these — LLMs are good at this once shown.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  THE TOOLS — WHAT WE BUILD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Six tools. Built in this order (each one unlocks the next).
+
+
+  ── TOOL 1: read_file ───────────────────────────────────────────────────────
+
+  What it does: Read a file from the local file system and return its content.
+
+  Parameters:
+    path: string          — absolute or relative path
+    start_line?: number   — read from this line (default: 1)
+    end_line?: number     — read to this line (default: all, max 500 lines)
+
+  Returns:
+    content: string       — the file content (or truncated with note)
+    total_lines: number   — total lines in file
+    was_truncated: boolean
+
+  Permission tier: 0 (no confirm needed — read-only)
+  Security: path must be under allowed directories (home dir by default)
+
+  Why line ranges matter: a CSV with 10,000 rows shouldn't flood the agent.
+  The agent reads the first 50 lines to understand structure, then reads
+  specific ranges if needed. Same pattern as Claude Code's Read tool.
+
+  What this unlocks:
+  - Agent reads your documents, CSV files, notes, code
+  - "Read my contacts.csv and find anyone at a company called Acme"
+  - "Read my meeting notes from last week and summarize action items"
+
+
+  ── TOOL 2: write_file ──────────────────────────────────────────────────────
+
+  What it does: Create or overwrite a file with given content.
+
+  Parameters:
+    path: string          — where to write the file
+    content: string       — what to write
+    mode: 'create' | 'overwrite' | 'append'
+                          — create fails if file exists, overwrite replaces,
+                            append adds to end
+
+  Returns:
+    success: boolean
+    path: string          — the actual path written (resolved absolute)
+
+  Permission tier:
+    3 (T3) — show content preview before writing. User approves.
+    4 (T4) — if mode='overwrite' and file already has content (destructive)
+
+  Security:
+    - Path must be under allowed directories
+    - Content preview shown in confirm_action box before writing
+    - If overwriting an existing file: T4 confirmation showing what will be lost
+
+  What this unlocks:
+  - Agent saves research reports, lead lists, summaries to your desktop
+  - "Research 5 competitors and save a comparison table to my desktop"
+  - "Write a cold email template to ~/templates/cold_email_v2.txt"
+
+
+  ── TOOL 3: list_directory ──────────────────────────────────────────────────
+
+  What it does: List files and folders at a given path.
+
+  Parameters:
+    path: string          — directory to list (default: home directory)
+    depth?: number        — how many levels deep (default: 1, max: 3)
+    filter?: string       — glob pattern to filter (e.g., "*.csv", "*.md")
+
+  Returns:
+    entries: Array of { name, type (file/dir), size, modified_at }
+
+  Permission tier: 0 (no confirm — read-only)
+  Security: path must be under allowed directories
+
+  Why this matters: the agent doesn't know where your files are. This is
+  how it finds them. The agent explores your file system the way a new
+  employee would explore a shared drive — systematically, not randomly.
+
+  What this unlocks:
+  - Agent finds the right file without you giving the exact path
+  - "Find all my CSV files in Documents and tell me what's in them"
+  - Agent can understand your folder structure and work within it
+
+
+  ── TOOL 4: find_file ───────────────────────────────────────────────────────
+
+  What it does: Search for files by name pattern across allowed directories.
+
+  Parameters:
+    pattern: string       — filename pattern ("*.csv", "report*", "leads*")
+    search_dir?: string   — where to search (default: home dir)
+
+  Returns:
+    matches: Array of { path, name, size, modified_at }
+    limited to 20 results
+
+  Permission tier: 0 (read-only)
+
+  Why this is separate from list_directory: list_dir shows what's IN a
+  folder. find_file searches ACROSS folders. If you say "read my leads file"
+  and don't give a path, the agent calls find_file("*leads*") to locate it.
+
+  What this unlocks:
+  - Agent handles vague file references ("my contacts file", "that report")
+  - "Find my most recent invoice and tell me the total"
+  - Agents that feel smart about your file system, not lost
+
+
+  ── TOOL 5: run_command ─────────────────────────────────────────────────────
+
+  What it does: Execute a shell command and return stdout + stderr.
+
+  Parameters:
+    command: string       — the command to run (e.g., "python script.py")
+    args?: string[]       — arguments as array (safer than string concat)
+    working_dir?: string  — where to run it (default: home dir)
+    timeout_ms?: number   — max wait time (default: 30000ms, max: 300000ms)
+
+  Returns:
+    stdout: string        — standard output (truncated at 200 lines)
+    stderr: string        — standard error (truncated at 100 lines)
+    exit_code: number     — 0 = success, anything else = failure
+    timed_out: boolean
+
+  Permission tier: 3 (T3) — show EXACT command before running, user approves
+                    4 (T4) — if command matches destructive pattern (rm, del, etc.)
+
+  Security (this is the dangerous one — think carefully):
+
+    BLACKLISTED commands (never run, return error immediately):
+      rm -rf, del /f /s, format, shutdown, mkfs, DROP TABLE, curl | bash,
+      wget -O- | sh, any pipe into shell, chmod 777, chown root, sudo rm
+
+    SANDBOXED execution:
+      - working_dir cannot be a system directory (C:\Windows, /etc, /sys, etc.)
+      - command cannot reference system directories as targets
+      - PATH is the user's normal PATH — no privilege escalation
+
+    TIMEOUT enforcement:
+      - Hard timeout at timeout_ms
+      - If timed out: process killed, partial output returned with "TIMED OUT" note
+      - Agent told to tell user what happened
+
+    What the T3 confirm box shows:
+      ┌───────────────────────────────────────────────────┐
+      │ ⚡ Run Command Confirmation                        │
+      ├───────────────────────────────────────────────────┤
+      │ Command : python analyze_leads.py                 │
+      │ Folder  : C:\Users\manol\Documents\scripts        │
+      │ Timeout : 30 seconds                              │
+      └───────────────────────────────────────────────────┘
+        a = run it   c = cancel
+
+  What this unlocks:
+  - Running your Python/Node/scripts directly from a task
+  - "Run my analyze_leads.py script and tell me the results"
+  - "Run npm test in my project and tell me what's failing"
+  - "Query my local SQLite database for all customers added this week"
+  - "Convert this CSV to JSON using my converter script"
+  - This is the Claude Code capability — the agent can now DO things, not
+    just read and write
+
+
+  ── TOOL 6: open_app ────────────────────────────────────────────────────────
+
+  What it does: Open a local application.
+
+  Parameters:
+    app: string           — app name ("VS Code", "Notepad", "Excel", etc.)
+    file?: string         — optional file to open WITH the app
+
+  Returns:
+    success: boolean
+    message: string
+
+  Permission tier: 2 (T2) — single confirm "Open VS Code?" (y/n)
+
+  Implementation: platform-aware
+    Windows: `start "" "code"` or registry lookup for .exe path
+    Mac: `open -a "VS Code"`
+    Linux: `xdg-open` or direct binary name
+
+  What this unlocks:
+  - Hybrid flows: agent does research in browser, opens your notes app,
+    you continue working there
+  - "Open my spreadsheet and add these 10 leads to it"
+  - "Open VS Code in my project folder"
+  - "After you save the report to desktop, open it in Word"
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  PROBLEMS AHEAD — AND THEIR SOLUTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+These are the problems that WILL happen. Thought through in advance.
+
+
+  ── PROBLEM 1: Agent reads a 50,000-line CSV and crashes the context ────────
+
+  What happens: Agent calls read_file("leads.csv"), gets 50k lines back,
+  the LLM context window overflows.
+
+  Solution:
+    - Hard line limit on read_file: default 200 lines, max 500
+    - If file is larger: return first 200 lines + metadata:
+      "File has 50,243 lines. Showing lines 1-200. Use start_line/end_line
+       to read specific ranges."
+    - Agent learns to: read header first → understand structure → read
+      specific ranges → process in chunks
+    - For CSVs specifically: detect it's a CSV, return header + first 10 rows
+      as a summary, with total row count
+
+  Analogy: like how Claude Code's Read tool has offset/limit. Same pattern.
+
+
+  ── PROBLEM 2: Agent doesn't know where the user's files are ───────────────
+
+  What happens: User says "read my contacts file" — agent doesn't know
+  it's at C:\Users\manol\Documents\CRM\contacts_2024.csv.
+
+  Solution (in order of preference):
+    1. Agent calls find_file("*contacts*") → finds the file
+    2. Agent calls list_directory("Documents") → explores and finds it
+    3. Agent asks one clarifying question: "What's the path to your contacts
+       file? You can drag it into the terminal to paste the path."
+    4. Once found: the agent REMEMBERS this for next time in task memory
+       "contacts file is at ~/Documents/CRM/contacts_2024.csv"
+
+  The find_file tool is specifically designed to solve this. It's the most
+  common friction point and it needs to work really well.
+
+
+  ── PROBLEM 3: run_command hangs — interactive prompt, network wait ─────────
+
+  What happens: Agent runs `npm install` (takes 2 minutes) or a script that
+  asks "Are you sure? (y/n)" — the command never returns.
+
+  Solution:
+    - Timeout at 30 seconds by default, kills the process
+    - For known long-running commands (npm, pip, yarn, etc.): tell agent to
+      set timeout_ms to 120000 (2 minutes) in its call
+    - Agent told in system prompt: always use non-interactive flags:
+      `npm install --yes`, `pip install --quiet`, etc.
+    - If command times out: return partial output + "TIMED OUT after 30s"
+      + agent reports to user what happened
+    - Agent should NEVER run indefinitely long commands without warning user
+
+
+  ── PROBLEM 4: Agent tries to access system directories ────────────────────
+
+  What happens: Agent tries to read_file("C:\Windows\System32\drivers\etc\hosts")
+  or run_command("del /f C:\Windows\System32\...").
+
+  Solution:
+    - Hard path validation before ANY file/command operation:
+      - Resolve the absolute path
+      - Check it starts with an allowed root (home dir by default)
+      - If not: return error "Path outside allowed directories. The agent
+        can only access files under C:\Users\manol\ — if you need to work
+        elsewhere, tell me the exact path and I'll confirm with you."
+    - Blacklisted system paths: C:\Windows, C:\Program Files, /etc, /sys,
+      /proc, /dev — never accessible regardless of confirmation
+    - This is a hard boundary in code, not a soft instruction to the agent
+
+
+  ── PROBLEM 5: Agent tries to read a binary file (images, executables) ──────
+
+  What happens: Agent calls read_file("photo.jpg") or read_file("app.exe")
+  — gets garbage bytes, hallucinates about the content.
+
+  Solution:
+    - Detect file type by extension before reading
+    - Binary extensions: .jpg, .png, .gif, .pdf, .exe, .dll, .zip, etc.
+    - Return error: "This is a binary file (image/executable). I can't read
+      its contents as text. If you want to work with it, tell me what you
+      need and I'll find another way."
+    - Exception: .pdf — use a text extraction approach (pdf-parse npm package)
+      to extract text content from PDFs. This is high-value (reports, etc.)
+
+
+  ── PROBLEM 6: Agent writes to a file, overwrites something important ────────
+
+  What happens: User says "save this to report.docx" — agent calls
+  write_file("~/Documents/report.docx", ...) — overwrites an existing
+  report the user cared about.
+
+  Solution:
+    - Before ANY write: check if file exists
+    - If file exists: T4 confirmation showing the CURRENT content (first 20
+      lines) and what will replace it. User types "overwrite" to confirm.
+    - Suggest alternative: "report_new.docx" if user doesn't want to overwrite
+    - After write: always report exact path written so user knows where it went
+    - For append mode (safer): T3 confirmation just showing what will be added
+
+
+  ── PROBLEM 7: Agent generates a command that's platform-specific ────────────
+
+  What happens: Agent generates a bash command but user is on Windows.
+  Or generates a Windows command but some users are on Mac.
+
+  Solution:
+    - Inject OS info into system prompt: "User OS: Windows 11 (win32)"
+    - Agent knows to use: `dir` not `ls`, `type` not `cat`, PowerShell not bash
+    - But: the CLI's `run_command` will use whatever shell is available
+      On Windows: PowerShell by default, bash if available (WSL/Git Bash)
+    - For the implementation: use `child_process.exec` with shell: true
+      On Windows this defaults to cmd.exe, but we should use PowerShell
+      (`powershell.exe -NonInteractive -Command "..."`)
+    - Agent told in system prompt: "On Windows, prefer PowerShell syntax"
+
+
+  ── PROBLEM 8: Command output is 10,000 lines (e.g., ls of a big drive) ─────
+
+  What happens: Agent runs `Get-ChildItem C:\` — 10,000 files returned,
+  context window overflows.
+
+  Solution:
+    - Hard output truncation: max 200 lines of stdout returned to agent
+    - After 200 lines: "Output truncated (showing 200 of 3,847 lines).
+      Run a more specific command to narrow results."
+    - Agent taught to: use filters in commands (`*.csv`), pipe to head/Select,
+      use specific subdirectories, not broad directory listings
+    - For commands that NEED full output: write to temp file, read back in chunks
+
+
+  ── PROBLEM 9: Agent loops on file operations (reads same file repeatedly) ──
+
+  What happens: Agent reads a file, doesn't understand it, reads it again
+  with slightly different parameters, loops 10 times.
+
+  Solution:
+    - The existing loop detection (detectLoop in agent-extension.ts) already
+      catches repeated identical tool calls. Extend it to cover local tools.
+    - After 2 identical read_file calls: "You've read this file twice with
+      the same parameters. What specifically are you looking for? Maybe I
+      can help search within it."
+    - After 3 failed attempts to find info in a file: surface to user
+      "I'm having trouble finding what I need in this file. Can you point
+      me to where the [X] information is?"
+
+
+  ── PROBLEM 10: Security — command injection via user task ──────────────────
+
+  What happens: User says "read the file at C:\Users\manol\; rm -rf /"
+  and the agent naively passes this to read_file.
+
+  Solution:
+    - Path parameters: always run through path.resolve() and validate result
+    - Never concatenate user strings directly into shell commands
+    - run_command uses args array (not string concat) to prevent injection
+    - The command string itself is still shown to user in T3 confirm — user
+      sees the exact command before it runs, which catches obvious issues
+    - Input sanitization: strip shell metacharacters (;, &&, ||, `, $()) from
+      all file path parameters before using them
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  HOW TO IMPLEMENT IT — FILE BY FILE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Three files to create/modify. Each one is self-contained.
+
+
+  ── FILE 1 (new): src/lib/local-tools.ts ────────────────────────────────────
+
+  Contains all the actual implementations. Pure functions. No agent logic here.
+
+  Functions:
+    localReadFile(path, startLine?, endLine?) → { content, totalLines, wasTruncated }
+    localWriteFile(path, content, mode) → { success, resolvedPath }
+    localListDirectory(path, depth?, filter?) → { entries[] }
+    localFindFile(pattern, searchDir?) → { matches[] }
+    localRunCommand(command, args, workingDir, timeoutMs) → { stdout, stderr, exitCode, timedOut }
+    localOpenApp(app, file?) → { success, message }
+
+  Also contains:
+    validatePath(path) → throws if outside allowed dirs or is system dir
+    isBinaryFile(path) → boolean
+    isDestructiveCommand(command) → boolean
+    getAllowedDirs() → string[] (home dir + any user-configured extras)
+
+  This file is imported by agent-extension.ts. No agent logic here — just
+  the raw OS operations.
+
+
+  ── FILE 2 (modify): src/lib/agent-extension.ts ─────────────────────────────
+
+  Two additions:
+
+  A) Add 6 new tool definitions to the tools array (same format as browser tools)
+
+  B) Add 6 new cases in the tool handler switch statement:
+
+    case 'read_file': {
+      const { path, start_line, end_line } = args
+      validatePath(path)    // throws if unsafe
+      const result = await localReadFile(path, start_line, end_line)
+      result = `File contents (${result.totalLines} total lines):\n${result.content}`
+      if (result.wasTruncated) result += '\n[TRUNCATED — use start_line/end_line to read more]'
+      break
+    }
+
+    case 'write_file': {
+      // Check if file exists → choose T3 or T4 for confirmation
+      // Show content preview in confirm_action style
+      // Call localWriteFile after approval
+      break
+    }
+
+    ... etc for each tool
+
+  For write_file and run_command: reuse the existing confirm_action
+  infrastructure (onConfirmationRequest callback) — don't build a new
+  confirmation system. These naturally fit into T3/T4 tiers.
+
+
+  ── FILE 3 (modify): src/lib/action-tiers.ts ────────────────────────────────
+
+  Add local action types to the tier map:
+
+    // Tier 0 — Local read-only
+    [/^(read_file|list_directory|find_file)$/i, 0],
+
+    // Tier 2 — Open app (low stakes)
+    [/^(open_app)$/i, 2],
+
+    // Tier 3 — Local write / command
+    [/^(write_file|append_file|run_command|run_script)$/i, 3],
+
+    // Tier 4 — Local destructive
+    [/^(delete_file|overwrite_file|run_destructive_command)$/i, 4],
+
+
+  ── FILE 4 (modify): system prompt in agent-extension.ts ────────────────────
+
+  Add a new section to SYSTEM_PROMPT:
+
+    ## LOCAL PC TOOLS — When and How to Use Them
+
+    User OS: [injected at runtime from process.platform]
+    Home directory: [injected at runtime from os.homedir()]
+    Allowed directories: [injected at runtime]
+
+    Use LOCAL PC TOOLS when:
+    - Task involves files on the computer (read, write, find, create)
+    - Task involves running a script or shell command
+    - Task involves opening a local application
+    - Any task where the data lives on disk, not on a website
+
+    Use BROWSER TOOLS when:
+    - Task involves any website, web app, or URL
+
+    Use BOTH when:
+    - Task crosses the boundary (research online → save locally, or read file → post online)
+
+    File operation rules:
+    - Always read_file or find_file BEFORE write_file on unknown paths
+    - When user says "my [X] file" without a path: call find_file("*X*") first
+    - Never assume a file path — verify it exists with list_directory or find_file
+    - For large files: read header/first rows first, then specific sections as needed
+
+    Command rules:
+    - Always use non-interactive flags: --yes, --no-input, -y, --quiet
+    - Never run a command that could take more than 5 minutes without warning user
+    - On Windows: use PowerShell syntax, not bash
+    - Show what you're about to run — confirm_action handles this automatically
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  THE FULL AGENT FLOW — START TO FINISH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Let's trace a real task: "Find my leads CSV, remove anyone already emailed,
+and save a clean list to my desktop"
+
+  USER: types the task
+
+  ORCHESTRATOR:
+    → scoreConfidence: high (clear intent, clear target, clear action) → execute
+    → classifyTaskType: "browser" (but really agent — classifier stays same,
+      agent handles both surfaces)
+
+  AGENT START:
+    → Reads system prompt (knows OS is Windows, home is C:\Users\manol\)
+    → Reads task: involves local files → will use local PC tools
+
+  TURN 1 — Agent calls find_file:
+    find_file(pattern="*leads*", search_dir="Documents")
+    → Returns: ["C:\Users\manol\Documents\leads_2024.csv", "C:\Users\manol\Desktop\leads_old.csv"]
+    → Agent picks the more recent one
+
+  TURN 2 — Agent calls read_file:
+    read_file(path="C:\Users\manol\Documents\leads_2024.csv", end_line=5)
+    → Returns first 5 rows: header + 4 data rows
+    → Agent understands structure: Name, Email, Company, Date_contacted, Status
+
+  TURN 3 — Agent calls read_file for full data:
+    read_file(path="...\leads_2024.csv", start_line=1, end_line=200)
+    → Returns 200 rows
+    → Agent processes: filters rows where Status="emailed" or Date_contacted is set
+    → Builds clean list: 47 rows remain
+
+  TURN 4 — Agent calls confirm_action (write preview):
+    confirm_action(
+      action_type="write_file",
+      target="C:\Users\manol\Desktop\leads_clean.csv",
+      details="Create new file with 47 leads (removed 23 already contacted)",
+      content="Name,Email,Company\nAcme Corp,john@acme.com,...\n..."
+    )
+
+  CLI shows T3 box:
+    ┌─────────────────────────────────────────────────┐
+    │ 📋 File Write Preview                           │
+    ├─────────────────────────────────────────────────┤
+    │ Writing to: Desktop\leads_clean.csv             │
+    │ Content: 47 leads (removing 23 already emailed) │
+    │ Name,Email,Company                              │
+    │ Acme Corp,john@acme.com,...                     │
+    │ [... 45 more rows]                              │
+    └─────────────────────────────────────────────────┘
+      a = approve and write   e = edit   c = cancel
+    Your choice (a/e/c) >
+
+  USER: types 'a'
+
+  TURN 5 — Agent calls write_file:
+    write_file(path="Desktop\leads_clean.csv", content="...", mode="create")
+    → File written ✓
+
+  TURN 6 — Agent calls task_complete:
+    {
+      done: "Saved 47 clean leads to Desktop/leads_clean.csv.
+             Removed 23 contacts who were already emailed.",
+      findings: [
+        "15 leads haven't been contacted in over 30 days — good time to follow up",
+        "8 leads are from the same company (Acme Corp) — might be better to pick one contact"
+      ],
+      suggested_actions: [
+        { label: "Draft outreach for top 5 leads", task: "draft cold email for the top 5..." },
+        { label: "Open the file", task: "open_app Excel file=Desktop/leads_clean.csv" }
+      ]
+    }
+
+  CLI renders:
+    ✅ Saved 47 clean leads to Desktop/leads_clean.csv. Removed 23 already emailed.
+
+    📋 FINDINGS:
+       • 15 leads not contacted in 30+ days — good follow-up timing
+       • 8 leads from same company — maybe pick one contact point
+
+    💡 NEXT STEPS:
+       1. Draft outreach for top 5 leads
+       2. Open the file in Excel
+       Enter number or press Enter to skip >
+
+  Total time: ~20 seconds. Task that would take 15 minutes manually.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  BUILD ORDER — WEEK BY WEEK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  DAY 1-2: read_file + list_directory + find_file
+    These are read-only. Zero risk. Build first. Test: "read my desktop files"
+    The path validation and security layer goes in here.
+    End state: agent can explore and read any file in your home directory.
+
+  DAY 3: write_file + permission integration
+    Write with T3 confirmation (content preview). Test: "save this summary
+    to my desktop." The overwrite → T4 upgrade logic goes in here.
+    End state: agent can safely write files with user approval.
+
+  DAY 4-5: run_command
+    The most complex and most powerful. Build the blacklist, the timeout,
+    the output truncation, the Windows PowerShell routing. T3 confirmation
+    shows exact command. Test: "list all CSV files in my Documents folder"
+    then "run my hello_world.py script".
+    End state: agent can execute scripts and shell commands safely.
+
+  DAY 6: open_app
+    Simplest. Platform detection, common app name mapping, T2 confirm.
+    Test: "open VS Code" and "open my leads CSV in Excel."
+    End state: agent can open local applications.
+
+  DAY 7: system prompt extension + orchestrator update
+    Add the decision tree section. Add local PC task examples to the
+    orchestrator classifier so "read my file" doesn't get classified as chat.
+    Test: the sales agent full flow. Browser + local combined.
+    End state: agent uses the right surface for each part of a task.
+
+  DAY 8: the report-back pattern (ties it all together)
+    Extend task_complete to include findings + suggested_actions.
+    Render them in the CLI with numbered choices.
+    This is what makes the full demo feel like the vision.
+    Test: the full leads flow above — see it surface insights automatically.
+
+  AFTER THAT: the agent roles / specialization layer
+    Once the three surfaces work together, you're ready for named agents
+    (sales agent, research agent) with their own system prompts and memory.
+    That's the next major step. But you need the surfaces solid first.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ONE MORE THING — THE CLIPBOARD BRIDGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Worth adding early because it's small and solves a massive friction point.
+
+  read_clipboard() → returns whatever is in the user's clipboard
+  write_clipboard(content) → copies content to clipboard
+
+  Why this matters: the agent can now bridge browser and local PC through
+  the clipboard. Copy data from a web page → paste into a local app. Copy
+  from a local document → paste into a browser form. Without automation
+  complexity. Without needing to know the exact UI element refs.
+
+  Also: user can highlight text on any screen and say "use what I just
+  copied" — the agent reads clipboard and works with it. This is a very
+  natural interaction pattern that feels magical when it works.
+
+  npm package: `clipboardy` — works on Windows, Mac, Linux. 5-line wrapper.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  START HERE TOMORROW — THE FIRST THING TO CODE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Create src/lib/local-tools.ts with:
+  1. validatePath(path) — the security layer
+  2. localReadFile(path, startLine, endLine) — file reading with line limits
+  3. localListDirectory(path, depth, filter) — directory exploration
+  4. localFindFile(pattern, searchDir) — file search
+
+Then add these four tools to agent-extension.ts tools array and switch cases.
+Then test: "list my desktop files" and "read the first 10 lines of [file]."
+
+When THAT works cleanly — reading, exploring, no crashes, security holds —
+then add write_file. Then run_command. Build outward from read-only.
+
+The security layer (validatePath) is the most important thing to get right
+from day one. Everything else builds on top of it.
+
+================================================================================
