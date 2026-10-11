@@ -125,15 +125,9 @@ export function resolveRuntime(): ResolvedRuntime {
       if (altProfile && altKey) {
         fastClient = buildClient(altProfile.baseUrl, altKey)
       }
-    } else if (!lowSlot.provider && name !== 'openai') {
-      // Default: prefer OpenAI for cheap calls when no explicit provider is set.
-      const oaiKey = getKey('openai')
-      if (oaiKey) {
-        const oaiProfile = getProvider('openai')!
-        fastClient = buildClient(oaiProfile.baseUrl, oaiKey)
-        fastModel = parseSlot(resolveSlot(oaiProfile, 'low', cfg)).model
-      }
     }
+    // No implicit switch to OpenAI for cheap calls: call sites pair fastClient with
+    // modelFor('low'|'medium'), which returns the main provider's model names.
 
     // modelFor strips provider prefix so call sites always get a bare model name.
     const modelFor = (tier: ModelTier): string => parseSlot(resolveSlot(profile, tier, cfg)).model

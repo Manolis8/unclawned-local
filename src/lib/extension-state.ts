@@ -5,7 +5,8 @@ export const pendingCdpCommands = new Map<string, Map<number, { resolve: (v: any
 export let cdpCommandId = 1
 export const userRelayPorts = new Map<string, number>()
 export const usedPorts = new Set<number>()
-export const BASE_RELAY_PORT = 18792
+// Override with UNCLAWNED_RELAY_PORT when another instance (e.g. the MCP bridge) already uses 18792
+export const BASE_RELAY_PORT = Number.parseInt(process.env.UNCLAWNED_RELAY_PORT ?? '', 10) || 18792
 
 export function getRelayPortForUser(userId: string): number {
   if (userRelayPorts.has(userId)) return userRelayPorts.get(userId)!

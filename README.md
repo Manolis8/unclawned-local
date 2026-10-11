@@ -48,6 +48,7 @@ Optional: create a `.env` file in the project folder. You only need it to change
 # .env  (never commit this file)
 CLI_PORT=3001                       # port the extension connects to
 OPENCLAW_GATEWAY_TOKEN=any-long-random-string   # signs the local browser relay
+UNCLAWNED_RELAY_PORT=18792          # change if you run two copies at once
 ```
 
 ## Install the Chrome extension
@@ -55,9 +56,7 @@ OPENCLAW_GATEWAY_TOKEN=any-long-random-string   # signs the local browser relay
 1. Clone [Manolis8/felo-extension](https://github.com/Manolis8/felo-extension).
 2. In Chrome, open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, and pick the cloned folder.
 3. Pin the extension (puzzle icon in the toolbar).
-4. To use it with the CLI: right-click the extension icon, open **Options**, paste any token that starts with `felo_` (for example `felo_local_dev`) and click **Save**. This points the extension at `ws://localhost:3001`. Locally, any `felo_` token is accepted.
-
-(The setup wizard mentions a Chrome Web Store link. That listing isn't live, so use "Load unpacked" as above.)
+4. That's it. The extension connects to `ws://localhost:3001` by default. If you changed `CLI_PORT`, or use MCP bridge mode (port `3011`), right-click the extension icon → **Options** and change the address.
 
 ## Run
 
@@ -72,7 +71,6 @@ Useful commands:
 | Command | What it does |
 |---|---|
 | `npm start` | Start the agent |
-| `npm run cli` | Start it straight from TypeScript (no build needed, slower) |
 | `node bin/jarvis.js set_api` | Add or change an API key |
 | `node bin/jarvis.js models` | Pick which model handles which kind of task |
 | `node bin/mcp-bridge.js` | Run as an MCP server instead of an interactive CLI |
@@ -85,14 +83,15 @@ If you run `npm link` once in the project folder, you can type `jarvis` instead 
 2. Open Chrome with the extension loaded. Its badge should briefly show `…` and then the CLI should report that the extension connected.
 3. Ask something simple, like `open wikipedia.org and search for Node.js`. You should see Chrome do it.
 
-If the extension never connects, check that the port in its Options matches `CLI_PORT`, and that nothing else is using that port.
+If the extension never connects, check that the address in its Options matches `CLI_PORT`, and that nothing else is using that port.
+
+Tested on Windows 11 with Node 24: a fresh clone installs, builds, connects to the extension, and completes tasks like "open wikipedia.org, search for Node.js, and tell me the first sentence of the article".
 
 ## Known problems
 
 - Complex multi-step tasks often fail halfway or loop.
 - Some sites block the debugger-based control or change layout and confuse the agent.
 - A lot of leftover code from OpenClaw (channels, gateway, tests) is still in `src/` and not all of it is used.
-- Ports are inconsistent between modes (CLI `3001`, MCP bridge `3011`).
 - The planning documents in `docs/plans/` describe where the project was heading, not what currently works.
 
 ## Project layout

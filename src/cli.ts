@@ -186,7 +186,7 @@ function getConnectedUserId(): string | null {
   return null
 }
 
-const EXTENSION_URL = 'https://chromewebstore.google.com/detail/pnefilbidikmcmphjgemiioomldkcdoe'
+const EXTENSION_URL = 'https://github.com/Manolis8/felo-extension  (load it unpacked, see the README)'
 
 // ── Chrome process detection + launch ─────────────────────────────────────────
 

@@ -252,12 +252,13 @@ async function stepModels(rl: readline.Interface, keys: CollectedKeys): Promise<
 
 async function stepExtension(rl: readline.Interface): Promise<void> {
   section('Step 3 of 4: Chrome Extension')
-  console.log('  OpenClaw connects to Chrome via an extension.')
-  console.log('  It\'s free and already in the Chrome Web Store.\n')
-  console.log('  1. Open Chrome and install the extension:')
-  console.log('     https://unclawned.com/extension\n')
-  console.log('  2. Click "Add to Chrome"')
-  console.log('  3. Pin it: click the puzzle icon in Chrome toolbar, then pin OpenClaw\n')
+  console.log('  Unclawned controls Chrome through a small extension.\n')
+  console.log('  1. Download it: https://github.com/Manolis8/felo-extension')
+  console.log('     (Code -> Download ZIP, then unzip)')
+  console.log('  2. Open chrome://extensions and turn on Developer mode')
+  console.log('  3. Click "Load unpacked" and pick the unzipped folder')
+  console.log('  4. Pin it, click its icon, and check it says Connected')
+  console.log('     once the CLI is running (it uses ws://localhost:3001)\n')
   await ask(rl, '  Done? Press Enter to continue...')
 }
 
