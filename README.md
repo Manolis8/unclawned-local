@@ -1,0 +1,113 @@
+# Unclawned (local CLI)
+
+> **Status: not finished.** It works, but with a lot of bugs. Simple browser tasks usually succeed; long or complex tasks often fail or get stuck. Treat this as an experiment, not a finished product.
+
+Unclawned is a local AI agent you talk to in your terminal. You tell it what to do ("open LinkedIn and draft a post about X", "find the cheapest flight on this page") and it does it **in your real Chrome browser**, with your logged-in sessions, through a small Chrome extension.
+
+It started as a fork of [OpenClaw](https://github.com/openclaw/openclaw) (see `OPENCLAW_ATTRIBUTION.md`) and was turned from a hosted backend into a CLI that runs entirely on your own computer.
+
+## How the pieces fit together
+
+```
+ You (terminal)                Chrome
+      │                           ▲
+      ▼                           │  clicks, typing, page reads
+ ┌──────────────┐   WebSocket   ┌─┴──────────────────┐
+ │ Unclawned CLI│ ◄───────────► │ Unclawned extension │
+ │ (this repo)  │  localhost    │ (felo-extension)    │
+ └──────┬───────┘               └─────────────────────┘
+        │
+        ▼
+  AI provider (OpenAI / xAI / Anthropic, your own API key)
+```
+
+- **The CLI (this repo)** runs the AI agent. It listens on `ws://localhost:3001/extension` (change with `CLI_PORT`).
+- **The extension** ([Manolis8/felo-extension](https://github.com/Manolis8/felo-extension)) connects to that address and gives the CLI control of your Chrome tabs using Chrome's debugger API. **Without the extension, browser tasks don't work.**
+- There is also an **MCP bridge mode** (`bin/mcp-bridge.js`) that exposes the same browser tools to any MCP-capable agent (Claude Code, Hermes, etc.). That mode listens on port `3011`, which is the extension's default address.
+
+Everything is stored locally in `~/.unclawned/` (API keys in `config.json`, memory and skills in SQLite). Nothing is sent anywhere except to the AI provider you choose.
+
+## Requirements
+
+- **Node.js 22.7 or newer** (it uses the built-in `node:sqlite`)
+- **Google Chrome**
+- An API key from at least one of: OpenAI, xAI (Grok), or Anthropic
+
+## Install
+
+```bash
+git clone https://github.com/Manolis8/unclawned-local.git
+cd unclawned-local
+npm install
+npm run build
+```
+
+Optional: create a `.env` file in the project folder. You only need it to change defaults:
+
+```bash
+# .env  (never commit this file)
+CLI_PORT=3001                       # port the extension connects to
+OPENCLAW_GATEWAY_TOKEN=any-long-random-string   # signs the local browser relay
+```
+
+## Install the Chrome extension
+
+1. Clone [Manolis8/felo-extension](https://github.com/Manolis8/felo-extension).
+2. In Chrome, open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, and pick the cloned folder.
+3. Pin the extension (puzzle icon in the toolbar).
+4. To use it with the CLI: right-click the extension icon, open **Options**, paste any token that starts with `felo_` (for example `felo_local_dev`) and click **Save**. This points the extension at `ws://localhost:3001`. Locally, any `felo_` token is accepted.
+
+(The setup wizard mentions a Chrome Web Store link. That listing isn't live, so use "Load unpacked" as above.)
+
+## Run
+
+```bash
+npm start          # runs the built CLI (bin/jarvis.js)
+```
+
+The first run starts a short setup wizard that asks for your API key and saves it to `~/.unclawned/config.json`. Then just type what you want done.
+
+Useful commands:
+
+| Command | What it does |
+|---|---|
+| `npm start` | Start the agent |
+| `npm run cli` | Start it straight from TypeScript (no build needed, slower) |
+| `node bin/jarvis.js set_api` | Add or change an API key |
+| `node bin/jarvis.js models` | Pick which model handles which kind of task |
+| `node bin/mcp-bridge.js` | Run as an MCP server instead of an interactive CLI |
+
+If you run `npm link` once in the project folder, you can type `jarvis` instead of `node bin/jarvis.js`.
+
+## Check that it works
+
+1. Start the CLI with `npm start`.
+2. Open Chrome with the extension loaded. Its badge should briefly show `…` and then the CLI should report that the extension connected.
+3. Ask something simple, like `open wikipedia.org and search for Node.js`. You should see Chrome do it.
+
+If the extension never connects, check that the port in its Options matches `CLI_PORT`, and that nothing else is using that port.
+
+## Known problems
+
+- Complex multi-step tasks often fail halfway or loop.
+- Some sites block the debugger-based control or change layout and confuse the agent.
+- A lot of leftover code from OpenClaw (channels, gateway, tests) is still in `src/` and not all of it is used.
+- Ports are inconsistent between modes (CLI `3001`, MCP bridge `3011`).
+- The planning documents in `docs/plans/` describe where the project was heading, not what currently works.
+
+## Project layout
+
+```
+bin/            entry points (jarvis.js = CLI, mcp-bridge.js = MCP server)
+src/cli.ts      the interactive CLI
+src/setup.ts    first-run setup wizard
+src/lib/        agent loop, memory, skills, extension connection
+src/browser/    browser control (Playwright over the extension relay)
+gateway/        optional Cloudflare Worker for web search (not required)
+docs/plans/     design notes
+```
+
+## Security
+
+- Never commit `.env` or `~/.unclawned/config.json`. Both are ignored by git.
+- The extension can control any tab in your browser. Only run it with a CLI you trust, on your own machine.
