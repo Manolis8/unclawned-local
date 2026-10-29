@@ -29,7 +29,7 @@ Everything is stored locally in `~/.unclawned/` (API keys in `config.json`, memo
 
 ## Requirements
 
-- **Node.js 22.7 or newer** (it uses the built-in `node:sqlite`)
+- **Node.js 22.7 or newer** (it uses the built-in `node:sqlite`, so you'll see an `ExperimentalWarning: SQLite` line on start; that's normal)
 - **Google Chrome**
 - An API key from at least one of: OpenAI, xAI (Grok), or Anthropic
 
@@ -42,12 +42,14 @@ npm install
 npm run build
 ```
 
+Use `npm`, not `pnpm`: `package-lock.json` is the lockfile that's kept up to date.
+
 Optional: create a `.env` file in the project folder. You only need it to change defaults:
 
 ```bash
 # .env  (never commit this file)
 CLI_PORT=3001                       # port the extension connects to
-OPENCLAW_GATEWAY_TOKEN=any-long-random-string   # signs the local browser relay
+OPENCLAW_GATEWAY_TOKEN=any-long-random-string   # signs the local browser relay (auto-generated if unset)
 UNCLAWNED_RELAY_PORT=18792          # change if you run two copies at once
 ```
 
@@ -87,12 +89,26 @@ If the extension never connects, check that the address in its Options matches `
 
 Tested on Windows 11 with Node 24: a fresh clone installs, builds, connects to the extension, and completes tasks like "open wikipedia.org, search for Node.js, and tell me the first sentence of the article".
 
+Also tested on Linux with Node 22 (Oct 2026): a fresh clone installs with `npm install`, builds, the extension connects, and the browser tools navigate, read, type into and click on a page. That run had no AI key, so the full agent loop wasn't exercised there.
+
+### Test the browser control without an API key
+
+MCP bridge mode lets you check the extension link without paying for any AI calls:
+
+```bash
+HERMES_LIVE_CHROME_PORT=3001 node bin/mcp-bridge.js
+```
+
+With port `3001` the extension connects without changing its Options. Then point any MCP client at it (for example `claude mcp add unclawned -e HERMES_LIVE_CHROME_PORT=3001 -- node /path/to/unclawned-local/bin/mcp-bridge.js`) and call `browser_navigate`, `browser_snapshot`, `browser_type` and `browser_click`.
+
 ## Known problems
 
 - Complex multi-step tasks often fail halfway or loop.
 - Some sites block the debugger-based control or change layout and confuse the agent.
 - A lot of leftover code from OpenClaw (channels, gateway, tests) is still in `src/` and not all of it is used.
 - The planning documents in `docs/plans/` describe where the project was heading, not what currently works.
+- `railway.json` and `nixpacks.toml` are left over from the old hosted version and aren't used by the local CLI.
+- Some `src/` folders contain old compiled `.js` files next to the `.ts` sources. The build only uses the `.ts` files.
 
 ## Project layout
 

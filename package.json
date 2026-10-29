@@ -1,5 +1,5 @@
 {
-  "name": "openclaw",
+  "name": "unclawned",
   "version": "1.0.0",
   "description": "Local AI browser agent — runs on your machine, controlled via Chrome extension",
   "type": "module",
@@ -39,13 +39,15 @@
     "openai": "^6.29.0",
     "picomatch": "^4.0.4",
     "playwright": "^1.58.2",
-    "playwright-core": "^1.52.0"
+    "playwright-core": "^1.52.0",
+    "ws": "^8.22.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/express-rate-limit": "^5.1.3",
     "@types/node": "^25.5.0",
+    "@types/ws": "^8.18.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }

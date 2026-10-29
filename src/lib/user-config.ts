@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, writeFileSync, chmodSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
-import { randomUUID } from 'crypto'
+import { randomBytes, randomUUID } from 'crypto'
 import { updateKey } from './credential-pool.js'
 
 export interface ModelSlots {
@@ -120,6 +120,11 @@ export function injectConfigIntoEnv(): void {
     if (typeof val === 'string' && !process.env[envKey]) {
       process.env[envKey] = val
     }
+  }
+  // The local browser relay refuses to start without a signing token. It only
+  // signs traffic inside this process, so a fresh random one per run is enough.
+  if (!process.env.OPENCLAW_GATEWAY_TOKEN?.trim()) {
+    process.env.OPENCLAW_GATEWAY_TOKEN = randomBytes(32).toString('hex')
   }
 }
 

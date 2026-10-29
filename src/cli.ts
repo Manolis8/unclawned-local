@@ -228,7 +228,7 @@ async function ensureConnected(promptFn: (q: string) => Promise<string>): Promis
 
   if (isChromeProcessRunning()) {
     console.log('\n⚠️  Chrome extension disconnected.')
-    console.log('   Make sure the Unclawed extension is active in Chrome, then try again.\n')
+    console.log('   Make sure the Unclawned extension is active in Chrome, then try again.\n')
     return null
   }
 
@@ -268,7 +268,7 @@ async function checkChromeOrExit(promptFn: (q: string) => Promise<string>): Prom
   const LINE = '─'.repeat(60)
   console.log(`\n${LINE}`)
   console.log('  Chrome isn\'t open.')
-  console.log('  The Unclawed extension needs Chrome running to connect.')
+  console.log('  The Unclawned extension needs Chrome running to connect.')
   console.log(LINE)
 
   let answer: string
@@ -302,7 +302,7 @@ async function waitForExtension(): Promise<string> {
   const line = '─'.repeat(60)
   console.log('')
   console.log(line)
-  console.log('  jarvis needs the Unclawed Chrome extension to work.')
+  console.log('  jarvis needs the Unclawned Chrome extension to work.')
   console.log(line)
   console.log('')
   console.log('  1. Install the extension:')

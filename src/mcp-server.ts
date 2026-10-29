@@ -1,4 +1,4 @@
-// Unclawed MCP server — exposes real Chrome browser tools to Hermes (or any MCP-capable agent)
+// Unclawned MCP server — exposes real Chrome browser tools to Hermes (or any MCP-capable agent)
 // Transport: stdio. stdout is reserved exclusively for MCP protocol messages.
 // ALL diagnostic output must go to stderr.
 
@@ -43,7 +43,7 @@ if (!Number.isInteger(EXTENSION_WS_PORT) || EXTENSION_WS_PORT < 1 || EXTENSION_W
 // This HTTP server exists only to host the WebSocket upgrade for the Chrome extension.
 const httpServer = http.createServer((_req, res) => {
   res.writeHead(200)
-  res.end('Unclawed MCP bridge')
+  res.end('Unclawned MCP bridge')
 })
 
 // ── Extension readiness signal ─────────────────────────────────────────────
@@ -110,7 +110,7 @@ async function requireConnected(): Promise<string> {
     throw new McpError(
       ErrorCode.InternalError,
       'Chrome extension did not connect within 30 seconds.\n\n' +
-      'Fix: In Chrome, click the puzzle-piece icon in the toolbar → find "Unclawed" → click it to open the popup. ' +
+      'Fix: In Chrome, click the puzzle-piece icon in the toolbar → find "Unclawned" → click it to open the popup. ' +
       'If the popup says "Disconnected", click the Reconnect button. ' +
       'Once it shows "Connected", retry the command.\n\n' +
       `Expected bridge URL: ws://127.0.0.1:${EXTENSION_WS_PORT}/extension`
