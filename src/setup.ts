@@ -146,7 +146,7 @@ interface CollectedKeys {
 
 async function stepApiKeys(rl: readline.Interface): Promise<CollectedKeys> {
   section('Step 1 of 4: API Keys')
-  console.log('  OpenClaw needs at least one AI provider.')
+  console.log('  Unclawned needs at least one AI provider.')
   console.log('  You can add more later with: jarvis set_api\n')
   console.log('  Which provider do you have?')
   console.log('  [1] OpenAI       (sk-...)')
@@ -312,9 +312,9 @@ function persistKeys(keys: CollectedKeys): void {
 
 export async function runSetupWizard(): Promise<void> {
   box([
-    'Welcome to OpenClaw',
+    'Welcome to Unclawned',
     '',
-    '  OpenClaw controls your browser with AI.',
+    '  Unclawned controls your browser with AI.',
     '  Give it a task in plain English — it clicks,',
     '  types, and reads pages for you.',
     '',
