@@ -580,7 +580,14 @@ export async function perceivePage(userId: string, chunkIndex = 0): Promise<Page
         for (const sel of data.strip) {
           clone.querySelectorAll(sel).forEach(el => el.remove())
         }
+        // innerText on a detached node acts like textContent and drops the line
+        // breaks between blocks ("Book a ferrySearch"), so render it off-screen first
+        const holder = document.createElement('div')
+        holder.style.cssText = 'position:absolute;left:-100000px;top:0;width:1200px;'
+        holder.appendChild(clone)
+        document.body.appendChild(holder)
         let full = clone.innerText.replace(/\n{3,}/g, '\n\n').trim()
+        holder.remove()
         // Strip raw HTML tags that leak from WordPress/TinyMCE editors as text nodes
         full = full.replace(/<[^>]{1,200}>/g, '').replace(/&[a-z#0-9]{1,8};/gi, ' ')
         // Strip media-player keyboard-shortcut dumps and video control UI text

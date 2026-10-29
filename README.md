@@ -42,7 +42,7 @@ npm install
 npm run build
 ```
 
-Use `npm`, not `pnpm`: `package-lock.json` is the lockfile that's kept up to date.
+Use `npm`. `package-lock.json` is the only lockfile.
 
 Optional: create a `.env` file in the project folder. You only need it to change defaults:
 
