@@ -7,6 +7,7 @@ import {
   pendingCdpCommands,
   getRelayPortForUser,
   freeRelayPort,
+  usedPorts,
 } from './extension-state.js'
 import { db } from './db.js'
 
@@ -100,18 +101,32 @@ export function startExtensionWsServer(
     pendingCdpCommands.set(userId, new Map())
 
     const gatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN || ''
-    const relayPort = getRelayPortForUser(userId)
-    const relayToken = deriveRelayToken(gatewayToken, relayPort)
-
-    try {
-      const relay = await ensureChromeExtensionRelayServer({ cdpUrl: `http://127.0.0.1:${relayPort}` })
-      // relay ready
-    } catch (err) {
-      console.error(`Failed to start extension relay:`, err)
+    let relayPort = 0
+    let relayError: unknown = null
+    // Another program (often an old MCP bridge) may already hold the relay
+    // port. Skip ports that are in use instead of failing the whole session.
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const port = getRelayPortForUser(userId)
+      try {
+        await ensureChromeExtensionRelayServer({ cdpUrl: `http://127.0.0.1:${port}` })
+        relayPort = port
+        relayError = null
+        break
+      } catch (err) {
+        relayError = err
+        freeRelayPort(userId)
+        if ((err as { code?: unknown })?.code !== 'EADDRINUSE') break
+        usedPorts.add(port) // keep it reserved so the next pick skips it
+        console.log(`Relay port ${port} is in use by another program, trying the next one`)
+      }
+    }
+    if (relayError || !relayPort) {
+      console.error(`Failed to start extension relay:`, relayError)
       ws.send(JSON.stringify({ method: 'error', params: { message: 'Relay failed to start — browser tasks will not work.' } }))
       // Do not advertise browser readiness when the CDP relay failed.
       return
     }
+    const relayToken = deriveRelayToken(gatewayToken, relayPort)
 
     const existingBridge = relayBridges.get(userId)
     if (existingBridge) {
